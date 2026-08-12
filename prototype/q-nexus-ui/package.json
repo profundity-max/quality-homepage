@@ -1,0 +1,9 @@
+{
+  "name": "q-nexus-ui-prototype",
+  "private": true,
+  "version": "0.0.0",
+  "description": "THROWAWAY — UI directions for 品集｜Q Nexus",
+  "scripts": {
+    "prototype": "python3 -m http.server 4173"
+  }
+}
