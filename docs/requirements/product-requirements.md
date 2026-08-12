@@ -370,3 +370,5 @@
 
 - [ADR 0001：在部门 Mac Studio 上自托管](../adr/0001-self-host-on-the-department-mac-studio.md)
 - [ADR 0002：Markdown 正文存入 PostgreSQL，文件资源独立保存](../adr/0002-store-markdown-in-postgresql-and-files-outside-the-database.md)
+- [ADR 0003：采用 Editorial Space 作为正式视觉方向](../adr/0003-adopt-editorial-space-as-the-visual-direction.md)
+- [ADR 0004：使用 Next.js 与 PostgreSQL 构建模块化单体应用](../adr/0004-build-a-modular-nextjs-postgresql-application.md)

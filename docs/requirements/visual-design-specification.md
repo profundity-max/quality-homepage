@@ -1,11 +1,12 @@
 # 品集｜Q Nexus 视觉设计规范
 
-> 状态：已确认  
+> 状态：已确认，Editorial Space 方向已选择
 > 关联需求：[产品需求规格](./product-requirements.md)
+> 正式方向：[Editorial Space 正式 UI 方向](../design/editorial-space-ui-direction.md)
 
 ## 1. 设计方向
 
-品集｜Q Nexus 采用接近 Apple 官网的冷静、克制和宽松节奏，以灰度层次、精确网格和清晰排版构建专业感。视觉首先服务知识阅读与查找，其次才表达品质工程与散热技术特色。
+品集｜Q Nexus 采用原型 A：Editorial Space 作为正式方向，以接近 Apple 官网的冷静、克制和宽松节奏，通过灰度层次、精确网格和清晰排版构建专业的编辑手册感。视觉首先服务知识阅读与查找，其次才表达品质工程与散热技术特色。
 
 ### 1.1 关键词
 
