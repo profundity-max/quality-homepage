@@ -1,0 +1,21 @@
+#!/usr/bin/expect -f
+
+set timeout 30
+log_user 0
+set data_directory [lindex $argv 0]
+set password [lindex $argv 1]
+set env(Q_NEXUS_DATABASE_PATH) $data_directory
+set env(Q_NEXUS_E2E) 1
+
+spawn node --import tsx scripts/bootstrap-first-admin.ts --username "  Host.Admin  " --display-name "主机管理员"
+expect "Password:"
+send_user "Password: "
+send -- "$password\r"
+expect "Confirm password:"
+send_user "Confirm password: "
+send -- "$password\r"
+expect eof
+send_user "$expect_out(buffer)"
+
+catch wait result
+exit [lindex $result 3]

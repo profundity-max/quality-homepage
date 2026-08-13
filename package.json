@@ -1,0 +1,50 @@
+{
+  "name": "quality-homepage",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "format": "prettier --write package.json tsconfig.json '*.ts' '*.mjs' src scripts tests ops",
+    "format:check": "prettier --check package.json tsconfig.json '*.ts' '*.mjs' src scripts tests ops",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "npm run test:local && npm run test:postgres:container",
+    "test:local": "vitest run",
+    "test:module": "vitest run tests/module",
+    "test:integration": "vitest run --exclude tests/integration/identity-postgresql.test.ts tests/integration && npm run test:postgres:container",
+    "test:postgres": "vitest run --config vitest.postgres.config.ts",
+    "test:postgres:container": "node scripts/test-postgres-container.mjs",
+    "test:e2e": "playwright test",
+    "e2e:prepare": "tsx scripts/seed-e2e.ts",
+    "e2e:serve": "npm run e2e:prepare && next dev",
+    "db:migrate": "tsx scripts/migrate.ts",
+    "identity:bootstrap": "tsx scripts/bootstrap-first-admin.ts"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "0.4.5",
+    "argon2": "0.45.1",
+    "drizzle-orm": "0.45.2",
+    "next": "16.3.0",
+    "postgres": "3.4.7",
+    "react": "19.2.4",
+    "react-dom": "19.2.4"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.62.1",
+    "@types/node": "24.10.0",
+    "@types/react": "19.2.2",
+    "@types/react-dom": "19.2.2",
+    "eslint": "9.39.1",
+    "eslint-config-next": "16.3.0",
+    "prettier": "3.6.2",
+    "tsx": "4.20.6",
+    "typescript": "5.9.3",
+    "vitest": "4.1.10"
+  }
+}

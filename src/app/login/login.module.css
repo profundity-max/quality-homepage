@@ -1,0 +1,78 @@
+.layout {
+  display: grid;
+  min-height: 100vh;
+  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+  gap: 8vw;
+  align-items: center;
+  padding: clamp(32px, 7vw, 112px);
+}
+
+.introduction h1 {
+  max-width: 11ch;
+  margin: 16px 0 24px;
+  font-size: clamp(3rem, 7vw, 6.5rem);
+  font-weight: 500;
+  letter-spacing: -0.05em;
+  line-height: 0.98;
+}
+
+.eyebrow {
+  color: var(--color-text-secondary);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.lanNotice {
+  margin-top: 48px;
+  color: var(--color-text-secondary);
+}
+
+.form {
+  display: grid;
+  gap: 24px;
+  padding: clamp(28px, 4vw, 48px);
+  border: 1px solid var(--color-divider);
+  border-radius: 20px;
+  background: var(--color-surface);
+}
+
+.form label {
+  display: grid;
+  gap: 8px;
+}
+
+.form input {
+  min-height: 52px;
+  border: 1px solid var(--color-divider);
+  border-radius: 10px;
+  padding: 10px 14px;
+  background: var(--color-surface-muted);
+  color: var(--color-text);
+}
+
+.form button {
+  min-height: 52px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--color-accent);
+  color: var(--color-accent-foreground);
+  cursor: pointer;
+}
+
+.form [role="alert"] {
+  margin: 0;
+  color: var(--color-warning);
+}
+
+@media (max-width: 760px) {
+  .layout {
+    grid-template-columns: 1fr;
+    gap: 48px;
+    align-content: center;
+    padding: 32px 20px;
+  }
+
+  .introduction h1 {
+    font-size: clamp(3rem, 16vw, 5rem);
+  }
+}

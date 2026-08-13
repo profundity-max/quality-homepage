@@ -1,3 +1,11 @@
 .DS_Store
 **/.DS_Store
 .playwright-cli/
+.next/
+node_modules/
+playwright-report/
+test-results/
+.env
+.env.local
+.data/
+tsconfig.tsbuildinfo
