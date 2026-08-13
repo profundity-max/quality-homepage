@@ -30,7 +30,6 @@ export {
   resolveIdentitySecurityConfiguration,
 } from "./security-configuration";
 
-const browserSessionLifetimeMilliseconds = 12 * 60 * 60 * 1000;
 const persistentSessionLifetimeMilliseconds = 7 * 24 * 60 * 60 * 1000;
 const minimumPasswordLength = 14;
 const argon2idOptions = {
@@ -176,12 +175,14 @@ export function createIdentityModule({
   randomBytes = secureRandomBytes,
   now = () => new Date(),
   security = resolveIdentitySecurityConfiguration({}),
+  allowEndToEndTestControl = false,
 }: {
   database: PGlite | Sql;
   passwordHasher?: PasswordHasher;
   randomBytes?: (size: number) => Buffer;
   now?: () => Date;
   security?: IdentitySecurityConfiguration;
+  allowEndToEndTestControl?: boolean;
 }) {
   const client = createDatabaseClient(database);
 
@@ -272,6 +273,7 @@ export function createIdentityModule({
           randomBytes,
           createdAt,
           input.persistent ?? false,
+          security.browserSessionMilliseconds,
         );
         await transaction
           .update(users)
@@ -408,6 +410,7 @@ export function createIdentityModule({
           randomBytes,
           changedAt,
           user.persistent,
+          security.browserSessionMilliseconds,
         );
         await transaction
           .update(users)
@@ -449,34 +452,65 @@ export function createIdentityModule({
       sessionId: SessionId;
       requestingUserId: UserId;
     }): Promise<void> {
-      await client
-        .update(sessions)
-        .set({ revokedAt: now() })
-        .where(
-          and(
-            eq(sessions.id, input.sessionId),
-            eq(sessions.userId, input.requestingUserId),
-          ),
+      const revokedAt = now();
+      await client.transaction(async (transaction) => {
+        const revoked = await transaction
+          .update(sessions)
+          .set({ revokedAt })
+          .where(
+            and(
+              eq(sessions.id, input.sessionId),
+              eq(sessions.userId, input.requestingUserId),
+              isNull(sessions.revokedAt),
+            ),
+          )
+          .returning({ userId: sessions.userId });
+        if (!revoked[0]) return;
+        await recordIdentityAudit(
+          transaction,
+          input.requestingUserId,
+          "session-revocation",
+          "success",
+          revokedAt,
+          { scope: "current" },
+          revoked[0].userId,
         );
+      });
     },
     async revokeAllSessions(input: {
       userId: UserId;
       requestingUserId: UserId;
     }): Promise<void> {
+      const revokedAt = now();
       await client.transaction(async (transaction) => {
         const actors = await transaction
-          .select({ role: users.role })
+          .select({ role: users.role, disabledAt: users.disabledAt })
           .from(users)
           .where(eq(users.id, input.requestingUserId))
           .limit(1);
         const isSelf = input.userId === input.requestingUserId;
-        if (!isSelf && actors[0]?.role !== "administrator") {
+        if (
+          !actors[0] ||
+          actors[0].disabledAt ||
+          (!isSelf && actors[0].role !== "administrator")
+        ) {
           throw new Error("Not authorized to revoke these sessions.");
         }
         await transaction
           .update(sessions)
-          .set({ revokedAt: now() })
-          .where(eq(sessions.userId, input.userId));
+          .set({ revokedAt })
+          .where(
+            and(eq(sessions.userId, input.userId), isNull(sessions.revokedAt)),
+          );
+        await recordIdentityAudit(
+          transaction,
+          input.requestingUserId,
+          "session-revocation",
+          "success",
+          revokedAt,
+          { scope: "all" },
+          input.userId,
+        );
       });
     },
     async assertAdministrator(userId: UserId): Promise<void> {
@@ -495,6 +529,37 @@ export function createIdentityModule({
         throw new Error("Administrator access is required.");
       }
     },
+    async disableCurrentMemberForEndToEndTest(
+      requestingUserId: UserId,
+    ): Promise<void> {
+      if (!allowEndToEndTestControl) {
+        throw new Error("End-to-end identity control is disabled.");
+      }
+      await client
+        .update(users)
+        .set({ disabledAt: now() })
+        .where(eq(users.id, requestingUserId));
+    },
+    async createMemberForEndToEndTest(input: {
+      username: string;
+      displayName: string | null;
+      password: string;
+    }): Promise<void> {
+      if (!allowEndToEndTestControl) {
+        throw new Error("End-to-end identity control is disabled.");
+      }
+      const createdAt = now();
+      await client.insert(users).values({
+        id: randomUUID(),
+        username: input.username.trim(),
+        normalizedUsername: normalizeUsername(input.username),
+        displayName: input.displayName?.trim() || null,
+        passwordHash: await passwordHasher.hash(input.password),
+        role: "reader",
+        mustChangePassword: false,
+        createdAt,
+      });
+    },
   };
 }
 
@@ -502,6 +567,7 @@ function createSession(
   randomBytes: (size: number) => Buffer,
   createdAt: Date,
   persistent: boolean,
+  browserSessionMilliseconds: number,
 ): Session {
   return {
     id: asSessionId(randomUUID()),
@@ -511,7 +577,7 @@ function createSession(
       createdAt.getTime() +
         (persistent
           ? persistentSessionLifetimeMilliseconds
-          : browserSessionLifetimeMilliseconds),
+          : browserSessionMilliseconds),
     ),
   };
 }
@@ -551,17 +617,19 @@ async function recordPasswordChangeAudit(
 async function recordIdentityAudit(
   client: Pick<ReturnType<typeof createDatabaseClient>, "insert">,
   userId: string | null,
-  eventType: "login" | "password-change",
+  eventType: "login" | "password-change" | "session-revocation",
   outcome: LoginAuditOutcome | "rejected" | "success",
   occurredAt: Date,
+  metadata: Record<string, string> = {},
+  subjectUserId: string | null = userId,
 ): Promise<void> {
   await client.insert(identityAuditEvents).values({
     id: randomUUID(),
     actorUserId: userId,
-    subjectUserId: userId,
+    subjectUserId,
     eventType,
     outcome,
-    metadata: {},
+    metadata,
     occurredAt,
   });
 }
@@ -585,5 +653,7 @@ export function getIdentityModule() {
   return createIdentityModule({
     database: getDatabase(),
     security: resolveIdentitySecurityConfiguration(process.env),
+    allowEndToEndTestControl:
+      process.env.Q_NEXUS_E2E === "1" && process.env.NODE_ENV !== "production",
   });
 }

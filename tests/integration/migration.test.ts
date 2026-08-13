@@ -50,6 +50,27 @@ describe("identity migration", () => {
     ).rejects.toThrow(/users_role_check/i);
 
     await database.query(
+      `insert into users (
+         id, username, normalized_username, password_hash, role
+       ) values (
+         '00000000-0000-4000-8000-000000000004',
+         'session-owner', 'session-owner', 'hash', 'reader'
+       )`,
+    );
+
+    await expect(
+      database.query(
+        `insert into sessions (
+           id, user_id, token_digest, persistent, expires_at, created_at
+         ) select
+           '00000000-0000-4000-8000-000000000003', id,
+           repeat('a', 64), false, now() - interval '1 second', now()
+         from users
+         limit 1`,
+      ),
+    ).rejects.toThrow(/sessions_expires_after_created_check/i);
+
+    await database.query(
       `insert into identity_audit_events (id, event_type, outcome, metadata)
        values ('00000000-0000-4000-8000-000000000001', 'bootstrap', 'success', '{}')`,
     );

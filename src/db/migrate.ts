@@ -5,6 +5,7 @@ import type { Sql } from "postgres";
 const migrations = [
   "0000_identity_foundation.sql",
   "0001_identity_login_protection.sql",
+  "0002_session_lifecycle_constraints.sql",
 ];
 
 export async function migrate(database: PGlite | Sql): Promise<void> {

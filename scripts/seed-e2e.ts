@@ -3,7 +3,10 @@ import { mkdir, rm } from "node:fs/promises";
 import { resolve } from "node:path";
 
 import { migrate } from "../src/db/migrate";
-import { bootstrapFirstAdministrator } from "../src/modules/identity/index";
+import {
+  bootstrapFirstAdministrator,
+  createIdentityModule,
+} from "../src/modules/identity/index";
 
 const dataDirectory = process.env.Q_NEXUS_DATABASE_PATH;
 if (
@@ -25,6 +28,15 @@ try {
     username: "admin",
     displayName: "品质管理员",
     password: "correct horse battery staple",
+  });
+  const identity = createIdentityModule({
+    database,
+    allowEndToEndTestControl: true,
+  });
+  await identity.createMemberForEndToEndTest({
+    username: "member",
+    displayName: "品质成员",
+    password: "member secure password",
   });
 } finally {
   await database.close();

@@ -14,6 +14,9 @@ export default defineConfig({
     env: {
       Q_NEXUS_E2E: "1",
       Q_NEXUS_DATABASE_PATH: ".data/e2e",
+      Q_NEXUS_LOCKOUT_SECONDS: "2",
+      Q_NEXUS_BROWSER_SESSION_SECONDS: "2",
+      Q_NEXUS_E2E_CONTROL_TOKEN: "browser-test-control",
     },
     url: "http://127.0.0.1:3000/login",
     reuseExistingServer: false,

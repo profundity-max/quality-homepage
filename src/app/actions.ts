@@ -7,6 +7,7 @@ import { getIdentityModule } from "@/modules/identity";
 import type { Session } from "@/modules/identity";
 
 import { passwordChangePath, resolveSafeReturnPath } from "./return-path";
+import { sessionCookieOptions } from "./session-cookie";
 import { getCurrentSession } from "./session";
 
 export interface LoginState {
@@ -34,7 +35,12 @@ export async function loginAction(
     persistent: formData.get("persistent") === "on",
   });
   if (result.kind !== "authenticated") {
-    return { error: "用户名或密码不正确，请重试。" };
+    return {
+      error:
+        result.kind === "locked"
+          ? "登录尝试过多，账号已暂时锁定，请稍后再试。"
+          : "用户名或密码不正确，请重试。",
+    };
   }
 
   await setSessionCookie(result.session);
@@ -98,11 +104,9 @@ export async function logoutAction(): Promise<void> {
 
 async function setSessionCookie(session: Session): Promise<void> {
   const cookieStore = await cookies();
-  cookieStore.set("q_nexus_session", session.token, {
-    httpOnly: true,
-    sameSite: "lax",
-    path: "/",
-    secure: process.env.Q_NEXUS_HTTPS === "1",
-    ...(session.persistent ? { expires: session.expiresAt } : {}),
-  });
+  cookieStore.set(
+    "q_nexus_session",
+    session.token,
+    sessionCookieOptions(session, process.env),
+  );
 }

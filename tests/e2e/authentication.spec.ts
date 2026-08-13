@@ -1,9 +1,12 @@
 import { expect, test } from "@playwright/test";
 
-test("first administrator is forced through password change and safely returned to a protected route", async ({
+test("identity lifecycle protects lockout, sessions, revocation, and disabled accounts", async ({
+  browser,
   context,
   page,
 }) => {
+  test.setTimeout(60_000);
+  const loginButton = page.getByRole("button", { name: "登录" });
   await page.goto("/manage?status=active");
   await expect(page).toHaveURL(/\/login\?next=%2Fmanage%3Fstatus%3Dactive$/);
   await expect(
@@ -14,6 +17,41 @@ test("first administrator is forced through password change and safely returned 
   await page.getByLabel("密码").fill("wrong secret");
   await page.getByRole("button", { name: "登录" }).click();
   await expect(page.getByText("用户名或密码不正确，请重试。")).toBeVisible();
+
+  for (let attempt = 1; attempt <= 4; attempt += 1) {
+    await page.getByLabel("用户名").fill("admin");
+    await page.getByLabel("密码").fill(`wrong secret ${attempt}`);
+    const response = page.waitForResponse(
+      (candidate) =>
+        candidate.request().method() === "POST" &&
+        candidate.url().includes("/login"),
+    );
+    await loginButton.click();
+    await response;
+    await expect(loginButton).toBeEnabled();
+    await expect(page.getByText("用户名或密码不正确，请重试。")).toBeVisible();
+  }
+  await page.getByLabel("用户名").fill("admin");
+  await page.getByLabel("密码").fill("wrong secret 5");
+  const lockResponse = page.waitForResponse(
+    (candidate) =>
+      candidate.request().method() === "POST" &&
+      candidate.url().includes("/login"),
+  );
+  await loginButton.click();
+  await lockResponse;
+  await expect(loginButton).toBeEnabled();
+  await expect(
+    page.getByText("登录尝试过多，账号已暂时锁定，请稍后再试。"),
+  ).toBeVisible();
+  await page.getByLabel("用户名").fill("admin");
+  await page.getByLabel("密码").fill("correct horse battery staple");
+  await page.getByRole("button", { name: "登录" }).click();
+  await expect(
+    page.getByText("登录尝试过多，账号已暂时锁定，请稍后再试。"),
+  ).toBeVisible();
+
+  await page.waitForTimeout(2_100);
 
   await page.getByLabel("用户名").fill("  ADMIN  ");
   await page.getByLabel("密码").fill("correct horse battery staple");
@@ -87,6 +125,75 @@ test("first administrator is forced through password change and safely returned 
     path: "/",
   });
 
+  const firstMemberContext = await browser.newContext();
+  const secondMemberContext = await browser.newContext();
+  const firstMemberPage = await firstMemberContext.newPage();
+  const secondMemberPage = await secondMemberContext.newPage();
+  for (const memberPage of [firstMemberPage, secondMemberPage]) {
+    await memberPage.goto("/login");
+    await memberPage.getByLabel("用户名").fill("member");
+    await memberPage.getByLabel("密码").fill("member secure password");
+    await memberPage.getByRole("button", { name: "登录" }).click();
+    await expect(memberPage).toHaveURL(/\/$/);
+  }
+
+  const revokedAll = await page.request.post("/__e2e__/identity-control", {
+    headers: { "x-q-nexus-e2e-control": "browser-test-control" },
+    data: { action: "revoke-target" },
+  });
+  expect(revokedAll.status()).toBe(204);
+  await page.goto("/");
+  await expect(page).toHaveURL(/\/$/);
+  await firstMemberPage.goto("/");
+  await secondMemberPage.goto("/");
+  await expect(firstMemberPage).toHaveURL(/\/login$/);
+  await expect(secondMemberPage).toHaveURL(/\/login$/);
+  await firstMemberContext.close();
+  await secondMemberContext.close();
+
+  await page.getByRole("button", { name: "退出登录" }).click();
+  await expect(page).toHaveURL(/\/login$/);
+  await page.getByLabel("用户名").fill("admin");
+  await page.getByLabel("密码").fill("new secure password");
+  await page.getByRole("button", { name: "登录" }).click();
+  await expect(page).toHaveURL(/\/$/);
+
+  const currentSessionRevoked = await page.request.post(
+    "/__e2e__/identity-control",
+    {
+      headers: { "x-q-nexus-e2e-control": "browser-test-control" },
+      data: { action: "revoke-current" },
+    },
+  );
+  expect(currentSessionRevoked.status()).toBe(204);
+  await page.goto("/");
+  await expect(page).toHaveURL(/\/login$/);
+
+  await page.getByLabel("用户名").fill("admin");
+  await page.getByLabel("密码").fill("new secure password");
+  await page.getByRole("button", { name: "登录" }).click();
+  await expect(page).toHaveURL(/\/$/);
+
   await page.goto("/login?next=https%3A%2F%2Fattacker.example%2Fsteal");
   await expect(page).toHaveURL(/\/$/);
+
+  await page.waitForTimeout(2_100);
+  await page.goto("/");
+  await expect(page).toHaveURL(/\/login$/);
+
+  await page.getByLabel("用户名").fill("admin");
+  await page.getByLabel("密码").fill("new secure password");
+  await page.getByRole("button", { name: "登录" }).click();
+  await expect(page).toHaveURL(/\/$/);
+  const disabled = await page.request.post("/__e2e__/identity-control", {
+    headers: { "x-q-nexus-e2e-control": "browser-test-control" },
+    data: { action: "disable-current" },
+  });
+  expect(disabled.status()).toBe(204);
+  await page.goto("/");
+  await expect(page).toHaveURL(/\/login$/);
+  await page.getByLabel("用户名").fill("admin");
+  await page.getByLabel("密码").fill("new secure password");
+  await page.getByRole("button", { name: "登录" }).click();
+  await expect(page.getByText("用户名或密码不正确，请重试。")).toBeVisible();
 });

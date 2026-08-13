@@ -36,20 +36,29 @@ describe("identity security deployment configuration", () => {
     expect(resolveIdentitySecurityConfiguration({})).toEqual({
       maximumFailedLoginAttempts: 5,
       lockoutMilliseconds: 15 * 60 * 1000,
+      browserSessionMilliseconds: 12 * 60 * 60 * 1000,
     });
     expect(
       resolveIdentitySecurityConfiguration({
         Q_NEXUS_MAX_LOGIN_FAILURES: "3",
         Q_NEXUS_LOCKOUT_MINUTES: "20",
+        Q_NEXUS_BROWSER_SESSION_SECONDS: "3600",
       }),
     ).toEqual({
       maximumFailedLoginAttempts: 3,
       lockoutMilliseconds: 20 * 60 * 1000,
+      browserSessionMilliseconds: 60 * 60 * 1000,
     });
     expect(() =>
       resolveIdentitySecurityConfiguration({
         Q_NEXUS_MAX_LOGIN_FAILURES: "0",
       }),
     ).toThrow(/positive integer/i);
+
+    expect(
+      resolveIdentitySecurityConfiguration({
+        Q_NEXUS_LOCKOUT_SECONDS: "2",
+      }),
+    ).toMatchObject({ lockoutMilliseconds: 2_000 });
   });
 });

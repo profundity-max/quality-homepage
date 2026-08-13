@@ -1,10 +1,12 @@
 export interface IdentitySecurityConfiguration {
   maximumFailedLoginAttempts: number;
   lockoutMilliseconds: number;
+  browserSessionMilliseconds: number;
 }
 
 const defaultMaximumFailedLoginAttempts = 5;
 const defaultLockoutMinutes = 15;
+const defaultBrowserSessionSeconds = 12 * 60 * 60;
 
 export function resolveIdentitySecurityConfiguration(
   environment: Record<string, string | undefined>,
@@ -14,14 +16,28 @@ export function resolveIdentitySecurityConfiguration(
     defaultMaximumFailedLoginAttempts,
     "Q_NEXUS_MAX_LOGIN_FAILURES",
   );
-  const lockoutMinutes = readPositiveInteger(
-    environment.Q_NEXUS_LOCKOUT_MINUTES,
-    defaultLockoutMinutes,
-    "Q_NEXUS_LOCKOUT_MINUTES",
+  const lockoutMilliseconds = environment.Q_NEXUS_LOCKOUT_SECONDS
+    ? readPositiveInteger(
+        environment.Q_NEXUS_LOCKOUT_SECONDS,
+        defaultLockoutMinutes * 60,
+        "Q_NEXUS_LOCKOUT_SECONDS",
+      ) * 1_000
+    : readPositiveInteger(
+        environment.Q_NEXUS_LOCKOUT_MINUTES,
+        defaultLockoutMinutes,
+        "Q_NEXUS_LOCKOUT_MINUTES",
+      ) *
+      60 *
+      1_000;
+  const browserSessionSeconds = readPositiveInteger(
+    environment.Q_NEXUS_BROWSER_SESSION_SECONDS,
+    defaultBrowserSessionSeconds,
+    "Q_NEXUS_BROWSER_SESSION_SECONDS",
   );
   return {
     maximumFailedLoginAttempts,
-    lockoutMilliseconds: lockoutMinutes * 60 * 1000,
+    lockoutMilliseconds,
+    browserSessionMilliseconds: browserSessionSeconds * 1_000,
   };
 }
 

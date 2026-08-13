@@ -222,6 +222,78 @@ describe("identity authentication", () => {
     ).resolves.toBeNull();
   });
 
+  test("revokes every session for the current member immediately", async () => {
+    database = new PGlite();
+    await migrate(database);
+    await bootstrapFirstAdministrator({
+      database,
+      username: "admin",
+      displayName: null,
+      password: "correct horse battery staple",
+    });
+    const identity = createIdentityModule({ database });
+    const first = await identity.authenticate({
+      username: "admin",
+      password: "correct horse battery staple",
+      persistent: false,
+    });
+    const second = await identity.authenticate({
+      username: "admin",
+      password: "correct horse battery staple",
+      persistent: true,
+    });
+    expect(first.kind).toBe("authenticated");
+    expect(second.kind).toBe("authenticated");
+    if (first.kind !== "authenticated" || second.kind !== "authenticated") {
+      return;
+    }
+
+    await identity.revokeAllSessions({
+      userId: first.member.id,
+      requestingUserId: first.member.id,
+    });
+
+    await expect(
+      identity.resolveSession(first.session.token),
+    ).resolves.toBeNull();
+    await expect(
+      identity.resolveSession(second.session.token),
+    ).resolves.toBeNull();
+  });
+
+  test("rejects an expired server session even when its token is still presented", async () => {
+    database = new PGlite();
+    await migrate(database);
+    await bootstrapFirstAdministrator({
+      database,
+      username: "admin",
+      displayName: null,
+      password: "correct horse battery staple",
+    });
+    let currentTime = new Date("2026-08-13T08:00:00.000Z");
+    const identity = createIdentityModule({
+      database,
+      now: () => currentTime,
+      security: {
+        maximumFailedLoginAttempts: 5,
+        lockoutMilliseconds: 15 * 60 * 1000,
+        browserSessionMilliseconds: 2_000,
+      },
+    });
+    const result = await identity.authenticate({
+      username: "admin",
+      password: "correct horse battery staple",
+      persistent: false,
+    });
+    expect(result.kind).toBe("authenticated");
+    if (result.kind !== "authenticated") return;
+
+    currentTime = new Date("2026-08-13T08:00:02.001Z");
+    await expect(
+      identity.resolveSession(result.session.token),
+    ).resolves.toBeNull();
+  });
+
   test("changing the bootstrap password clears the requirement and rotates all sessions", async () => {
     database = new PGlite();
     await migrate(database);

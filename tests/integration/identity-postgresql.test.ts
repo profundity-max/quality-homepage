@@ -99,6 +99,24 @@ describe("identity on PostgreSQL 17", () => {
     await expect(database`
       delete from identity_audit_events where id = ${auditId}
     `).rejects.toThrow(/append-only/i);
+
+    const sessionOwner = randomUUID();
+    await database`
+      insert into users (
+        id, username, normalized_username, password_hash, role
+      ) values (
+        ${sessionOwner}, 'constraint-member', 'constraint-member', 'hash', 'reader'
+      )
+    `;
+    await expect(database`
+      insert into sessions (
+        id, user_id, token_digest, persistent, expires_at, created_at
+      ) values (
+        ${randomUUID()}, ${sessionOwner}, ${"a".repeat(64)}, false,
+        now() - interval '1 second', now()
+      )
+    `).rejects.toThrow(/sessions_expires_after_created_check/i);
+    await database`delete from users where id = ${sessionOwner}`;
   });
 
   test("serializes concurrent first-administrator attempts", async () => {
@@ -219,5 +237,69 @@ describe("identity on PostgreSQL 17", () => {
     await expect(
       identity.resolveSession(replacement!.token),
     ).resolves.toMatchObject({ mustChangePassword: false });
+  });
+
+  test("commits target-session revocation and audit together", async () => {
+    await database.unsafe(
+      "truncate identity_audit_events, sessions, users cascade",
+    );
+    await bootstrapFirstAdministrator({
+      database,
+      username: "revoke-admin",
+      displayName: null,
+      password: "correct horse battery staple",
+    });
+    const identity = createIdentityModule({ database });
+    const administrator = await identity.authenticate({
+      username: "revoke-admin",
+      password: "correct horse battery staple",
+    });
+    expect(administrator.kind).toBe("authenticated");
+    if (administrator.kind !== "authenticated") return;
+    const memberId = randomUUID();
+    const adminHashes = await database<{ password_hash: string }[]>`
+      select password_hash from users where id = ${administrator.member.id}
+    `;
+    await database`
+      insert into users (
+        id, username, normalized_username, password_hash, role,
+        must_change_password, created_at
+      ) values (
+        ${memberId}, 'revoke-member', 'revoke-member',
+        ${adminHashes[0]!.password_hash}, 'reader', false, now()
+      )
+    `;
+    const member = await identity.authenticate({
+      username: "revoke-member",
+      password: "correct horse battery staple",
+    });
+    expect(member.kind).toBe("authenticated");
+    if (member.kind !== "authenticated") return;
+
+    await identity.revokeAllSessions({
+      userId: member.member.id,
+      requestingUserId: administrator.member.id,
+    });
+
+    await expect(
+      identity.resolveSession(member.session.token),
+    ).resolves.toBeNull();
+    await expect(
+      identity.resolveSession(administrator.session.token),
+    ).resolves.not.toBeNull();
+    const revocations = await database<
+      { actor_user_id: string; subject_user_id: string; scope: string }[]
+    >`
+      select actor_user_id, subject_user_id, metadata->>'scope' as scope
+      from identity_audit_events
+      where event_type = 'session-revocation'
+    `;
+    expect(revocations).toEqual([
+      {
+        actor_user_id: administrator.member.id,
+        subject_user_id: member.member.id,
+        scope: "all",
+      },
+    ]);
   });
 });
