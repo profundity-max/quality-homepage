@@ -7,7 +7,7 @@ import styles from "./login.module.css";
 
 const initialState: LoginState = { error: null };
 
-export function LoginForm() {
+export function LoginForm({ returnPath }: { returnPath: string }) {
   const [state, formAction, pending] = useActionState(
     loginAction,
     initialState,
@@ -15,9 +15,14 @@ export function LoginForm() {
 
   return (
     <form action={formAction} className={styles.form}>
+      <input name="next" type="hidden" value={returnPath} />
       <label>
         用户名
         <input name="username" autoComplete="username" required />
+      </label>
+      <label className={styles.checkboxLabel}>
+        <input name="persistent" type="checkbox" />
+        保持登录 7 天
       </label>
       <label>
         密码

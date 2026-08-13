@@ -119,4 +119,57 @@ describe("identity persistence", () => {
       /plaintext secret|correct horse|second plaintext|[A-Za-z0-9_-]{43}/,
     );
   });
+
+  test("audits rejected and successful first-password changes without secret material", async () => {
+    database = new PGlite();
+    await migrate(database);
+    await bootstrapFirstAdministrator({
+      database,
+      username: "admin",
+      displayName: null,
+      password: "temporary bootstrap password",
+    });
+    const identity = createIdentityModule({ database });
+    const authenticated = await identity.authenticate({
+      username: "admin",
+      password: "temporary bootstrap password",
+      persistent: false,
+    });
+    expect(authenticated.kind).toBe("authenticated");
+    if (authenticated.kind !== "authenticated") return;
+
+    await expect(
+      identity.changePassword({
+        sessionId: authenticated.session.id,
+        currentPassword: "wrong current plaintext",
+        newPassword: "rejected new plaintext",
+        confirmation: "rejected new plaintext",
+      }),
+    ).rejects.toThrow(/unable to change password/i);
+    await identity.changePassword({
+      sessionId: authenticated.session.id,
+      currentPassword: "temporary bootstrap password",
+      newPassword: "accepted new plaintext",
+      confirmation: "accepted new plaintext",
+    });
+
+    const audits = await database.query<{
+      outcome: string;
+      metadata: Record<string, unknown>;
+    }>(
+      `select outcome, metadata
+       from identity_audit_events
+       where event_type = 'password-change'
+       order by occurred_at, id`,
+    );
+    expect(audits.rows).toEqual(
+      expect.arrayContaining([
+        { outcome: "rejected", metadata: {} },
+        { outcome: "success", metadata: {} },
+      ]),
+    );
+    expect(JSON.stringify(audits.rows)).not.toMatch(
+      /wrong current|rejected new|accepted new|temporary bootstrap|[A-Za-z0-9_-]{43}/,
+    );
+  });
 });

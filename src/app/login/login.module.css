@@ -50,6 +50,18 @@
   color: var(--color-text);
 }
 
+.form .checkboxLabel {
+  grid-template-columns: auto 1fr;
+  align-items: center;
+}
+
+.form .checkboxLabel input {
+  min-height: auto;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+}
+
 .form button {
   min-height: 52px;
   border: 0;

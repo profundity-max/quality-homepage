@@ -158,4 +158,66 @@ describe("identity on PostgreSQL 17", () => {
     ).toEqual([1, 2, 3, 4]);
     expect(results.filter(({ kind }) => kind === "locked")).toHaveLength(1);
   });
+
+  test("serializes concurrent first-password changes into one usable replacement", async () => {
+    await database.unsafe(
+      "truncate identity_audit_events, sessions, users cascade",
+    );
+    await bootstrapFirstAdministrator({
+      database,
+      username: "change-admin",
+      displayName: null,
+      password: "temporary bootstrap password",
+    });
+    const identity = createIdentityModule({ database });
+    const firstSession = await identity.authenticate({
+      username: "change-admin",
+      password: "temporary bootstrap password",
+      persistent: false,
+    });
+    const secondSession = await identity.authenticate({
+      username: "change-admin",
+      password: "temporary bootstrap password",
+      persistent: true,
+    });
+    expect(firstSession.kind).toBe("authenticated");
+    expect(secondSession.kind).toBe("authenticated");
+    if (
+      firstSession.kind !== "authenticated" ||
+      secondSession.kind !== "authenticated"
+    ) {
+      return;
+    }
+
+    const changes = await Promise.allSettled([
+      identity.changePassword({
+        sessionId: firstSession.session.id,
+        currentPassword: "temporary bootstrap password",
+        newPassword: "first replacement password",
+        confirmation: "first replacement password",
+      }),
+      identity.changePassword({
+        sessionId: secondSession.session.id,
+        currentPassword: "temporary bootstrap password",
+        newPassword: "second replacement password",
+        confirmation: "second replacement password",
+      }),
+    ]);
+
+    expect(changes.map(({ status }) => status).sort()).toEqual([
+      "fulfilled",
+      "rejected",
+    ]);
+    const replacement = changes.find(
+      (
+        change,
+      ): change is PromiseFulfilledResult<
+        Awaited<ReturnType<typeof identity.changePassword>>
+      > => change.status === "fulfilled",
+    )?.value;
+    expect(replacement).toBeDefined();
+    await expect(
+      identity.resolveSession(replacement!.token),
+    ).resolves.toMatchObject({ mustChangePassword: false });
+  });
 });

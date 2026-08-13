@@ -30,7 +30,9 @@ export {
   resolveIdentitySecurityConfiguration,
 } from "./security-configuration";
 
-const defaultSessionLifetimeMilliseconds = 12 * 60 * 60 * 1000;
+const browserSessionLifetimeMilliseconds = 12 * 60 * 60 * 1000;
+const persistentSessionLifetimeMilliseconds = 7 * 24 * 60 * 60 * 1000;
+const minimumPasswordLength = 14;
 const argon2idOptions = {
   type: 2,
   memoryCost: 19 * 1024,
@@ -187,6 +189,7 @@ export function createIdentityModule({
     async authenticate(input: {
       username: string;
       password: string;
+      persistent?: boolean;
     }): Promise<AuthenticateResult> {
       const attemptTime = now();
       return client.transaction(async (transaction) => {
@@ -265,7 +268,11 @@ export function createIdentityModule({
         }
 
         const createdAt = attemptTime;
-        const newSession = createSession(randomBytes, createdAt);
+        const newSession = createSession(
+          randomBytes,
+          createdAt,
+          input.persistent ?? false,
+        );
         await transaction
           .update(users)
           .set({ failedLoginAttempts: 0, lockedUntil: null })
@@ -279,15 +286,13 @@ export function createIdentityModule({
           revokedAt: null,
           createdAt,
         });
-        await transaction.insert(identityAuditEvents).values({
-          id: randomUUID(),
-          actorUserId: user.id,
-          subjectUserId: user.id,
-          eventType: "login",
-          outcome: "success",
-          metadata: {},
-          occurredAt: createdAt,
-        });
+        await recordIdentityAudit(
+          transaction,
+          user.id,
+          "login",
+          "success",
+          createdAt,
+        );
         return {
           kind: "authenticated" as const,
           member: {
@@ -349,41 +354,61 @@ export function createIdentityModule({
       sessionId: SessionId;
       currentPassword: string;
       newPassword: string;
+      confirmation: string;
     }): Promise<Session> {
       const changedAt = now();
-      const rows = await client
-        .select({
-          userId: users.id,
-          passwordHash: users.passwordHash,
-          disabledAt: users.disabledAt,
-        })
-        .from(sessions)
-        .innerJoin(users, eq(sessions.userId, users.id))
-        .where(
-          and(
-            eq(sessions.id, input.sessionId),
-            isNull(sessions.revokedAt),
-            gt(sessions.expiresAt, changedAt),
-          ),
-        )
-        .limit(1);
-      const user = rows[0];
-      const passwordMatches = await passwordHasher.verify(
-        user?.passwordHash ?? passwordHasher.dummyHash,
-        input.currentPassword,
-      );
-      if (
-        !user ||
-        user.disabledAt ||
-        !passwordMatches ||
-        input.newPassword === input.currentPassword
-      ) {
-        throw new Error("Unable to change password.");
-      }
+      const result = await client.transaction(async (transaction) => {
+        const rows = await transaction
+          .select({
+            userId: users.id,
+            passwordHash: users.passwordHash,
+            disabledAt: users.disabledAt,
+            username: users.username,
+            mustChangePassword: users.mustChangePassword,
+            persistent: sessions.persistent,
+          })
+          .from(sessions)
+          .innerJoin(users, eq(sessions.userId, users.id))
+          .where(
+            and(
+              eq(sessions.id, input.sessionId),
+              isNull(sessions.revokedAt),
+              gt(sessions.expiresAt, changedAt),
+            ),
+          )
+          .limit(1)
+          .for("update");
+        const user = rows[0];
+        const passwordMatches = await passwordHasher.verify(
+          user?.passwordHash ?? passwordHasher.dummyHash,
+          input.currentPassword,
+        );
+        if (
+          !user ||
+          user.disabledAt ||
+          !user.mustChangePassword ||
+          !passwordMatches ||
+          input.newPassword !== input.confirmation ||
+          input.newPassword === input.currentPassword ||
+          input.newPassword.length < minimumPasswordLength ||
+          normalizeUsername(input.newPassword) ===
+            normalizeUsername(user?.username ?? "")
+        ) {
+          await recordPasswordChangeAudit(
+            transaction,
+            user?.userId ?? null,
+            "rejected",
+            changedAt,
+          );
+          return { kind: "rejected" as const };
+        }
 
-      const passwordHash = await passwordHasher.hash(input.newPassword);
-      const newSession = createSession(randomBytes, changedAt);
-      await client.transaction(async (transaction) => {
+        const passwordHash = await passwordHasher.hash(input.newPassword);
+        const newSession = createSession(
+          randomBytes,
+          changedAt,
+          user.persistent,
+        );
         await transaction
           .update(users)
           .set({
@@ -406,17 +431,19 @@ export function createIdentityModule({
           revokedAt: null,
           createdAt: changedAt,
         });
-        await transaction.insert(identityAuditEvents).values({
-          id: randomUUID(),
-          actorUserId: user.userId,
-          subjectUserId: user.userId,
-          eventType: "password-change",
-          outcome: "success",
-          metadata: {},
-          occurredAt: changedAt,
-        });
+        await recordIdentityAudit(
+          transaction,
+          user.userId,
+          "password-change",
+          "success",
+          changedAt,
+        );
+        return { kind: "changed" as const, session: newSession };
       });
-      return newSession;
+      if (result.kind === "rejected") {
+        throw new Error("Unable to change password.");
+      }
+      return result.session;
     },
     async revokeSession(input: {
       sessionId: SessionId;
@@ -452,19 +479,39 @@ export function createIdentityModule({
           .where(eq(sessions.userId, input.userId));
       });
     },
+    async assertAdministrator(userId: UserId): Promise<void> {
+      const administrators = await client
+        .select({ id: users.id })
+        .from(users)
+        .where(
+          and(
+            eq(users.id, userId),
+            eq(users.role, "administrator"),
+            isNull(users.disabledAt),
+          ),
+        )
+        .limit(1);
+      if (!administrators[0]) {
+        throw new Error("Administrator access is required.");
+      }
+    },
   };
 }
 
 function createSession(
   randomBytes: (size: number) => Buffer,
   createdAt: Date,
+  persistent: boolean,
 ): Session {
   return {
     id: asSessionId(randomUUID()),
     token: randomBytes(32).toString("base64url"),
-    persistent: false,
+    persistent,
     expiresAt: new Date(
-      createdAt.getTime() + defaultSessionLifetimeMilliseconds,
+      createdAt.getTime() +
+        (persistent
+          ? persistentSessionLifetimeMilliseconds
+          : browserSessionLifetimeMilliseconds),
     ),
   };
 }
@@ -483,11 +530,36 @@ async function recordLoginAudit(
   outcome: LoginAuditOutcome,
   occurredAt: Date,
 ): Promise<void> {
+  await recordIdentityAudit(client, userId, "login", outcome, occurredAt);
+}
+
+async function recordPasswordChangeAudit(
+  client: Pick<ReturnType<typeof createDatabaseClient>, "insert">,
+  userId: string | null,
+  outcome: "rejected",
+  occurredAt: Date,
+): Promise<void> {
+  await recordIdentityAudit(
+    client,
+    userId,
+    "password-change",
+    outcome,
+    occurredAt,
+  );
+}
+
+async function recordIdentityAudit(
+  client: Pick<ReturnType<typeof createDatabaseClient>, "insert">,
+  userId: string | null,
+  eventType: "login" | "password-change",
+  outcome: LoginAuditOutcome | "rejected" | "success",
+  occurredAt: Date,
+): Promise<void> {
   await client.insert(identityAuditEvents).values({
     id: randomUUID(),
     actorUserId: userId,
     subjectUserId: userId,
-    eventType: "login",
+    eventType,
     outcome,
     metadata: {},
     occurredAt,

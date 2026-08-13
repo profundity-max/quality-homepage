@@ -1,16 +1,18 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 
 import { logoutAction } from "./actions";
+import { requirePortalSession } from "./authorization";
 import styles from "./home.module.css";
-import { getCurrentSession } from "./session";
 
 export default async function HomePage() {
-  const session = await getCurrentSession();
-  if (!session) redirect("/login");
-  if (session.mustChangePassword) redirect("/change-password");
+  const session = await requirePortalSession("/");
 
   const name = session.member.displayName || session.member.username;
+  const roleName = {
+    administrator: "管理员",
+    editor: "编辑者",
+    reader: "阅读者",
+  }[session.member.role];
 
   return (
     <>
@@ -31,7 +33,7 @@ export default async function HomePage() {
         <p className={styles.eyebrow}>欢迎回来</p>
         <h1>{name}</h1>
         <p className={styles.identitySummary}>
-          管理员 · {session.member.username}
+          {roleName} · {session.member.username}
         </p>
         <p className={styles.belief}>数据驱动 · 结果闭环</p>
       </main>

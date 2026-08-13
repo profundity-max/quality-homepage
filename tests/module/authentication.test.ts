@@ -235,6 +235,7 @@ describe("identity authentication", () => {
     const authenticated = await identity.authenticate({
       username: "admin",
       password: "temporary bootstrap password",
+      persistent: true,
     });
     expect(authenticated.kind).toBe("authenticated");
     if (authenticated.kind !== "authenticated") return;
@@ -244,6 +245,7 @@ describe("identity authentication", () => {
         sessionId: authenticated.session.id,
         currentPassword: "temporary bootstrap password",
         newPassword: "temporary bootstrap password",
+        confirmation: "temporary bootstrap password",
       }),
     ).rejects.toThrow(/unable to change password/i);
     await expect(
@@ -254,6 +256,11 @@ describe("identity authentication", () => {
       sessionId: authenticated.session.id,
       currentPassword: "temporary bootstrap password",
       newPassword: "new administrator password",
+      confirmation: "new administrator password",
+    });
+
+    expect(replacement).toMatchObject({
+      persistent: true,
     });
 
     await expect(
@@ -269,16 +276,244 @@ describe("identity authentication", () => {
       identity.authenticate({
         username: "admin",
         password: "temporary bootstrap password",
+        persistent: false,
       }),
     ).resolves.toMatchObject({ kind: "invalid-credentials" });
     await expect(
       identity.authenticate({
         username: "admin",
         password: "new administrator password",
+        persistent: false,
       }),
     ).resolves.toMatchObject({
       kind: "authenticated",
       mustChangePassword: false,
     });
+  });
+
+  test.each([
+    {
+      persistent: false,
+      expectedExpiry: "2026-08-13T20:00:00.000Z",
+    },
+    {
+      persistent: true,
+      expectedExpiry: "2026-08-20T08:00:00.000Z",
+    },
+  ])(
+    "preserves persistent=$persistent when first-password change replaces every old session",
+    async ({ persistent, expectedExpiry }) => {
+      database = new PGlite();
+      await migrate(database);
+      await bootstrapFirstAdministrator({
+        database,
+        username: "admin",
+        displayName: null,
+        password: "temporary bootstrap password",
+      });
+      const identity = createIdentityModule({
+        database,
+        now: () => new Date("2026-08-13T08:00:00.000Z"),
+      });
+      const selectedSession = await identity.authenticate({
+        username: "admin",
+        password: "temporary bootstrap password",
+        persistent,
+      });
+      const otherSession = await identity.authenticate({
+        username: "admin",
+        password: "temporary bootstrap password",
+        persistent: !persistent,
+      });
+      expect(selectedSession.kind).toBe("authenticated");
+      expect(otherSession.kind).toBe("authenticated");
+      if (
+        selectedSession.kind !== "authenticated" ||
+        otherSession.kind !== "authenticated"
+      ) {
+        return;
+      }
+
+      const replacement = await identity.changePassword({
+        sessionId: selectedSession.session.id,
+        currentPassword: "temporary bootstrap password",
+        newPassword: "new administrator password",
+        confirmation: "new administrator password",
+      });
+
+      expect(replacement).toMatchObject({
+        persistent,
+        expiresAt: new Date(expectedExpiry),
+      });
+      await expect(
+        identity.resolveSession(selectedSession.session.token),
+      ).resolves.toBeNull();
+      await expect(
+        identity.resolveSession(otherSession.session.token),
+      ).resolves.toBeNull();
+    },
+  );
+
+  test.each(["short pass", "admin", "ADMIN", "temporary bootstrap password"])(
+    "rejects a first replacement password that violates policy: %s",
+    async (newPassword) => {
+      database = new PGlite();
+      await migrate(database);
+      await bootstrapFirstAdministrator({
+        database,
+        username: "admin",
+        displayName: null,
+        password: "temporary bootstrap password",
+      });
+      const identity = createIdentityModule({ database });
+      const authenticated = await identity.authenticate({
+        username: "admin",
+        password: "temporary bootstrap password",
+        persistent: false,
+      });
+      expect(authenticated.kind).toBe("authenticated");
+      if (authenticated.kind !== "authenticated") return;
+
+      await expect(
+        identity.changePassword({
+          sessionId: authenticated.session.id,
+          currentPassword: "temporary bootstrap password",
+          newPassword,
+          confirmation: newPassword,
+        }),
+      ).rejects.toThrow(/unable to change password/i);
+      await expect(
+        identity.resolveSession(authenticated.session.token),
+      ).resolves.toMatchObject({ mustChangePassword: true });
+    },
+  );
+
+  test("rejects direct use of the first-password flow after the requirement is cleared", async () => {
+    database = new PGlite();
+    await migrate(database);
+    await bootstrapFirstAdministrator({
+      database,
+      username: "admin",
+      displayName: null,
+      password: "temporary bootstrap password",
+    });
+    const identity = createIdentityModule({ database });
+    const authenticated = await identity.authenticate({
+      username: "admin",
+      password: "temporary bootstrap password",
+      persistent: false,
+    });
+    expect(authenticated.kind).toBe("authenticated");
+    if (authenticated.kind !== "authenticated") return;
+    const replacement = await identity.changePassword({
+      sessionId: authenticated.session.id,
+      currentPassword: "temporary bootstrap password",
+      newPassword: "new administrator password",
+      confirmation: "new administrator password",
+    });
+
+    await expect(
+      identity.changePassword({
+        sessionId: replacement.id,
+        currentPassword: "new administrator password",
+        newPassword: "another administrator password",
+        confirmation: "another administrator password",
+      }),
+    ).rejects.toThrow(/unable to change password/i);
+    await expect(identity.resolveSession(replacement.token)).resolves.toEqual(
+      expect.objectContaining({ mustChangePassword: false }),
+    );
+  });
+
+  test("allows only one concurrent first-password change to create a usable replacement", async () => {
+    database = new PGlite();
+    await migrate(database);
+    await bootstrapFirstAdministrator({
+      database,
+      username: "admin",
+      displayName: null,
+      password: "temporary bootstrap password",
+    });
+    const identity = createIdentityModule({ database });
+    const firstSession = await identity.authenticate({
+      username: "admin",
+      password: "temporary bootstrap password",
+      persistent: false,
+    });
+    const secondSession = await identity.authenticate({
+      username: "admin",
+      password: "temporary bootstrap password",
+      persistent: true,
+    });
+    expect(firstSession.kind).toBe("authenticated");
+    expect(secondSession.kind).toBe("authenticated");
+    if (
+      firstSession.kind !== "authenticated" ||
+      secondSession.kind !== "authenticated"
+    ) {
+      return;
+    }
+
+    const changes = await Promise.allSettled([
+      identity.changePassword({
+        sessionId: firstSession.session.id,
+        currentPassword: "temporary bootstrap password",
+        newPassword: "first replacement password",
+        confirmation: "first replacement password",
+      }),
+      identity.changePassword({
+        sessionId: secondSession.session.id,
+        currentPassword: "temporary bootstrap password",
+        newPassword: "second replacement password",
+        confirmation: "second replacement password",
+      }),
+    ]);
+
+    expect(changes.map(({ status }) => status).sort()).toEqual([
+      "fulfilled",
+      "rejected",
+    ]);
+    const replacement = changes.find(
+      (
+        change,
+      ): change is PromiseFulfilledResult<
+        Awaited<ReturnType<typeof identity.changePassword>>
+      > => change.status === "fulfilled",
+    )?.value;
+    expect(replacement).toBeDefined();
+    await expect(
+      identity.resolveSession(replacement!.token),
+    ).resolves.toMatchObject({ mustChangePassword: false });
+  });
+
+  test("rejects mismatched confirmation inside the audited identity boundary", async () => {
+    database = new PGlite();
+    await migrate(database);
+    await bootstrapFirstAdministrator({
+      database,
+      username: "admin",
+      displayName: null,
+      password: "temporary bootstrap password",
+    });
+    const identity = createIdentityModule({ database });
+    const authenticated = await identity.authenticate({
+      username: "admin",
+      password: "temporary bootstrap password",
+      persistent: false,
+    });
+    expect(authenticated.kind).toBe("authenticated");
+    if (authenticated.kind !== "authenticated") return;
+
+    await expect(
+      identity.changePassword({
+        sessionId: authenticated.session.id,
+        currentPassword: "temporary bootstrap password",
+        newPassword: "new administrator password",
+        confirmation: "different administrator password",
+      }),
+    ).rejects.toThrow(/unable to change password/i);
+    await expect(
+      identity.resolveSession(authenticated.session.token),
+    ).resolves.toMatchObject({ mustChangePassword: true });
   });
 });

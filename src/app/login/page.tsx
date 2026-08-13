@@ -2,12 +2,20 @@ import { redirect } from "next/navigation";
 
 import { LoginForm } from "./login-form";
 import styles from "./login.module.css";
+import { passwordChangePath, resolveSafeReturnPath } from "../return-path";
 import { getCurrentSession } from "../session";
 
-export default async function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ next?: string }>;
+}) {
+  const returnPath = resolveSafeReturnPath((await searchParams).next);
   const session = await getCurrentSession();
   if (session) {
-    redirect(session.mustChangePassword ? "/change-password" : "/");
+    redirect(
+      session.mustChangePassword ? passwordChangePath(returnPath) : returnPath,
+    );
   }
 
   return (
@@ -18,7 +26,7 @@ export default async function LoginPage() {
         <p>连接部门知识，沉淀共同经验。</p>
         <p className={styles.lanNotice}>仅限受信任的公司局域网访问。</p>
       </section>
-      <LoginForm />
+      <LoginForm returnPath={returnPath} />
     </main>
   );
 }

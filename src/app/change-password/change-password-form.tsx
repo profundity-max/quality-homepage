@@ -7,13 +7,14 @@ import styles from "../login/login.module.css";
 
 const initialState: ChangePasswordState = { error: null };
 
-export function ChangePasswordForm() {
+export function ChangePasswordForm({ returnPath }: { returnPath: string }) {
   const [state, formAction, pending] = useActionState(
     changePasswordAction,
     initialState,
   );
   return (
     <form action={formAction} className={styles.form}>
+      <input name="next" type="hidden" value={returnPath} />
       <label>
         当前密码
         <input
@@ -29,6 +30,7 @@ export function ChangePasswordForm() {
           name="newPassword"
           type="password"
           autoComplete="new-password"
+          minLength={14}
           required
         />
       </label>
@@ -38,6 +40,7 @@ export function ChangePasswordForm() {
           name="confirmation"
           type="password"
           autoComplete="new-password"
+          minLength={14}
           required
         />
       </label>
