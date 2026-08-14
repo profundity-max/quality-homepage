@@ -1,6 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { readFile } from "node:fs/promises";
-
 import postgres, { type Sql } from "postgres";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
@@ -43,13 +41,15 @@ describe("identity on PostgreSQL 17", () => {
     `;
     expect(versions[0]?.server_version_num).toMatch(/^17/);
 
-    const foundation = await readFile(
-      new URL("../../drizzle/0000_identity_foundation.sql", import.meta.url),
-      "utf8",
-    );
-    await database.unsafe(foundation);
+    await Promise.all([migrate(database), migrate(database)]);
+
+    await database`alter table users rename to users_migration_probe`;
     await migrate(database);
-    await migrate(database);
+    const replayedUsersTable = await database<{ users_table: string | null }[]>`
+      select to_regclass('public.users')::text as users_table
+    `;
+    expect(replayedUsersTable[0]?.users_table).toBeNull();
+    await database`alter table users_migration_probe rename to users`;
 
     const protectionColumns = await database<{ column_name: string }[]>`
       select column_name

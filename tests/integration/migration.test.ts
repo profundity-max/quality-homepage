@@ -1,13 +1,22 @@
+import { readFile, readdir } from "node:fs/promises";
+
 import { PGlite } from "@electric-sql/pglite";
 import { afterEach, describe, expect, test } from "vitest";
 
-import { migrate } from "@/db/migrate";
+import { migrate, migrationNames } from "@/db/migrate";
 
 describe("identity migration", () => {
   let database: PGlite | undefined;
 
   afterEach(async () => {
     await database?.close();
+  });
+
+  test("lists every SQL migration in the shared manifest", async () => {
+    const files = (await readdir(new URL("../../drizzle/", import.meta.url)))
+      .filter((name) => name.endsWith(".sql"))
+      .sort();
+    expect(migrationNames).toEqual(files);
   });
 
   test("creates identity tables once and keeps audit events append-only", async () => {
@@ -121,4 +130,3 @@ describe("identity migration", () => {
     ]);
   });
 });
-import { readFile } from "node:fs/promises";

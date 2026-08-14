@@ -7,16 +7,9 @@ import {
   bootstrapFirstAdministrator,
   createIdentityModule,
 } from "../src/modules/identity/index";
+import { resolveE2EDataDirectory } from "./e2e-seed-guard";
 
-const dataDirectory = process.env.Q_NEXUS_DATABASE_PATH;
-if (
-  process.env.Q_NEXUS_E2E !== "1" ||
-  process.env.NODE_ENV === "production" ||
-  !dataDirectory ||
-  !resolve(dataDirectory).split("/").includes("e2e")
-) {
-  throw new Error("E2E seed refuses non-E2E or production database targets.");
-}
+const dataDirectory = resolveE2EDataDirectory(process.env);
 
 await rm(resolve(dataDirectory), { recursive: true, force: true });
 await mkdir(resolve(dataDirectory), { recursive: true });

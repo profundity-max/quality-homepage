@@ -1,0 +1,91 @@
+name: q-nexus
+
+services:
+  proxy:
+    image: nginxinc/nginx-unprivileged:1.29.5-alpine
+    restart: unless-stopped
+    ports:
+      - "${Q_NEXUS_BIND_ADDRESS:-127.0.0.1}:${Q_NEXUS_PORT:-8080}:8080"
+    volumes:
+      - ./ops/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      web:
+        condition: service_healthy
+        restart: true
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget -qO- http://127.0.0.1:8080/api/health/live >/dev/null",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+    networks: [edge, application]
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runner
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://q_nexus:${Q_NEXUS_DB_PASSWORD:?Set Q_NEXUS_DB_PASSWORD}@db:5432/q_nexus
+      Q_NEXUS_HTTPS: "${Q_NEXUS_HTTPS:-0}"
+    expose: ["3000"]
+    depends_on:
+      db:
+        condition: service_healthy
+        restart: true
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget -qO- http://127.0.0.1:3000/api/health/ready >/dev/null",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 10s
+    networks: [application]
+
+  bootstrap:
+    profiles: ["operations"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: operator
+    environment:
+      DATABASE_URL: postgres://q_nexus:${Q_NEXUS_DB_PASSWORD:?Set Q_NEXUS_DB_PASSWORD}@db:5432/q_nexus
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+    stdin_open: true
+    tty: true
+    networks: [application]
+
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: q_nexus
+      POSTGRES_USER: q_nexus
+      POSTGRES_PASSWORD: "${Q_NEXUS_DB_PASSWORD:?Set Q_NEXUS_DB_PASSWORD}"
+    expose: ["5432"]
+    volumes:
+      - q_nexus_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U q_nexus -d q_nexus"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks: [application]
+
+networks:
+  edge: {}
+  application:
+    internal: true
+
+volumes:
+  q_nexus_postgres: {}

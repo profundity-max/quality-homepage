@@ -1,0 +1,9 @@
+.data
+.git
+.next
+.playwright-cli
+node_modules
+output
+playwright-report
+test-results
+.env*

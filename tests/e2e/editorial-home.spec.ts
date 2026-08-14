@@ -10,6 +10,13 @@ test("Editorial Space works across desktop, theme, keyboard, and mobile", async 
     }
   });
   page.on("pageerror", (error) => consoleProblems.push(error.message));
+  const publicNetworkRequests: string[] = [];
+  page.on("request", (request) => {
+    const url = new URL(request.url());
+    if (!["127.0.0.1", "localhost"].includes(url.hostname)) {
+      publicNetworkRequests.push(request.url());
+    }
+  });
 
   await page.goto("/login");
   await page.getByLabel("用户名").fill("member");
@@ -155,5 +162,6 @@ test("Editorial Space works across desktop, theme, keyboard, and mobile", async 
   await expect(
     destinationDrawer.getByRole("link", { name: "新人专区" }),
   ).toHaveAttribute("aria-current", "page");
+  expect(publicNetworkRequests).toEqual([]);
   expect(consoleProblems).toEqual([]);
 });

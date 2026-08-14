@@ -41,7 +41,7 @@ Docker Compose 管理 `proxy`、`web` 和 `postgres`。模板功能进入实施�
 | 图标 | 本地打包的 Lucide 图标 | 统一细线风格，不使用 Emoji 充当导航图标 |
 | 单元/模块测试 | Vitest、Testing Library | 测试通过模块接口，不跨过接口断言内部状态 |
 | 浏览器测试 | Playwright | 覆盖登录、搜索、阅读、编辑发布和移动端关键路径 |
-| 部署 | Docker Compose + Caddy 反向代理 | 首版 HTTP，配置层保留内部 HTTPS；运行时不依赖公网 |
+| 部署 | Docker Compose + Nginx 反向代理 | 首版 HTTP，配置层保留内部 HTTPS；运行时不依赖公网 |
 
 Docker Desktop 是否满足公司许可与 IT 政策须在 Mac Studio 部署前确认；架构只依赖 Docker Compose 兼容运行时，不依赖 Docker Desktop 专属能力。
 
@@ -72,7 +72,7 @@ tests/
 ├── module/                      # 通过业务模块接口测试
 ├── integration/                 # PostgreSQL、文件与容器集成验证
 └── e2e/                         # Playwright 用户路径
-ops/                             # Compose、Caddy、备份、恢复和健康检查
+ops/                             # Compose、Nginx、备份、恢复和健康检查
 ```
 
 页面不能直接写 Drizzle 查询。一个模块的内部文件不能被其他模块深路径导入；跨模块调用只能从该模块的 `index.ts` 进入。

@@ -1,0 +1,35 @@
+name: q-nexus-e2e
+
+services:
+  web:
+    environment:
+      DATABASE_URL: postgres://q_nexus_e2e:q_nexus_e2e@db:5432/q_nexus_e2e
+    depends_on:
+      seed:
+        condition: service_completed_successfully
+  seed:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["node", "scripts/seed-production-e2e.mjs"]
+    environment:
+      NODE_ENV: test
+      DATABASE_URL: postgres://q_nexus_e2e:q_nexus_e2e@db:5432/q_nexus_e2e
+      Q_NEXUS_E2E_SEED: "1"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+    networks: [application]
+  db:
+    environment:
+      POSTGRES_DB: q_nexus_e2e
+      POSTGRES_USER: q_nexus_e2e
+      POSTGRES_PASSWORD: q_nexus_e2e
+    ports:
+      - "127.0.0.1:${Q_NEXUS_E2E_DB_PORT:-55433}:5432"
+    volumes: !reset []
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U q_nexus_e2e -d q_nexus_e2e"]
