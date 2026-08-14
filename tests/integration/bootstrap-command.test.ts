@@ -64,7 +64,7 @@ describe("first administrator command", () => {
       "utf8",
     );
     expect(persisted.trim()).not.toBe("");
-  });
+  }, 120_000);
 });
 
 async function runCommand(

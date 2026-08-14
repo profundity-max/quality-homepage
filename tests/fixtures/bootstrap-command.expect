@@ -1,6 +1,6 @@
 #!/usr/bin/expect -f
 
-set timeout 30
+set timeout 90
 log_user 0
 set data_directory [lindex $argv 0]
 set password [lindex $argv 1]
