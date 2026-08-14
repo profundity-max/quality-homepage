@@ -5,6 +5,13 @@ const read = (path: string) =>
   readFile(new URL(`../../${path}`, import.meta.url), "utf8");
 
 describe("production deployment contract", () => {
+  test("uses Node 24-based GitHub Actions with the Node 24 application runtime", async () => {
+    const workflow = await read(".github/workflows/ci.yml");
+    expect(workflow).toContain("uses: actions/checkout@v7");
+    expect(workflow).toContain("uses: actions/setup-node@v7");
+    expect(workflow).toMatch(/node-version:\s*24/);
+  });
+
   test("publishes only the loopback-bound reverse proxy", async () => {
     const compose = await read("compose.yaml");
     expect(compose).toContain("proxy:");
