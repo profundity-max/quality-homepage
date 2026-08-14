@@ -9,7 +9,6 @@ export const sharedVitestConfig = defineConfig({
   },
   test: {
     environment: "node",
-    fileParallelism: false,
     testTimeout: 30_000,
   },
 });
