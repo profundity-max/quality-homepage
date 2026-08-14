@@ -1,0 +1,28 @@
+.control {
+  display: flex;
+  align-items: end;
+  gap: 8px;
+}
+
+.control label {
+  display: grid;
+  gap: 2px;
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+}
+
+.control select,
+.control button {
+  min-height: 44px;
+  border: 1px solid var(--color-divider);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.control button {
+  border-color: transparent;
+  color: var(--color-link);
+  cursor: pointer;
+}

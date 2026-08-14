@@ -19,14 +19,20 @@ body {
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
 }
 
 button,
 input,
+select,
 a {
   outline-offset: 4px;
+}
+
+a {
+  color: var(--color-link);
 }
 
 :focus-visible {
@@ -37,6 +43,7 @@ a {
   *,
   *::before,
   *::after {
+    animation: none !important;
     scroll-behavior: auto !important;
     transition: none !important;
   }

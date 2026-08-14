@@ -1,3 +1,10 @@
+.theme {
+  position: absolute;
+  top: 16px;
+  right: 20px;
+  z-index: 2;
+}
+
 .layout {
   display: grid;
   min-height: 100vh;

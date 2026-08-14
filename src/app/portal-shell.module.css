@@ -1,0 +1,152 @@
+.skipLink {
+  position: fixed;
+  top: -80px;
+  left: 24px;
+  z-index: 20;
+  min-height: 44px;
+  padding: 10px 16px;
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.skipLink:focus {
+  top: 16px;
+}
+
+.siteHeader {
+  position: sticky;
+  top: 0;
+  z-index: 15;
+  display: grid;
+  min-height: 76px;
+  grid-template-columns: auto 1fr auto;
+  gap: clamp(20px, 3vw, 48px);
+  align-items: center;
+  padding: 8px clamp(20px, 4vw, 64px);
+  border-bottom: 1px solid var(--color-divider);
+  background: var(--color-canvas);
+}
+
+.compactHeader {
+  min-height: 60px;
+  padding-block: 0;
+}
+
+.compactHeader .tools label > span {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+.brand {
+  color: var(--color-text);
+  font-weight: 650;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.desktopNavigation {
+  display: flex;
+  justify-content: center;
+  gap: clamp(12px, 2vw, 28px);
+}
+
+.desktopNavigation a,
+.mobileNavigation a {
+  min-height: 44px;
+  color: var(--color-text-secondary);
+  text-decoration: none;
+}
+
+.desktopNavigation a {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.desktopNavigation a[aria-current="page"],
+.mobileNavigation a[aria-current="page"] {
+  color: var(--color-text);
+  box-shadow: inset 0 -3px var(--color-accent);
+}
+
+.tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.textButton,
+.mobileNavigation summary {
+  min-height: 44px;
+  border: 0;
+  padding: 8px 10px;
+  background: transparent;
+  color: var(--color-link);
+  cursor: pointer;
+}
+
+.searchLink {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  padding: 8px 10px;
+  color: var(--color-link);
+  text-decoration: none;
+}
+
+.mobileNavigation {
+  display: none;
+}
+
+@media (max-width: 1100px) {
+  .siteHeader {
+    grid-template-columns: 1fr auto;
+  }
+
+  .desktopNavigation,
+  .tools {
+    display: none;
+  }
+
+  .mobileNavigation {
+    display: block;
+  }
+
+  .drawer {
+    position: absolute;
+    top: 100%;
+    right: 16px;
+    left: 16px;
+    z-index: 16;
+    display: grid;
+    padding: 16px;
+    border: 1px solid var(--color-divider);
+    background: var(--color-surface);
+    box-shadow: 0 18px 40px rgb(0 0 0 / 15%);
+  }
+
+  .mobileNavigation nav {
+    display: grid;
+  }
+
+  .mobileNavigation a {
+    display: flex;
+    align-items: center;
+    padding: 0 8px;
+  }
+
+  .mobileTools {
+    display: grid;
+    gap: 12px;
+    margin-top: 12px;
+    padding-top: 16px;
+    border-top: 1px solid var(--color-divider);
+  }
+
+  .mobileTools > form:last-child {
+    display: flex;
+  }
+}

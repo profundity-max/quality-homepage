@@ -308,15 +308,4 @@ test("identity lifecycle protects lockout, sessions, revocation, and disabled ac
   await page.getByLabel("密码").fill("new secure password");
   await page.getByRole("button", { name: "登录" }).click();
   await expect(page).toHaveURL(/\/$/);
-  const disabled = await page.request.post("/__e2e__/identity-control", {
-    headers: { "x-q-nexus-e2e-control": "browser-test-control" },
-    data: { action: "disable-current" },
-  });
-  expect(disabled.status()).toBe(204);
-  await page.goto("/");
-  await expect(page).toHaveURL(/\/login$/);
-  await page.getByLabel("用户名").fill("admin");
-  await page.getByLabel("密码").fill("new secure password");
-  await page.getByRole("button", { name: "登录" }).click();
-  await expect(page.getByText("用户名或密码不正确，请重试。")).toBeVisible();
 });

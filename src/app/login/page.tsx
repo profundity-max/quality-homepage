@@ -4,6 +4,7 @@ import { LoginForm } from "./login-form";
 import styles from "./login.module.css";
 import { passwordChangePath, resolveSafeReturnPath } from "../return-path";
 import { getCurrentSession } from "../session";
+import { getSelectedTheme, ThemeControl } from "../theme";
 
 export default async function LoginPage({
   searchParams,
@@ -17,16 +18,25 @@ export default async function LoginPage({
       session.mustChangePassword ? passwordChangePath(returnPath) : returnPath,
     );
   }
+  const theme = await getSelectedTheme();
 
   return (
-    <main className={styles.layout}>
-      <section className={styles.introduction} aria-labelledby="login-heading">
-        <p className={styles.eyebrow}>品质部门户</p>
-        <h1 id="login-heading">登录品集｜Q Nexus</h1>
-        <p>连接部门知识，沉淀共同经验。</p>
-        <p className={styles.lanNotice}>仅限受信任的公司局域网访问。</p>
-      </section>
-      <LoginForm returnPath={returnPath} />
-    </main>
+    <>
+      <div className={styles.theme}>
+        <ThemeControl current={theme} />
+      </div>
+      <main className={styles.layout}>
+        <section
+          className={styles.introduction}
+          aria-labelledby="login-heading"
+        >
+          <p className={styles.eyebrow}>品集｜Q Nexus · 品质部门户</p>
+          <h1 id="login-heading">登录品集｜Q Nexus</h1>
+          <p>连接部门知识，沉淀共同经验。</p>
+          <p className={styles.lanNotice}>仅限受信任的公司局域网访问。</p>
+        </section>
+        <LoginForm returnPath={returnPath} />
+      </main>
+    </>
   );
 }
