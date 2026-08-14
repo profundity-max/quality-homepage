@@ -4,26 +4,22 @@ import {
   randomUUID,
 } from "node:crypto";
 
-import { hash, verify } from "argon2";
 import { and, eq, gt, isNull, sql } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/pglite";
 import type { PGlite } from "@electric-sql/pglite";
-import { drizzle as drizzlePostgres } from "drizzle-orm/postgres-js";
 import type { Sql } from "postgres";
 
+import { createDatabaseClient } from "@/db/client";
 import { getDatabase } from "@/db/database";
-import {
-  identityAuditEvents,
-  identitySchema,
-  type Role,
-  sessions,
-  users,
-} from "@/db/schema";
+import { identityAuditEvents, type Role, sessions, users } from "@/db/schema";
 
 import {
   type IdentitySecurityConfiguration,
   resolveIdentitySecurityConfiguration,
 } from "./security-configuration";
+import {
+  type PasswordHasher,
+  productionPasswordHasher,
+} from "@/modules/shared/password-hasher";
 
 export {
   type IdentitySecurityConfiguration,
@@ -32,30 +28,13 @@ export {
 
 const persistentSessionLifetimeMilliseconds = 7 * 24 * 60 * 60 * 1000;
 const minimumPasswordLength = 14;
-const argon2idOptions = {
-  type: 2,
-  memoryCost: 19 * 1024,
-  timeCost: 2,
-  parallelism: 1,
-} as const;
 
 declare const userIdBrand: unique symbol;
 declare const sessionIdBrand: unique symbol;
 export type UserId = string & { readonly [userIdBrand]: true };
 export type SessionId = string & { readonly [sessionIdBrand]: true };
 
-export interface PasswordHasher {
-  hash(password: string): Promise<string>;
-  verify(passwordHash: string, password: string): Promise<boolean>;
-  dummyHash: string;
-}
-
-const productionPasswordHasher: PasswordHasher = {
-  hash: (password) => hash(password, argon2idOptions),
-  verify: (passwordHash, password) => verify(passwordHash, password),
-  dummyHash:
-    "$argon2id$v=19$m=19456,t=2,p=1$cW5leHVzLWR1bW15LWhhc2g$9AOoZaKAA90eeVst5BziVZWP7KOsA6FEt9HKV8ws/1g",
-};
+export type { PasswordHasher } from "@/modules/shared/password-hasher";
 
 export interface BootstrapFirstAdministratorInput {
   database: PGlite | Sql;
@@ -638,15 +617,6 @@ function digestToken(token: string | Buffer): string {
   const tokenBytes =
     typeof token === "string" ? Buffer.from(token, "base64url") : token;
   return createHash("sha256").update(tokenBytes).digest("hex");
-}
-
-function createDatabaseClient(database: PGlite | Sql) {
-  if ("unsafe" in database) {
-    return drizzlePostgres(database, {
-      schema: identitySchema,
-    }) as unknown as ReturnType<typeof drizzle<typeof identitySchema>>;
-  }
-  return drizzle(database, { schema: identitySchema });
 }
 
 export function getIdentityModule() {

@@ -5,6 +5,7 @@ import postgres, { type Sql } from "postgres";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
 import { migrate } from "@/db/migrate";
+import { createAccountAdministrationModule } from "@/modules/account-administration";
 import {
   bootstrapFirstAdministrator,
   createIdentityModule,
@@ -300,6 +301,231 @@ describe("identity on PostgreSQL 17", () => {
         subject_user_id: member.member.id,
         scope: "all",
       },
+    ]);
+  });
+
+  test("serializes concurrent administrator demotions so one active administrator remains", async () => {
+    await database.unsafe(
+      "truncate identity_audit_events, sessions, users cascade",
+    );
+    await bootstrapFirstAdministrator({
+      database,
+      username: "first-admin",
+      displayName: null,
+      password: "first administrator password",
+    });
+    const identity = createIdentityModule({ database });
+    const first = await identity.authenticate({
+      username: "first-admin",
+      password: "first administrator password",
+    });
+    expect(first.kind).toBe("authenticated");
+    if (first.kind !== "authenticated") return;
+    await identity.changePassword({
+      sessionId: first.session.id,
+      currentPassword: "first administrator password",
+      newPassword: "lasting first administrator password",
+      confirmation: "lasting first administrator password",
+    });
+    const accounts = createAccountAdministrationModule({ database });
+    await accounts.createMember({
+      requestingUserId: first.member.id,
+      username: "second-admin",
+      displayName: null,
+      role: "administrator",
+      temporaryPassword: "second administrator password",
+    });
+    const second = await identity.authenticate({
+      username: "second-admin",
+      password: "second administrator password",
+    });
+    expect(second.kind).toBe("authenticated");
+    if (second.kind !== "authenticated") return;
+    await identity.changePassword({
+      sessionId: second.session.id,
+      currentPassword: "second administrator password",
+      newPassword: "lasting second administrator password",
+      confirmation: "lasting second administrator password",
+    });
+
+    const changes = await Promise.allSettled([
+      accounts.changeRole({
+        requestingUserId: first.member.id,
+        userId: second.member.id,
+        role: "reader",
+      }),
+      accounts.changeRole({
+        requestingUserId: second.member.id,
+        userId: first.member.id,
+        role: "reader",
+      }),
+    ]);
+
+    expect(changes.map(({ status }) => status).sort()).toEqual([
+      "fulfilled",
+      "rejected",
+    ]);
+    const activeAdministrators = await database<{ count: string }[]>`
+      select count(*)::text as count
+      from users
+      where role = 'administrator' and disabled_at is null
+    `;
+    expect(activeAdministrators[0]?.count).toBe("1");
+  });
+
+  test("rejects account creation when administrator access is concurrently revoked", async () => {
+    await database.unsafe(
+      "truncate identity_audit_events, sessions, users cascade",
+    );
+    await bootstrapFirstAdministrator({
+      database,
+      username: "revoked-admin",
+      displayName: null,
+      password: "temporary administrator password",
+    });
+    const identity = createIdentityModule({ database });
+    const authenticated = await identity.authenticate({
+      username: "revoked-admin",
+      password: "temporary administrator password",
+    });
+    expect(authenticated.kind).toBe("authenticated");
+    if (authenticated.kind !== "authenticated") return;
+    await identity.changePassword({
+      sessionId: authenticated.session.id,
+      currentPassword: "temporary administrator password",
+      newPassword: "lasting administrator password",
+      confirmation: "lasting administrator password",
+    });
+    const accounts = createAccountAdministrationModule({
+      database,
+      passwordHasher: {
+        hash: async () => "test-password-hash",
+        verify: async () => false,
+        dummyHash: "unused",
+      },
+    });
+    let creation: Promise<void> | undefined;
+
+    await database.begin(async (transaction) => {
+      await transaction`
+        update users set role = 'reader' where id = ${authenticated.member.id}
+      `;
+      creation = accounts.createMember({
+        requestingUserId: authenticated.member.id,
+        username: "must-not-be-created",
+        displayName: null,
+        role: "reader",
+        temporaryPassword: "temporary member password",
+      });
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    });
+
+    await expect(creation).rejects.toThrow(/administrator/i);
+    const forbiddenMembers = await database<{ count: string }[]>`
+      select count(*)::text as count
+      from users
+      where normalized_username = 'must-not-be-created'
+    `;
+    expect(forbiddenMembers[0]?.count).toBe("0");
+  });
+
+  test("uses one lock order for concurrent creation and role revocation", async () => {
+    await database.unsafe(
+      "truncate identity_audit_events, sessions, users cascade",
+    );
+    await bootstrapFirstAdministrator({
+      database,
+      username: "first-lock-admin",
+      displayName: null,
+      password: "temporary first administrator password",
+    });
+    const identity = createIdentityModule({ database });
+    const first = await identity.authenticate({
+      username: "first-lock-admin",
+      password: "temporary first administrator password",
+    });
+    expect(first.kind).toBe("authenticated");
+    if (first.kind !== "authenticated") return;
+    await identity.changePassword({
+      sessionId: first.session.id,
+      currentPassword: "temporary first administrator password",
+      newPassword: "lasting first administrator password",
+      confirmation: "lasting first administrator password",
+    });
+    const setupAccounts = createAccountAdministrationModule({ database });
+    await setupAccounts.createMember({
+      requestingUserId: first.member.id,
+      username: "second-lock-admin",
+      displayName: null,
+      role: "administrator",
+      temporaryPassword: "temporary second administrator password",
+    });
+    const second = await identity.authenticate({
+      username: "second-lock-admin",
+      password: "temporary second administrator password",
+    });
+    expect(second.kind).toBe("authenticated");
+    if (second.kind !== "authenticated") return;
+    await identity.changePassword({
+      sessionId: second.session.id,
+      currentPassword: "temporary second administrator password",
+      newPassword: "lasting second administrator password",
+      confirmation: "lasting second administrator password",
+    });
+
+    let releaseHash!: () => void;
+    const hashMayFinish = new Promise<void>((resolve) => {
+      releaseHash = resolve;
+    });
+    let signalHashStarted!: () => void;
+    const hashStarted = new Promise<void>((resolve) => {
+      signalHashStarted = resolve;
+    });
+    const creatingAccounts = createAccountAdministrationModule({
+      database,
+      passwordHasher: {
+        hash: async () => {
+          signalHashStarted();
+          await hashMayFinish;
+          return "test-password-hash";
+        },
+        verify: async () => false,
+        dummyHash: "unused",
+      },
+    });
+    const creation = creatingAccounts.createMember({
+      requestingUserId: first.member.id,
+      username: "concurrent-member",
+      displayName: null,
+      role: "reader",
+      temporaryPassword: "temporary member password",
+    });
+    await hashStarted;
+    const revocation = setupAccounts.changeRole({
+      requestingUserId: second.member.id,
+      userId: first.member.id,
+      role: "reader",
+    });
+    releaseHash();
+
+    await expect(
+      Promise.race([
+        Promise.all([creation, revocation]),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("management deadlock")), 2_000),
+        ),
+      ]),
+    ).resolves.toBeDefined();
+    const results = await database<{ username: string; role: string }[]>`
+      select username, role
+      from users
+      where id = ${first.member.id}
+         or normalized_username = 'concurrent-member'
+      order by normalized_username
+    `;
+    expect(results).toEqual([
+      { username: "concurrent-member", role: "reader" },
+      { username: "first-lock-admin", role: "reader" },
     ]);
   });
 });
