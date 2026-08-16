@@ -10,15 +10,13 @@ import { unified } from "unified";
 import type { Element, Root } from "hast";
 import { visit } from "unist-util-visit";
 
-const CALLOUT_TYPES = [
-  "info",
-  "tip",
-  "important",
-  "warning",
-  "example",
-  "formula",
-] as const;
-type CalloutType = (typeof CALLOUT_TYPES)[number];
+type CalloutType =
+  | "info"
+  | "tip"
+  | "important"
+  | "warning"
+  | "example"
+  | "formula";
 
 export type TocEntry = {
   id: string;
