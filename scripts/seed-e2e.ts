@@ -57,6 +57,19 @@ try {
     mustChangePassword: false,
     createdAt: new Date(),
   });
+  // 栏目管理员账号：无需首次改密，供栏目/主题管理测试（不污染 bootstrap 改密流程）
+  await client.insert(users).values({
+    id: "00000000-0000-4000-8000-0000000000f3",
+    username: "columnadmin",
+    normalizedUsername: "columnadmin",
+    displayName: "栏目管理员",
+    passwordHash: await productionPasswordHasher.hash(
+      "column admin secure password",
+    ),
+    role: "administrator",
+    mustChangePassword: false,
+    createdAt: new Date(),
+  });
   const anovaTopicId = "00000000-0000-4000-8000-000000000c04";
   const spcTopicId = "00000000-0000-4000-8000-000000000c12";
   const now = new Date();

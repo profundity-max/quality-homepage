@@ -163,3 +163,76 @@
     display: grid;
   }
 }
+
+/* 栏目与主题管理（IA-07/IA-08/IA-09） */
+.columnNode {
+  padding: 8px 0;
+  border-left: 1px solid var(--color-divider);
+  padding-left: 16px;
+}
+
+.columnRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+.columnName {
+  font-weight: 500;
+  min-width: 200px;
+}
+
+.columnBadge {
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  border: 1px solid var(--color-warning);
+  color: var(--color-warning);
+}
+
+.columnMeta {
+  margin-left: 8px;
+  color: var(--color-text-secondary);
+  font-size: 0.8125rem;
+  font-weight: 400;
+}
+
+.renameForm,
+.createForms {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.createForms {
+  margin: 8px 0 16px;
+  flex-wrap: wrap;
+}
+
+.renameInput {
+  min-width: 180px;
+  padding: 6px 10px;
+  border: 1px solid var(--color-divider);
+  border-radius: 6px;
+  font: inherit;
+  font-size: 0.875rem;
+  background: var(--color-canvas);
+  color: var(--color-text);
+}
+
+.textButton {
+  background: none;
+  border: none;
+  padding: 6px 10px;
+  border-radius: 6px;
+  color: var(--color-link);
+  font: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.textButton:hover {
+  background: var(--color-surface-hover, rgba(0, 0, 0, 0.05));
+}

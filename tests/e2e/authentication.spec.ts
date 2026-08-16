@@ -142,6 +142,15 @@ test("identity lifecycle protects lockout, sessions, revocation, and disabled ac
   await expect(
     page.getByText("不能禁用当前登录账号。", { exact: true }),
   ).toBeVisible();
+  // seed 里存在第二个管理员（columnadmin），先将其降级（此时 admin 仍在，
+  // 降级应成功），使 admin 成为最后一位有效管理员后再断言拒绝降级。
+  const columnAdminCard = page
+    .getByRole("article")
+    .filter({ hasText: "@columnadmin" });
+  await columnAdminCard
+    .getByLabel("调整 columnadmin 的角色")
+    .selectOption("reader");
+  await columnAdminCard.getByRole("button", { name: "更新角色" }).click();
   await administratorCard
     .getByLabel("调整 admin 的角色")
     .selectOption("reader");
