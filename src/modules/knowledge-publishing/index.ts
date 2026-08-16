@@ -44,6 +44,7 @@ export type PublishedArticle = {
   aliases: string[];
   ownerDisplayName: string;
   updatedAt: Date;
+  lastReviewedAt: Date | null;
   nextReviewAt: Date | null;
   publishedAt: Date | null;
   readCount: number;
@@ -204,6 +205,7 @@ export function createKnowledgePublishingService(
           )`,
           readCount: articles.readCount,
           updatedAt: articles.updatedAt,
+          lastReviewedAt: articles.lastReviewedAt,
           nextReviewAt: articles.nextReviewAt,
           publishedAt: articles.publishedAt,
         })
@@ -235,6 +237,7 @@ export function createKnowledgePublishingService(
         aliases: aliasRows.map((aliasRow) => aliasRow.alias),
         ownerDisplayName: row.ownerDisplayName,
         updatedAt: row.updatedAt,
+        lastReviewedAt: row.lastReviewedAt,
         nextReviewAt: row.nextReviewAt,
         publishedAt: row.publishedAt,
         readCount: row.readCount,
@@ -310,7 +313,7 @@ export function createKnowledgePublishingService(
         .from(articles)
         .innerJoin(topics, eq(articles.primaryTopicId, topics.id))
         .where(and(publishedWhere, eq(articles.primaryTopicId, source.topicId)))
-        .orderBy(asc(articles.updatedAt));
+        .orderBy(asc(articles.updatedAt), asc(articles.stableId));
       const index = siblings.findIndex(
         (article) => article.stableId === stableId,
       );

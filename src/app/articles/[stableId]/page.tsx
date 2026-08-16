@@ -80,6 +80,10 @@ export default async function ArticlePage({
               <dd>{formatDate(article.updatedAt)}</dd>
             </div>
             <div>
+              <dt>最近复核</dt>
+              <dd>{formatDate(article.lastReviewedAt)}</dd>
+            </div>
+            <div>
               <dt>下次复核</dt>
               <dd>{formatDate(article.nextReviewAt)}</dd>
             </div>
