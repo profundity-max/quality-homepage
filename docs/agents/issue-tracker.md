@@ -2,16 +2,6 @@
 
 Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all operations.
 
-## Repository prerequisite
-
-This working directory does not yet have a Git repository or GitHub remote. Before publishing issues:
-
-1. Initialize Git.
-2. Create or choose the GitHub repository.
-3. Add it as the `origin` remote.
-4. Authenticate the `gh` CLI.
-5. Verify with `gh repo view`.
-
 ## Conventions
 
 - **Create an issue**: `gh issue create --title "..." --body "..."`. Use a heredoc for multi-line bodies.
