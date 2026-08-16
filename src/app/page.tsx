@@ -1,10 +1,19 @@
 import Link from "next/link";
 
+import { getDatabase } from "@/db/database";
+import { createKnowledgePublishingService } from "@/modules/knowledge-publishing";
 import { createPersonalizedHome } from "@/modules/personalized-home";
 
 import { requirePortalSession } from "./authorization";
 import styles from "./home.module.css";
 import { PortalShell } from "./portal-shell";
+
+function formatUpdateDate(value: Date): string {
+  return new Intl.DateTimeFormat("zh-CN", {
+    month: "short",
+    day: "numeric",
+  }).format(value);
+}
 
 export default async function HomePage() {
   const session = await requirePortalSession("/");
@@ -13,6 +22,19 @@ export default async function HomePage() {
     username: session.member.username,
     displayName: session.member.displayName,
   });
+
+  const service = createKnowledgePublishingService(getDatabase());
+  const [tree, recentUpdates] = await Promise.all([
+    service.listTopicTree(),
+    service.listRecentUpdates(5),
+  ]);
+
+  const quality = tree.find(
+    (section) => section.stableId === "quality-knowledge",
+  );
+  const thermal = tree.find(
+    (section) => section.stableId === "thermal-knowledge",
+  );
 
   return (
     <PortalShell currentPath="/">
@@ -29,20 +51,94 @@ export default async function HomePage() {
             <Link href="/search">查看搜索建设状态</Link>
           </aside>
         </section>
+
         <div className={styles.sections}>
-          {model.sections.map((section, index) => (
-            <section className={styles.section} key={section.title}>
-              <p className={styles.index}>
-                {String(index + 1).padStart(2, "0")}
-              </p>
-              <Link href={section.href} className={styles.sectionLink}>
-                <h2>{section.title}</h2>
-                <p>内容建设中</p>
-              </Link>
-            </section>
-          ))}
+          <section className={styles.section}>
+            <p className={styles.index}>01</p>
+            <Link href="/onboarding" className={styles.sectionLink}>
+              <h2>新人专区</h2>
+              <p className={styles.sectionStatus}>建设中</p>
+            </Link>
+          </section>
+          <section className={styles.section}>
+            <p className={styles.index}>02</p>
+            <Link href="/templates" className={styles.sectionLink}>
+              <h2>模板中心</h2>
+              <p className={styles.sectionStatus}>建设中</p>
+            </Link>
+          </section>
+          <section className={styles.section}>
+            <p className={styles.index}>03</p>
+            <Link href="/quality" className={styles.sectionLink}>
+              <h2>品质知识</h2>
+              {quality ? (
+                <p className={styles.sectionStatus}>
+                  {countTopics(quality)} 个主题 · 点击进入
+                </p>
+              ) : (
+                <p className={styles.sectionStatus}>暂无内容</p>
+              )}
+            </Link>
+          </section>
+          <section className={styles.section}>
+            <p className={styles.index}>04</p>
+            <Link href="/thermal" className={styles.sectionLink}>
+              <h2>散热知识</h2>
+              {thermal ? (
+                <p className={styles.sectionStatus}>
+                  {countTopics(thermal)} 个主题 · 点击进入
+                </p>
+              ) : (
+                <p className={styles.sectionStatus}>暂无内容</p>
+              )}
+            </Link>
+          </section>
+        </div>
+
+        <section className={styles.updates} aria-label="最近更新">
+          <h2 className={styles.updatesHeading}>最近更新</h2>
+          {recentUpdates.length > 0 ? (
+            <ul className={styles.updateList}>
+              {recentUpdates.map((article) => (
+                <li key={article.stableId}>
+                  <Link
+                    href={`/articles/${article.stableId}`}
+                    className={styles.updateLink}
+                  >
+                    <span className={styles.updateTitle}>{article.title}</span>
+                    <span className={styles.updateMeta}>
+                      {article.topicName} ·{" "}
+                      {formatUpdateDate(article.updatedAt)}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className={styles.updateEmpty}>暂无更新内容。</p>
+          )}
+        </section>
+
+        <div className={styles.sections}>
+          <section className={styles.section}>
+            <p className={styles.index}>05</p>
+            <Link href="/books" className={styles.sectionLink}>
+              <h2>推荐书单</h2>
+              <p className={styles.sectionStatus}>建设中</p>
+            </Link>
+          </section>
         </div>
       </main>
     </PortalShell>
+  );
+}
+
+function countTopics(section: {
+  children: { topics: unknown[] }[];
+  topics: unknown[];
+}): number {
+  return (
+    section.topics.length +
+    section.children.reduce((total, child) => total + child.topics.length, 0)
   );
 }

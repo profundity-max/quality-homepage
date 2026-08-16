@@ -1,10 +1,10 @@
 const sections = [
-  { title: "新人学习", href: "/onboarding" },
-  { title: "常用模板", href: "/templates" },
+  { title: "新人专区", href: "/onboarding" },
+  { title: "模板中心", href: "/templates" },
   { title: "品质知识", href: "/quality" },
   { title: "散热知识", href: "/thermal" },
   { title: "最近更新", href: "/updates" },
-  { title: "推荐书籍", href: "/books" },
+  { title: "推荐书单", href: "/books" },
 ] as const;
 
 export function createPersonalizedHome({

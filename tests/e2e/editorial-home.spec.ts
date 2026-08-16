@@ -46,18 +46,18 @@ test("Editorial Space works across desktop, theme, keyboard, and mobile", async 
   await expect(
     page.locator("main section").getByRole("heading", { level: 2 }),
   ).toHaveText([
-    "新人学习",
-    "常用模板",
+    "新人专区",
+    "模板中心",
     "品质知识",
     "散热知识",
     "最近更新",
-    "推荐书籍",
+    "推荐书单",
   ]);
   await expect(
-    page.getByRole("heading", { name: "新人学习" }).locator(".."),
+    page.getByRole("heading", { name: "新人专区" }).locator(".."),
   ).toHaveAttribute("href", "/onboarding");
   await expect(
-    page.getByRole("heading", { name: "常用模板" }).locator(".."),
+    page.getByRole("heading", { name: "模板中心" }).locator(".."),
   ).toHaveAttribute("href", "/templates");
 
   const heroRatio = await page
@@ -68,7 +68,7 @@ test("Editorial Space works across desktop, theme, keyboard, and mobile", async 
   expect(heroRatio).toBeGreaterThanOrEqual(0.55);
   expect(heroRatio).toBeLessThanOrEqual(0.65);
   await expect(
-    page.getByRole("heading", { name: "新人学习" }),
+    page.getByRole("heading", { name: "新人专区" }),
   ).toBeInViewport();
   await page.evaluate(() => scrollTo(0, 0));
   await expect(page.locator("header")).not.toHaveClass(/compactHeader/);
@@ -152,9 +152,12 @@ test("Editorial Space works across desktop, theme, keyboard, and mobile", async 
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBe(true);
-  await expect(page.getByRole("heading", { name: "新人学习" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "新人专区" })).toBeVisible();
   await expect(page.getByText("搜索将随知识内容一同开放")).toBeVisible();
-  await page.getByRole("link", { name: /新人学习\s*内容建设中/ }).click();
+  await page
+    .locator("main section", { hasText: "新人专区" })
+    .getByRole("link")
+    .click();
   await expect(page).toHaveURL(/\/onboarding$/);
   await expect(page.getByText("内容建设中")).toBeVisible();
   const destinationDrawer = page.getByRole("group", { name: "移动端主导航" });

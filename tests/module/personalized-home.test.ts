@@ -43,12 +43,12 @@ describe("personalized home", () => {
     });
     expect(model.belief).toBe("数据驱动 · 结果闭环");
     expect(model.sections.map(({ title }) => title)).toEqual([
-      "新人学习",
-      "常用模板",
+      "新人专区",
+      "模板中心",
       "品质知识",
       "散热知识",
       "最近更新",
-      "推荐书籍",
+      "推荐书单",
     ]);
   });
 });

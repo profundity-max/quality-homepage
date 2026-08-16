@@ -119,3 +119,68 @@
     gap: 12px;
   }
 }
+
+/* 最近更新（HOME-03） */
+.updates {
+  padding: 0 clamp(20px, 8vw, 128px) 120px;
+}
+
+.updatesHeading {
+  margin: 0 0 24px;
+  font-size: 1.25rem;
+  font-weight: 500;
+}
+
+.updateList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.updateList li {
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.updateLink {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 24px;
+  padding: 18px 0;
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+@media (max-width: 760px) {
+  .updateLink {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .updates {
+    padding: 56px 20px 80px;
+  }
+}
+
+.updateLink:hover .updateTitle {
+  color: var(--color-link);
+}
+
+.updateTitle {
+  font-size: 1.0625rem;
+  font-weight: 500;
+}
+
+.updateMeta {
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+  white-space: nowrap;
+}
+
+.updateEmpty {
+  color: var(--color-text-secondary);
+  padding: 24px 0;
+}
