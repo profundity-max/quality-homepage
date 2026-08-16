@@ -9,10 +9,10 @@ import {
   timestamp,
   uniqueIndex,
   uuid,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 
 export type Role = "reader" | "editor" | "administrator";
-
 export const users = pgTable(
   "users",
   {
@@ -62,4 +62,109 @@ export const identityAuditEvents = pgTable("identity_audit_events", {
   occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull(),
 });
 
+export type ArticleStatus = "draft" | "published" | "archived";
+
+export const sections = pgTable(
+  "sections",
+  {
+    id: uuid("id").primaryKey(),
+    stableId: text("stable_id").notNull(),
+    name: text("name").notNull(),
+    parentId: uuid("parent_id").references((): AnyPgColumn => sections.id),
+    sortOrder: integer("sort_order").notNull().default(0),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("sections_stable_id_idx").on(table.stableId),
+    index("sections_parent_id_idx").on(table.parentId),
+  ],
+);
+
+export const topics = pgTable(
+  "topics",
+  {
+    id: uuid("id").primaryKey(),
+    stableId: text("stable_id").notNull(),
+    sectionId: uuid("section_id")
+      .notNull()
+      .references(() => sections.id),
+    name: text("name").notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("topics_stable_id_idx").on(table.stableId),
+    index("topics_section_id_idx").on(table.sectionId),
+  ],
+);
+
+export const topicAliases = pgTable(
+  "topic_aliases",
+  {
+    id: uuid("id").primaryKey(),
+    topicId: uuid("topic_id")
+      .notNull()
+      .references(() => topics.id),
+    alias: text("alias").notNull(),
+  },
+  (table) => [
+    uniqueIndex("topic_aliases_topic_id_alias_idx").on(
+      table.topicId,
+      table.alias,
+    ),
+  ],
+);
+
+export const articles = pgTable(
+  "articles",
+  {
+    id: uuid("id").primaryKey(),
+    stableId: text("stable_id").notNull(),
+    title: text("title").notNull(),
+    summary: text("summary").notNull().default(""),
+    bodyMarkdown: text("body_markdown").notNull().default(""),
+    primaryTopicId: uuid("primary_topic_id")
+      .notNull()
+      .references(() => topics.id),
+    tags: text("tags").array().notNull().default([]),
+    contentOwnerId: uuid("content_owner_id").references(() => users.id),
+    status: text("status").$type<ArticleStatus>().notNull().default("draft"),
+    lastReviewedAt: timestamp("last_reviewed_at", { withTimezone: true }),
+    nextReviewAt: timestamp("next_review_at", { withTimezone: true }),
+    publishedAt: timestamp("published_at", { withTimezone: true }),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("articles_stable_id_idx").on(table.stableId),
+    index("articles_primary_topic_id_idx").on(table.primaryTopicId),
+  ],
+);
+
+export const articleAliases = pgTable(
+  "article_aliases",
+  {
+    id: uuid("id").primaryKey(),
+    articleId: uuid("article_id")
+      .notNull()
+      .references(() => articles.id),
+    alias: text("alias").notNull(),
+  },
+  (table) => [
+    uniqueIndex("article_aliases_article_id_alias_idx").on(
+      table.articleId,
+      table.alias,
+    ),
+  ],
+);
+
 export const identitySchema = { users, sessions, identityAuditEvents };
+export const knowledgeSchema = {
+  sections,
+  topics,
+  topicAliases,
+  articles,
+  articleAliases,
+};
