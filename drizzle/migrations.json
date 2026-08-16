@@ -4,6 +4,7 @@
     "0001_identity_login_protection.sql",
     "0002_session_lifecycle_constraints.sql",
     "0003_content_foundation.sql",
-    "0004_article_read_count.sql"
+    "0004_article_read_count.sql",
+    "0005_article_versions.sql"
   ]
 }

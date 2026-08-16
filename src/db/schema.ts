@@ -161,6 +161,41 @@ export const articleAliases = pgTable(
   ],
 );
 
+export const articleVersions = pgTable(
+  "article_versions",
+  {
+    id: uuid("id").primaryKey(),
+    articleId: uuid("article_id")
+      .notNull()
+      .references(() => articles.id),
+    version: integer("version").notNull(),
+    kind: text("kind")
+      .$type<"publish" | "restore">()
+      .notNull()
+      .default("publish"),
+    title: text("title").notNull(),
+    summary: text("summary").notNull(),
+    bodyMarkdown: text("body_markdown").notNull(),
+    primaryTopicId: uuid("primary_topic_id")
+      .notNull()
+      .references(() => topics.id),
+    tags: text("tags").array().notNull().default([]),
+    contentOwnerId: uuid("content_owner_id").references(() => users.id),
+    lastReviewedAt: timestamp("last_reviewed_at", { withTimezone: true }),
+    nextReviewAt: timestamp("next_review_at", { withTimezone: true }),
+    restoredReason: text("restored_reason"),
+    createdBy: uuid("created_by").references(() => users.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("article_versions_article_id_version_idx").on(
+      table.articleId,
+      table.version,
+    ),
+    index("article_versions_article_id_idx").on(table.articleId),
+  ],
+);
+
 export const identitySchema = { users, sessions, identityAuditEvents };
 export const knowledgeSchema = {
   sections,
@@ -168,4 +203,5 @@ export const knowledgeSchema = {
   topicAliases,
   articles,
   articleAliases,
+  articleVersions,
 };
