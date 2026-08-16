@@ -1,0 +1,138 @@
+.layout {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  gap: clamp(24px, 4vw, 48px);
+  padding: clamp(24px, 4vw, 48px);
+  max-width: 1280px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.tree {
+  border-right: 1px solid var(--color-border, rgba(0, 0, 0, 0.12));
+  padding-right: clamp(16px, 2vw, 24px);
+  max-height: calc(100svh - 140px);
+  overflow-y: auto;
+}
+
+.treeHeading {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  margin: 0 0 16px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.treeList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.treeDetails {
+  font-size: 0.9375rem;
+}
+
+.treeDetails summary {
+  cursor: pointer;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-weight: 500;
+  user-select: none;
+}
+
+.treeDetails summary:hover {
+  background: var(--color-surface-hover, rgba(0, 0, 0, 0.04));
+}
+
+.treeDetails .treeList {
+  margin-left: 14px;
+  border-left: 1px solid var(--color-border, rgba(0, 0, 0, 0.12));
+  padding-left: 8px;
+}
+
+.topicLink,
+.topicLinkSelected {
+  display: block;
+  padding: 8px 10px;
+  border-radius: 8px;
+  text-decoration: none;
+  color: var(--color-text);
+}
+
+.topicLink:hover {
+  background: var(--color-surface-hover, rgba(0, 0, 0, 0.04));
+}
+
+.topicLinkSelected {
+  background: var(--color-accent-soft, rgba(0, 150, 255, 0.12));
+  font-weight: 500;
+}
+
+.content {
+  min-width: 0;
+}
+
+.pageTitle {
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  margin: 0 0 8px;
+}
+
+.topicTitle {
+  font-size: 1.25rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  margin: 0 0 24px;
+}
+
+.articleList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.articleLink {
+  font-size: 1.125rem;
+  font-weight: 500;
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.articleLink:hover {
+  color: var(--color-accent, #0096ff);
+}
+
+.articleSummary {
+  margin: 6px 0 0;
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+  max-width: 64ch;
+}
+
+.empty {
+  color: var(--color-text-secondary);
+  padding: 24px 0;
+}
+
+@media (max-width: 720px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+
+  .tree {
+    border-right: none;
+    border-bottom: 1px solid var(--color-border, rgba(0, 0, 0, 0.12));
+    padding-right: 0;
+    padding-bottom: 16px;
+    max-height: none;
+  }
+}

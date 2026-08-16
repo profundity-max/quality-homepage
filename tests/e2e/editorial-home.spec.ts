@@ -116,7 +116,7 @@ test("Editorial Space works across desktop, theme, keyboard, and mobile", async 
     .click();
   await expect(page).toHaveURL(/\/quality$/);
   await expect(page.getByRole("heading", { name: "品质知识" })).toBeVisible();
-  await expect(page.getByText("内容建设中")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "ANOVA" })).toBeVisible();
   await expect(
     page.getByRole("link", { name: "品质知识", exact: true }),
   ).toHaveAttribute("aria-current", "page");
