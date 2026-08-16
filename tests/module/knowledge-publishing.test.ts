@@ -4,12 +4,11 @@ import { afterEach, beforeEach, describe, expect, test } from "vitest";
 
 import { migrate } from "@/db/migrate";
 import { createDatabaseClient } from "@/db/client";
-import { articles, articleAliases, sections, topics, users } from "@/db/schema";
+import { articles, articleAliases, sections, users } from "@/db/schema";
 import { createKnowledgePublishingService } from "@/modules/knowledge-publishing";
 
 const anovaTopicId = "00000000-0000-4000-8000-000000000c04";
 const spcTopicId = "00000000-0000-4000-8000-000000000c12";
-const qualityKnowledgeId = "00000000-0000-4000-8000-0000000000a1";
 const ownerId = "00000000-0000-4000-8000-0000000000f1";
 
 describe("knowledge publishing read service", () => {
@@ -256,5 +255,35 @@ describe("knowledge publishing read service", () => {
         .filter((section) => section.parentId === null)
         .map((section) => section.stableId),
     ).toEqual(["quality-knowledge"]);
+  });
+
+  test("records reads and reports the read count", async () => {
+    const service = createKnowledgePublishingService(database);
+    const before = await service.getPublishedArticleByStableId("anova-intro");
+    expect(before!.readCount).toBe(0);
+
+    await service.recordRead("anova-intro");
+    await service.recordRead("anova-intro");
+
+    const after = await service.getPublishedArticleByStableId("anova-intro");
+    expect(after!.readCount).toBe(2);
+  });
+
+  test("ignores read recording for non-published articles", async () => {
+    const service = createKnowledgePublishingService(database);
+    await expect(service.recordRead("anova-draft")).resolves.toBeUndefined();
+    await expect(service.recordRead("does-not-exist")).resolves.toBeUndefined();
+  });
+
+  test("returns adjacent articles within the same topic ordered by update time", async () => {
+    const service = createKnowledgePublishingService(database);
+    // 同主题 ANOVA 有两篇：anova-intro(8-10) 在前，anova-example(8-12) 在后
+    const aroundIntro = await service.getAdjacentArticles("anova-intro");
+    expect(aroundIntro.previous).toBeNull();
+    expect(aroundIntro.next?.stableId).toBe("anova-example");
+
+    const aroundExample = await service.getAdjacentArticles("anova-example");
+    expect(aroundExample.previous?.stableId).toBe("anova-intro");
+    expect(aroundExample.next).toBeNull();
   });
 });

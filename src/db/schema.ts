@@ -134,6 +134,7 @@ export const articles = pgTable(
     lastReviewedAt: timestamp("last_reviewed_at", { withTimezone: true }),
     nextReviewAt: timestamp("next_review_at", { withTimezone: true }),
     publishedAt: timestamp("published_at", { withTimezone: true }),
+    readCount: integer("read_count").notNull().default(0),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
   },

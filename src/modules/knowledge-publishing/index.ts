@@ -46,6 +46,12 @@ export type PublishedArticle = {
   updatedAt: Date;
   nextReviewAt: Date | null;
   publishedAt: Date | null;
+  readCount: number;
+};
+
+export type AdjacentArticles = {
+  previous: ArticleSummary | null;
+  next: ArticleSummary | null;
 };
 
 export type KnowledgePublishingService = {
@@ -61,6 +67,10 @@ export type KnowledgePublishingService = {
   listRecentUpdates(limit: number): Promise<ArticleSummary[]>;
   /** 相关文章：同主题优先，其次共享标签（ART-06）。 */
   listRelatedArticles(stableId: string): Promise<ArticleSummary[]>;
+  /** 阅读次数 +1（ART-06 基础计数）；非已发布文章不生效。 */
+  recordRead(stableId: string): Promise<void>;
+  /** 同主题内按更新时间排序的上一篇与下一篇（ART-06）。 */
+  getAdjacentArticles(stableId: string): Promise<AdjacentArticles>;
 };
 
 const publishedWhere = eq(articles.status, "published");
@@ -192,6 +202,7 @@ export function createKnowledgePublishingService(
           ownerDisplayName: sql<string>`coalesce(
             ${users.displayName}, ${users.username}
           )`,
+          readCount: articles.readCount,
           updatedAt: articles.updatedAt,
           nextReviewAt: articles.nextReviewAt,
           publishedAt: articles.publishedAt,
@@ -226,6 +237,7 @@ export function createKnowledgePublishingService(
         updatedAt: row.updatedAt,
         nextReviewAt: row.nextReviewAt,
         publishedAt: row.publishedAt,
+        readCount: row.readCount,
       };
     },
 
@@ -270,6 +282,45 @@ export function createKnowledgePublishingService(
       );
 
       return [...sameTopic, ...sharedTag];
+    },
+
+    async recordRead(stableId) {
+      await client
+        .update(articles)
+        .set({ readCount: sql`${articles.readCount} + 1` })
+        .where(and(eq(articles.stableId, stableId), publishedWhere));
+    },
+
+    async getAdjacentArticles(stableId) {
+      const source = (
+        await client
+          .select({
+            topicId: articles.primaryTopicId,
+            updatedAt: articles.updatedAt,
+          })
+          .from(articles)
+          .where(and(eq(articles.stableId, stableId), publishedWhere))
+          .limit(1)
+      )[0];
+      if (!source) return { previous: null, next: null };
+
+      // 同主题内按更新时间升序，阅读顺序即时间顺序
+      const siblings = await client
+        .select(articleSummaryColumns)
+        .from(articles)
+        .innerJoin(topics, eq(articles.primaryTopicId, topics.id))
+        .where(and(publishedWhere, eq(articles.primaryTopicId, source.topicId)))
+        .orderBy(asc(articles.updatedAt));
+      const index = siblings.findIndex(
+        (article) => article.stableId === stableId,
+      );
+      return {
+        previous: index > 0 ? siblings[index - 1] : null,
+        next:
+          index >= 0 && index < siblings.length - 1
+            ? siblings[index + 1]
+            : null,
+      };
     },
   };
 }

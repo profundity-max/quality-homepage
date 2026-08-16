@@ -1,0 +1,355 @@
+.layout {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr) 220px;
+  gap: clamp(20px, 3vw, 40px);
+  padding: clamp(24px, 4vw, 48px);
+  max-width: 1440px;
+  margin: 0 auto;
+  width: 100%;
+  align-items: start;
+}
+
+.meta {
+  position: sticky;
+  top: 88px;
+  font-size: 0.875rem;
+}
+
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+  color: var(--color-text-secondary);
+}
+
+.breadcrumb a {
+  color: var(--color-text-secondary);
+  text-decoration: none;
+}
+
+.breadcrumb a:hover {
+  color: var(--color-link);
+}
+
+.metaList {
+  margin: 0 0 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.metaList div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.metaList dt {
+  color: var(--color-text-secondary);
+}
+
+.metaList dd {
+  margin: 0;
+  text-align: right;
+}
+
+.readCount {
+  margin: 0 0 20px;
+  color: var(--color-text-secondary);
+}
+
+.versionLink {
+  margin: 0 0 20px;
+}
+
+.versionLink a {
+  color: var(--color-link);
+  text-decoration: none;
+}
+
+.tags {
+  margin-bottom: 20px;
+}
+
+.tag {
+  display: inline-block;
+  margin: 0 8px 8px 0;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.8125rem;
+  border: 1px solid var(--color-border, rgba(0, 0, 0, 0.16));
+}
+
+.related h2 {
+  font-size: 0.9375rem;
+  margin: 0 0 10px;
+}
+
+.related ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.related a {
+  color: var(--color-text);
+  text-decoration: none;
+  line-height: 1.5;
+}
+
+.related a:hover {
+  color: var(--color-link);
+}
+
+.article {
+  min-width: 0;
+  max-width: 76ch; /* 正文中栏不随超宽屏无限拉宽 */
+}
+
+.title {
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  margin: 0 0 12px;
+}
+
+.summary {
+  font-size: 1.125rem;
+  color: var(--color-text-secondary);
+  line-height: 1.7;
+  margin: 0 0 32px;
+  max-width: 64ch;
+}
+
+.body {
+  font-size: 1rem;
+  line-height: 1.85;
+  overflow-wrap: break-word;
+}
+
+.body h2 {
+  font-size: 1.5rem;
+  margin: 2.2em 0 0.8em;
+  scroll-margin-top: 88px;
+}
+
+.body h3 {
+  font-size: 1.25rem;
+  margin: 1.8em 0 0.6em;
+  scroll-margin-top: 88px;
+}
+
+.body h4 {
+  font-size: 1.0625rem;
+  margin: 1.4em 0 0.5em;
+  scroll-margin-top: 88px;
+}
+
+.body p {
+  margin: 0 0 1.2em;
+}
+
+.body ul,
+.body ol {
+  margin: 0 0 1.2em;
+  padding-left: 1.5em;
+}
+
+.body li {
+  margin-bottom: 0.35em;
+}
+
+.body blockquote {
+  margin: 0 0 1.2em;
+  padding: 0.25em 0 0.25em 1em;
+  border-left: 3px solid var(--color-border, rgba(0, 0, 0, 0.2));
+  color: var(--color-text-secondary);
+}
+
+.body .katex-display {
+  display: block;
+  margin: 0 0 1.2em;
+  overflow-x: auto;
+  overflow-y: hidden;
+  text-align: center;
+}
+
+.body pre {
+  margin: 0 0 1.2em;
+  padding: 16px;
+  border-radius: 8px;
+  background: var(--color-surface, rgba(0, 0, 0, 0.05));
+  overflow-x: auto;
+}
+
+.body code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.9em;
+}
+
+.body pre code {
+  background: none;
+  padding: 0;
+}
+
+/* 宽表格允许横向滚动 */
+.body table {
+  display: block;
+  width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  margin: 0 0 1.2em;
+}
+
+.body th,
+.body td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--color-border, rgba(0, 0, 0, 0.12));
+  text-align: left;
+  white-space: nowrap;
+}
+
+.body th {
+  font-weight: 600;
+}
+
+/* Callout 结构（视觉规范 §9） */
+.body .callout {
+  margin: 0 0 1.2em;
+  padding: 14px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--color-border, rgba(0, 0, 0, 0.16));
+  background: var(--color-surface, rgba(0, 0, 0, 0.03));
+}
+
+.body .callout-title {
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.body .callout-icon {
+  display: inline-block;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  margin-right: 8px;
+}
+
+.body .callout-info .callout-icon::before {
+  content: "信息";
+}
+
+.body .callout-tip .callout-icon::before {
+  content: "提示";
+}
+
+.body .callout-important .callout-icon::before {
+  content: "重点";
+}
+
+.body .callout-warning .callout-icon::before {
+  content: "警告";
+}
+
+.body .callout-example .callout-icon::before {
+  content: "示例";
+}
+
+.body .callout-formula .callout-icon::before {
+  content: "公式";
+}
+
+.body .callout-title {
+  display: inline;
+}
+
+.body .callout-body {
+  display: inline;
+}
+
+.body .callout.callout-important {
+  border-left: 3px solid #0096ff;
+}
+
+.body .callout.callout-warning {
+  border-left: 3px solid var(--color-warning);
+}
+
+.toc {
+  position: sticky;
+  top: 88px;
+  font-size: 0.875rem;
+}
+
+.tocHeading {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 0 0 12px;
+}
+
+.tocList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tocList a {
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  line-height: 1.5;
+}
+
+.tocList a:hover {
+  color: var(--color-link);
+}
+
+.adjacent {
+  grid-column: 2;
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  margin-top: 48px;
+  padding-top: 20px;
+  border-top: 1px solid var(--color-border, rgba(0, 0, 0, 0.12));
+}
+
+.adjacent a {
+  color: var(--color-text);
+  text-decoration: none;
+  max-width: 40ch;
+}
+
+.adjacent a:hover {
+  color: var(--color-link);
+}
+
+@media (max-width: 1100px) {
+  .layout {
+    grid-template-columns: 200px minmax(0, 1fr);
+  }
+
+  .toc {
+    display: none; /* 右侧目录在较窄屏幕隐藏 */
+  }
+}
+
+@media (max-width: 720px) {
+  .layout {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .meta {
+    position: static;
+  }
+}

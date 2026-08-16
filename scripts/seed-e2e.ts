@@ -42,6 +42,21 @@ try {
       .from(users)
       .where(eq(users.normalizedUsername, "admin"))
   )[0];
+
+  // 编辑者账号：无需首次改密，供版本历史等编辑者专属入口测试
+  const { productionPasswordHasher } = await import(
+    "../src/modules/shared/password-hasher"
+  );
+  await client.insert(users).values({
+    id: "00000000-0000-4000-8000-0000000000f2",
+    username: "editor",
+    normalizedUsername: "editor",
+    displayName: "品质编辑",
+    passwordHash: await productionPasswordHasher.hash("editor secure password"),
+    role: "editor",
+    mustChangePassword: false,
+    createdAt: new Date(),
+  });
   const anovaTopicId = "00000000-0000-4000-8000-000000000c04";
   const spcTopicId = "00000000-0000-4000-8000-000000000c12";
   const now = new Date();
@@ -79,6 +94,15 @@ try {
     "## 什么是 ANOVA\n\n方差分析用于比较多个组的均值差异。\n\n> [!important] 前提\n> 数据应近似正态且方差齐性。",
     anovaTopicId,
     3,
+  );
+  await published(
+    "00000000-0000-4000-8000-0000000000d3",
+    "anova-example",
+    "ANOVA 实例",
+    "一个完整的方差分析计算例子。",
+    "## 实例数据\n\n三组样本的均值比较。",
+    anovaTopicId,
+    1,
   );
   await published(
     "00000000-0000-4000-8000-0000000000d2",
