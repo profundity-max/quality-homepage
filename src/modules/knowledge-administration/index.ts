@@ -30,6 +30,12 @@ export type ManagedSection = {
 export type KnowledgeAdministrationService = {
   /** 管理后台视图：包含空主题与归档状态（IA-08 管理侧）。 */
   listAllSections(requestingUserId: string): Promise<ManagedSection[]>;
+  /** 编辑器属性面板用的全部可见主题（含归档标记）。 */
+  listAllTopics(
+    requestingUserId: string,
+  ): Promise<
+    { id: string; stableId: string; name: string; archived: boolean }[]
+  >;
   /** 改名不改变稳定标识（IA-03）。 */
   renameSection(
     requestingUserId: string,
@@ -212,6 +218,25 @@ export function createKnowledgeAdministrationService(
     async listAllSections(requestingUserId) {
       await assertAdministrator(client, requestingUserId);
       return loadTree();
+    },
+
+    async listAllTopics(requestingUserId) {
+      await assertAdministrator(client, requestingUserId);
+      const rows = await client
+        .select({
+          id: topics.id,
+          stableId: topics.stableId,
+          name: topics.name,
+          archivedAt: topics.archivedAt,
+        })
+        .from(topics)
+        .orderBy(asc(topics.name));
+      return rows.map((row) => ({
+        id: row.id,
+        stableId: row.stableId,
+        name: row.name,
+        archived: row.archivedAt !== null,
+      }));
     },
 
     async renameSection(requestingUserId, stableId, newName) {

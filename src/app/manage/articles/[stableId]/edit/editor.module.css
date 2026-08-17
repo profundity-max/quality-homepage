@@ -1,0 +1,233 @@
+.editor {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100svh - 76px);
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 24px;
+  border-bottom: 1px solid var(--color-divider);
+  flex-wrap: wrap;
+}
+
+.modeSwitch {
+  display: flex;
+  gap: 4px;
+  border: 1px solid var(--color-divider);
+  border-radius: 8px;
+  padding: 2px;
+}
+
+.modeButton,
+.modeActive {
+  border: none;
+  background: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+}
+
+.modeActive {
+  background: var(--color-accent, #0096ff);
+  color: var(--color-accent-foreground, #1d1d1f);
+  font-weight: 500;
+}
+
+.toolbarCommands,
+.panels {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.toolButton {
+  border: 1px solid transparent;
+  background: none;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+  color: var(--color-text);
+}
+
+.toolButton:hover {
+  background: var(--color-surface-hover, rgba(0, 0, 0, 0.05));
+  border-color: var(--color-divider);
+}
+
+.menuWrap {
+  position: relative;
+}
+
+.menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  min-width: 180px;
+  background: var(--color-canvas);
+  border: 1px solid var(--color-divider);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  z-index: 20;
+}
+
+.menuItem {
+  border: none;
+  background: none;
+  padding: 8px 12px;
+  text-align: left;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+  color: var(--color-text);
+}
+
+.menuItem:hover {
+  background: var(--color-surface-hover, rgba(0, 0, 0, 0.05));
+}
+
+.statusBar {
+  padding: 6px 24px;
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.workspace {
+  display: grid;
+  grid-template-columns: 1fr;
+  flex: 1;
+  min-height: 0;
+}
+
+.workspace:has(.sourceArea):has(.previewArea) {
+  grid-template-columns: 1fr 1fr;
+}
+
+.sourceArea {
+  width: 100%;
+  min-height: 60svh;
+  border: none;
+  resize: none;
+  padding: 24px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.9375rem;
+  line-height: 1.7;
+  background: var(--color-canvas);
+  color: var(--color-text);
+}
+
+.previewArea {
+  padding: 24px;
+  overflow-y: auto;
+}
+
+.preview {
+  max-width: 76ch;
+  font-size: 1rem;
+  line-height: 1.85;
+}
+
+.preview h2 {
+  font-size: 1.5rem;
+  margin: 1.8em 0 0.8em;
+}
+
+.preview p {
+  margin: 0 0 1.2em;
+}
+
+.outline,
+.properties {
+  border-left: 1px solid var(--color-divider);
+  padding: 16px 20px;
+  font-size: 0.875rem;
+}
+
+.outline h2,
+.properties h2 {
+  font-size: 0.875rem;
+  margin: 0 0 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-secondary);
+}
+
+.outline ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.propertyForm {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.propertyForm label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+}
+
+.propertyForm input,
+.propertyForm select,
+.propertyForm textarea {
+  padding: 6px 10px;
+  border: 1px solid var(--color-divider);
+  border-radius: 6px;
+  font: inherit;
+  font-size: 0.875rem;
+  background: var(--color-canvas);
+  color: var(--color-text);
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.primaryButton,
+.publishButton {
+  border: none;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.primaryButton {
+  background: var(--color-surface-hover, rgba(0, 0, 0, 0.08));
+  color: var(--color-text);
+}
+
+.publishButton {
+  background: var(--color-accent, #0096ff);
+  color: var(--color-accent-foreground, #1d1d1f);
+  font-weight: 500;
+}
+
+@media (max-width: 900px) {
+  .workspace:has(.sourceArea):has(.previewArea) {
+    grid-template-columns: 1fr;
+  }
+}

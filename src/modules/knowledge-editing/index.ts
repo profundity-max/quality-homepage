@@ -68,6 +68,11 @@ export type KnowledgeEditingService = {
     editorUserId: string,
     stableId: string,
   ): Promise<EditingArticle>;
+  /** 编辑器取文章（草稿或已发布均可编辑）。 */
+  getArticleForEditing(
+    editorUserId: string,
+    stableId: string,
+  ): Promise<EditingArticle>;
 };
 
 // GOV-03：确认仍然有效后，下一次复核默认推后 180 天
@@ -379,6 +384,13 @@ export function createKnowledgeEditingService(
       const row = rows[0];
       if (!row) throw new Error("Article not found.");
       return row;
+    },
+
+    async getArticleForEditing(editorUserId, stableId) {
+      await assertEditor(client, editorUserId);
+      const article = await findArticle(stableId);
+      if (!article) throw new Error("Article not found.");
+      return article;
     },
 
     async confirmStillValid(editorUserId, stableId) {
