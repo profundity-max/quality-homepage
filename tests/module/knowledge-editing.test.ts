@@ -244,4 +244,45 @@ describe("knowledge editing service", () => {
     );
     expect(saved.title).toBe("新标题");
   });
+
+  test("acquires and releases the edit lock (EDIT-09)", async () => {
+    const service = createKnowledgeEditingService(database);
+    const created = await service.createDraft(editorId, draftInput());
+
+    const locked = await service.acquireEditLock(editorId, created.stableId);
+    expect(locked.editingBy).toBe(editorId);
+    expect(locked.editingAt).not.toBeNull();
+
+    const released = await service.releaseEditLock(editorId, created.stableId);
+    expect(released.editingBy).toBeNull();
+    expect(released.editingAt).toBeNull();
+  });
+
+  test("blocks a second editor and allows takeover (EDIT-09)", async () => {
+    const service = createKnowledgeEditingService(database);
+    const created = await service.createDraft(editorId, draftInput());
+
+    await service.acquireEditLock(editorId, created.stableId);
+
+    const otherUserId = "00000000-0000-4000-8000-0000000000f2";
+    const client = createDatabaseClient(database);
+    await client.insert(users).values({
+      id: otherUserId,
+      username: "editor2",
+      normalizedUsername: "editor2",
+      passwordHash: "hash",
+      role: "editor",
+      mustChangePassword: false,
+      createdAt: new Date(),
+    });
+
+    // 他人获取占用 → 拒绝
+    await expect(
+      service.acquireEditLock(otherUserId, created.stableId),
+    ).rejects.toThrow(/占用|locked|编辑中/i);
+
+    // 接管（明确确认后）→ 成功
+    const taken = await service.takeOverEditLock(otherUserId, created.stableId);
+    expect(taken.editingBy).toBe(otherUserId);
+  });
 });

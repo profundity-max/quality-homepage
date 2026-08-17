@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
 import { getDatabase } from "@/db/database";
 import { createImageService } from "@/modules/image-service";
@@ -97,4 +98,22 @@ export async function autosaveDraftAction(
 function readString(formData: FormData, name: string): string {
   const value = formData.get(name);
   return typeof value === "string" ? value : "";
+}
+
+/** 明确确认后接管他人占用（EDIT-09）；成功后重载编辑页。 */
+export async function takeOverEditLockAction(
+  formData: FormData,
+): Promise<void> {
+  const stableId = readString(formData, "stableId");
+  const { getCurrentSession } = await import("../../session");
+  const session = await getCurrentSession();
+  if (!session) {
+    redirect("/login");
+    return;
+  }
+  await createKnowledgeEditingService(getDatabase()).takeOverEditLock(
+    session.member.id,
+    stableId,
+  );
+  redirect(`/manage/articles/${stableId}/edit`);
 }

@@ -274,3 +274,29 @@
   display: flex;
   gap: 12px;
 }
+
+.lockBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 24px;
+  background: rgba(217, 119, 6, 0.1);
+  border-bottom: 1px solid var(--color-warning);
+  font-size: 0.875rem;
+}
+
+.takeOverButton {
+  border: 1px solid var(--color-warning);
+  background: none;
+  color: var(--color-warning);
+  padding: 6px 14px;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.takeOverButton:hover {
+  background: rgba(217, 119, 6, 0.1);
+}

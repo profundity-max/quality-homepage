@@ -29,6 +29,8 @@ export type EditingArticle = {
   lastReviewedAt: Date | null;
   nextReviewAt: Date | null;
   publishedAt: Date | null;
+  editingBy: string | null;
+  editingAt: Date | null;
   readCount: number;
   updatedAt: Date;
 };
@@ -74,6 +76,21 @@ export type KnowledgeEditingService = {
     editorUserId: string,
     stableId: string,
   ): Promise<EditingArticle>;
+  /** 获取编辑占用（EDIT-09）；已被他人占用则拒绝。 */
+  acquireEditLock(
+    editorUserId: string,
+    stableId: string,
+  ): Promise<EditingArticle>;
+  /** 释放编辑占用（仅占用者本人）。 */
+  releaseEditLock(
+    editorUserId: string,
+    stableId: string,
+  ): Promise<EditingArticle>;
+  /** 明确确认后接管他人占用（EDIT-09）。 */
+  takeOverEditLock(
+    editorUserId: string,
+    stableId: string,
+  ): Promise<EditingArticle>;
 };
 
 // GOV-03：确认仍然有效后，下一次复核默认推后 180 天
@@ -92,6 +109,8 @@ const articleColumns = {
   lastReviewedAt: articles.lastReviewedAt,
   nextReviewAt: articles.nextReviewAt,
   publishedAt: articles.publishedAt,
+  editingBy: articles.editingBy,
+  editingAt: articles.editingAt,
   readCount: articles.readCount,
   updatedAt: articles.updatedAt,
 } as const;
@@ -407,6 +426,48 @@ export function createKnowledgeEditingService(
       const article = await findArticle(stableId);
       if (!article) throw new Error("Article not found.");
       return article;
+    },
+
+    async acquireEditLock(editorUserId, stableId) {
+      await assertEditor(client, editorUserId);
+      const current = await findArticle(stableId);
+      if (!current) throw new Error("Article not found.");
+      if (current.editingBy !== null && current.editingBy !== editorUserId) {
+        throw new Error("文章正被其他编辑者占用。");
+      }
+      const rows = await client
+        .update(articles)
+        .set({ editingBy: editorUserId, editingAt: new Date() })
+        .where(eq(articles.stableId, stableId))
+        .returning(articleColumns);
+      return rows[0]!;
+    },
+
+    async releaseEditLock(editorUserId, stableId) {
+      await assertEditor(client, editorUserId);
+      const current = await findArticle(stableId);
+      if (!current) throw new Error("Article not found.");
+      if (current.editingBy !== null && current.editingBy !== editorUserId) {
+        throw new Error("只有占用者本人可以释放占用。");
+      }
+      const rows = await client
+        .update(articles)
+        .set({ editingBy: null, editingAt: null })
+        .where(eq(articles.stableId, stableId))
+        .returning(articleColumns);
+      return rows[0]!;
+    },
+
+    async takeOverEditLock(editorUserId, stableId) {
+      await assertEditor(client, editorUserId);
+      const rows = await client
+        .update(articles)
+        .set({ editingBy: editorUserId, editingAt: new Date() })
+        .where(eq(articles.stableId, stableId))
+        .returning(articleColumns);
+      const row = rows[0];
+      if (!row) throw new Error("Article not found.");
+      return row;
     },
 
     async confirmStillValid(editorUserId, stableId) {

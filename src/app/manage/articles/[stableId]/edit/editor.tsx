@@ -11,7 +11,11 @@ import {
 import type { TocEntry } from "@/modules/shared/markdown-renderer";
 
 import { MermaidRenderer } from "../../../../mermaid-renderer";
-import { autosaveDraftAction, uploadImageAction } from "../../upload-actions";
+import {
+  autosaveDraftAction,
+  takeOverEditLockAction,
+  uploadImageAction,
+} from "../../upload-actions";
 import { createOfflineDraftController } from "@/modules/offline-drafts";
 import styles from "./editor.module.css";
 
@@ -44,12 +48,14 @@ export function Editor({
   article,
   topics,
   publishedArticles,
+  editingLockedBy = null,
   saveDraftAction,
   publishAction,
 }: {
   article: EditingArticle;
   topics: { id: string; stableId: string; name: string; archived: boolean }[];
   publishedArticles: { stableId: string; title: string }[];
+  editingLockedBy?: string | null;
   saveDraftAction?: (formData: FormData) => Promise<void>;
   publishAction?: (formData: FormData) => Promise<void>;
 }) {
@@ -66,6 +72,7 @@ export function Editor({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [editingLocked, setEditingLocked] = useState(editingLockedBy !== null);
   const [conflictMessage, setConflictMessage] = useState<string | null>(null);
   const [conflictLocalContent, setConflictLocalContent] = useState<string>("");
   const [conflictServerContent, setConflictServerContent] =
@@ -243,6 +250,28 @@ export function Editor({
 
   return (
     <div className={styles.editor}>
+      {editingLockedBy && (
+        <div className={styles.lockBanner} role="status">
+          <span>该文章正被其他编辑者占用，当前为只读查看。</span>
+          <button
+            className={styles.takeOverButton}
+            onClick={() => {
+              void (async () => {
+                const response = await fetch(
+                  `/api/articles/${article.stableId}/take-over`,
+                  { method: "POST" },
+                );
+                if (response.ok) {
+                  window.location.reload();
+                }
+              })();
+            }}
+            type="button"
+          >
+            确认接管
+          </button>
+        </div>
+      )}
       <header className={styles.toolbar}>
         <div className={styles.modeSwitch} role="tablist" aria-label="编辑模式">
           {(["preview", "source", "split"] as const).map((item) => (
@@ -416,6 +445,7 @@ export function Editor({
             aria-label="Markdown 源码"
             value={body}
             onChange={(event) => setBody(event.target.value)}
+            readOnly={editingLocked}
             spellCheck={false}
           />
         )}

@@ -6,6 +6,7 @@
     "0003_content_foundation.sql",
     "0004_article_read_count.sql",
     "0005_article_versions.sql",
-    "0006_image_assets.sql"
+    "0006_image_assets.sql",
+    "0007_article_editing_lock.sql"
   ]
 }
