@@ -159,7 +159,7 @@ test("Editorial Space works across desktop, theme, keyboard, and mobile", async 
     .getByRole("link")
     .click();
   await expect(page).toHaveURL(/\/onboarding$/);
-  await expect(page.getByText("内容建设中")).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("新人专区");
   const destinationDrawer = page.getByRole("group", { name: "移动端主导航" });
   await destinationDrawer.locator("summary").click();
   await expect(

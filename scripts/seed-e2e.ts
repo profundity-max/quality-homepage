@@ -13,6 +13,8 @@ import {
   articleVersions,
   articles,
   articleAliases,
+  bookCategories,
+  books,
   templateCategories,
   templateVersions,
   templates,
@@ -241,6 +243,28 @@ try {
     status: "active",
     quarantineState: "passed",
     uploadedBy: admin.id,
+    createdAt: now,
+  });
+
+  // 推荐书单（BOOK）：一本演示书
+  await client.insert(bookCategories).values({
+    id: "00000000-0000-4000-8000-0000000000e1",
+    stableId: "demo-book-cat",
+    name: "演示书分类",
+    sortOrder: 0,
+    createdAt: new Date(),
+  });
+  await client.insert(books).values({
+    id: "00000000-0000-4000-8000-0000000000e2",
+    stableId: "demo-book",
+    title: "演示：品质管理基础",
+    author: "示例作者",
+    recommendation: "品质入门推荐阅读。",
+    audience: "新入职品质工程师",
+    categoryId: "00000000-0000-4000-8000-0000000000e1",
+    tags: ["入门"],
+    recommendedBy: admin.id,
+    updatedAt: now,
     createdAt: now,
   });
 

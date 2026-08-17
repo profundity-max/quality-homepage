@@ -2,6 +2,11 @@ import Link from "next/link";
 
 import { getDatabase } from "@/db/database";
 import { createKnowledgePublishingService } from "@/modules/knowledge-publishing";
+import { createBookService } from "@/modules/book-service";
+import { createTemplateService } from "@/modules/template-service";
+import { createOnboardingService } from "@/modules/onboarding";
+import { createDiskFileStorage } from "@/modules/file-storage";
+import { resolveDataDirectory } from "@/modules/file-storage/configuration";
 import { createPersonalizedHome } from "@/modules/personalized-home";
 
 import { requirePortalSession } from "./authorization";
@@ -24,10 +29,30 @@ export default async function HomePage() {
   });
 
   const service = createKnowledgePublishingService(getDatabase());
-  const [tree, recentUpdates] = await Promise.all([
+  const [
+    tree,
+    recentUpdates,
+    templateCategories,
+    bookCategories,
+    onboardingStages,
+  ] = await Promise.all([
     service.listTopicTree(),
     service.listRecentUpdates(5),
+    createTemplateService(getDatabase(), {
+      storage: createDiskFileStorage(resolveDataDirectory()),
+      scanner: { scan: async () => ({ safe: true }) },
+    }).listPublishedTemplatesByCategory(),
+    createBookService(getDatabase()).listBooksByCategory(),
+    createOnboardingService(getDatabase()).listStages(),
   ]);
+  const publishedTemplates = templateCategories.reduce(
+    (total, category) => total + category.templates.length,
+    0,
+  );
+  const publishedBooks = bookCategories.reduce(
+    (total, category) => total + category.books.length,
+    0,
+  );
 
   const quality = tree.find(
     (section) => section.stableId === "quality-knowledge",
@@ -57,14 +82,22 @@ export default async function HomePage() {
             <p className={styles.index}>01</p>
             <Link href="/onboarding" className={styles.sectionLink}>
               <h2>新人专区</h2>
-              <p className={styles.sectionStatus}>建设中</p>
+              <p className={styles.sectionStatus}>
+                {onboardingStages.length > 0
+                  ? `${onboardingStages.length} 个阶段 · 点击进入`
+                  : "暂无内容"}
+              </p>
             </Link>
           </section>
           <section className={styles.section}>
             <p className={styles.index}>02</p>
             <Link href="/templates" className={styles.sectionLink}>
               <h2>模板中心</h2>
-              <p className={styles.sectionStatus}>建设中</p>
+              <p className={styles.sectionStatus}>
+                {publishedTemplates > 0
+                  ? `${publishedTemplates} 个模板 · 点击进入`
+                  : "暂无内容"}
+              </p>
             </Link>
           </section>
           <section className={styles.section}>
@@ -124,7 +157,11 @@ export default async function HomePage() {
             <p className={styles.index}>05</p>
             <Link href="/books" className={styles.sectionLink}>
               <h2>推荐书单</h2>
-              <p className={styles.sectionStatus}>建设中</p>
+              <p className={styles.sectionStatus}>
+                {publishedBooks > 0
+                  ? `${publishedBooks} 本书 · 点击进入`
+                  : "暂无内容"}
+              </p>
             </Link>
           </section>
         </div>
