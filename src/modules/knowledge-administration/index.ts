@@ -91,6 +91,25 @@ function slugify(name: string): string {
   return `item-${randomUUID().slice(0, 8)}`;
 }
 
+async function assertEditorOrAdministrator(
+  client: ReturnType<typeof createDatabaseClient>,
+  requestingUserId: string,
+): Promise<void> {
+  const rows = await client
+    .select({ id: users.id })
+    .from(users)
+    .where(
+      and(
+        eq(users.id, requestingUserId),
+        sql`${users.role} in ('editor', 'administrator')`,
+        isNull(users.disabledAt),
+      ),
+    );
+  if (rows.length === 0) {
+    throw new Error("Editor privileges required.");
+  }
+}
+
 async function assertAdministrator(
   client: ReturnType<typeof createDatabaseClient>,
   requestingUserId: string,
@@ -221,7 +240,7 @@ export function createKnowledgeAdministrationService(
     },
 
     async listAllTopics(requestingUserId) {
-      await assertAdministrator(client, requestingUserId);
+      await assertEditorOrAdministrator(client, requestingUserId);
       const rows = await client
         .select({
           id: topics.id,
