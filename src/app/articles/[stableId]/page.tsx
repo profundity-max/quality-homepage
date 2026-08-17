@@ -32,11 +32,42 @@ export default async function ArticlePage({
   const session = await requirePortalSession(`/articles/${stableId}`);
 
   const service = createKnowledgePublishingService(getDatabase());
-  const [article, related, adjacent] = await Promise.all([
+  const [article, archivedInfo, related, adjacent] = await Promise.all([
     service.getPublishedArticleByStableId(stableId),
+    service.getArchivedArticleInfo(stableId),
     service.listRelatedArticles(stableId),
     service.getAdjacentArticles(stableId),
   ]);
+
+  if (!article && !archivedInfo) notFound();
+
+  // VER-04：已归档文章打开旧链接显示归档说明，不默认展示正文
+  if (archivedInfo && !article) {
+    return (
+      <PortalShell currentPath={`/articles/${stableId}`}>
+        <main id="main-content" tabIndex={-1} className={styles.layout}>
+          <section className={styles.archived} aria-label="归档说明">
+            <h1>{archivedInfo.title}</h1>
+            <p className={styles.archivedBadge}>已归档</p>
+            {archivedInfo.summary && <p>{archivedInfo.summary}</p>}
+            <dl className={styles.metaList}>
+              <div>
+                <dt>内容负责人</dt>
+                <dd>{archivedInfo.ownerDisplayName ?? "—"}</dd>
+              </div>
+              <div>
+                <dt>归档时间</dt>
+                <dd>{formatDate(archivedInfo.archivedAt)}</dd>
+              </div>
+            </dl>
+            <p className={styles.archivedNote}>
+              该文章已归档，正文不再展示。如有需要请联系内容负责人。
+            </p>
+          </section>
+        </main>
+      </PortalShell>
+    );
+  }
 
   if (!article) notFound();
 

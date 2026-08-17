@@ -59,6 +59,14 @@ export type PublishedArticle = {
   editingInProgress: boolean;
 };
 
+export type ArchivedArticleInfo = {
+  stableId: string;
+  title: string;
+  summary: string;
+  ownerDisplayName: string | null;
+  archivedAt: Date | null;
+};
+
 export type AdjacentArticles = {
   previous: ArticleSummary | null;
   next: ArticleSummary | null;
@@ -79,6 +87,8 @@ export type KnowledgePublishingService = {
   listRelatedArticles(stableId: string): Promise<ArticleSummary[]>;
   /** 全部已发布文章（站内链接选择器用）。 */
   listAllPublishedArticles(limit: number): Promise<ArticleSummary[]>;
+  /** 归档说明（VER-04）：已归档文章打开旧链接时展示。 */
+  getArchivedArticleInfo(stableId: string): Promise<ArchivedArticleInfo | null>;
   /** 阅读次数 +1（ART-06 基础计数）；非已发布文章不生效。 */
   recordRead(stableId: string): Promise<void>;
   /** 同主题内按更新时间排序的上一篇与下一篇（ART-06）。 */
@@ -309,6 +319,32 @@ export function createKnowledgePublishingService(
         readCount: display.readCount,
         editingInProgress,
       };
+    },
+
+    async getArchivedArticleInfo(stableId) {
+      const row = (
+        await client
+          .select({
+            stableId: articles.stableId,
+            title: articles.title,
+            summary: articles.summary,
+            ownerDisplayName: sql<string>`coalesce(
+              ${users.displayName}, ${users.username}
+            )`,
+            archivedAt: articles.updatedAt,
+          })
+          .from(articles)
+          .leftJoin(users, eq(articles.contentOwnerId, users.id))
+          .where(
+            and(
+              eq(articles.stableId, stableId),
+              eq(articles.status, "archived"),
+            ),
+          )
+          .limit(1)
+      )[0];
+      if (!row) return null;
+      return row;
     },
 
     async listRecentUpdates(limit) {

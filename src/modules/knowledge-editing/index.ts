@@ -35,6 +35,18 @@ export type EditingArticle = {
   updatedAt: Date;
 };
 
+export type ArticleVersionSummary = {
+  id: string;
+  version: number;
+  kind: "publish" | "restore";
+  title: string;
+  summary: string;
+  bodyMarkdown: string;
+  restoredReason: string | null;
+  createdBy: string | null;
+  createdAt: Date;
+};
+
 export type KnowledgeEditingService = {
   createDraft(
     editorUserId: string,
@@ -91,6 +103,11 @@ export type KnowledgeEditingService = {
     editorUserId: string,
     stableId: string,
   ): Promise<EditingArticle>;
+  /** 版本历史列表（VER-03）。 */
+  listVersions(
+    editorUserId: string,
+    stableId: string,
+  ): Promise<ArticleVersionSummary[]>;
 };
 
 // GOV-03：确认仍然有效后，下一次复核默认推后 180 天
@@ -456,6 +473,28 @@ export function createKnowledgeEditingService(
         .where(eq(articles.stableId, stableId))
         .returning(articleColumns);
       return rows[0]!;
+    },
+
+    async listVersions(editorUserId, stableId) {
+      await assertEditor(client, editorUserId);
+      const article = await findArticle(stableId);
+      if (!article) throw new Error("Article not found.");
+      const rows = await client
+        .select({
+          id: articleVersions.id,
+          version: articleVersions.version,
+          kind: articleVersions.kind,
+          title: articleVersions.title,
+          summary: articleVersions.summary,
+          bodyMarkdown: articleVersions.bodyMarkdown,
+          restoredReason: articleVersions.restoredReason,
+          createdBy: articleVersions.createdBy,
+          createdAt: articleVersions.createdAt,
+        })
+        .from(articleVersions)
+        .where(eq(articleVersions.articleId, article.id))
+        .orderBy(desc(articleVersions.version));
+      return rows;
     },
 
     async takeOverEditLock(editorUserId, stableId) {

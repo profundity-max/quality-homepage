@@ -285,4 +285,20 @@ describe("knowledge editing service", () => {
     const taken = await service.takeOverEditLock(otherUserId, created.stableId);
     expect(taken.editingBy).toBe(otherUserId);
   });
+
+  test("lists version history with restore metadata (VER-03)", async () => {
+    const service = createKnowledgeEditingService(database);
+    const created = await service.createDraft(editorId, draftInput());
+    await service.publish(editorId, created.stableId, draftInput());
+    await service.beginEdit(editorId, created.stableId);
+    await service.publish(editorId, created.stableId, {
+      ...draftInput(),
+      title: "第二版",
+    });
+
+    const versions = await service.listVersions(editorId, created.stableId);
+    expect(versions.map((v) => v.version).sort()).toEqual([1, 2]);
+    expect(versions[0]!.kind).toBe("publish");
+    expect(versions[0]!.createdBy).toBe(editorId);
+  });
 });

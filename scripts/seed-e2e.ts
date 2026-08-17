@@ -9,7 +9,12 @@ import {
   createIdentityModule,
 } from "../src/modules/identity/index";
 import { eq } from "drizzle-orm";
-import { articles, articleAliases, users } from "../src/db/schema";
+import {
+  articleVersions,
+  articles,
+  articleAliases,
+  users,
+} from "../src/db/schema";
 import { resolveE2EDataDirectory } from "./e2e-seed-guard";
 
 const dataDirectory = resolveE2EDataDirectory(process.env);
@@ -166,6 +171,46 @@ try {
     id: "00000000-0000-4000-8000-000000000e01",
     articleId: "00000000-0000-4000-8000-0000000000d1",
     alias: "方差分析入门",
+  });
+
+  // 版本历史（VER-03）：anova-intro 有一条发布版本记录
+  const anovaArticle = (
+    await client
+      .select({ id: articles.id })
+      .from(articles)
+      .where(eq(articles.stableId, "anova-intro"))
+  )[0];
+  if (anovaArticle) {
+    await client.insert(articleVersions).values({
+      id: "00000000-0000-4000-8000-000000000e02",
+      articleId: anovaArticle.id,
+      version: 1,
+      kind: "publish",
+      title: "ANOVA 入门",
+      summary: "方差分析的基础概念与适用场景。",
+      bodyMarkdown: "## 什么是 ANOVA\n\n方差分析用于比较多个组的均值差异。",
+      primaryTopicId: anovaTopicId,
+      tags: ["统计"],
+      contentOwnerId: admin.id,
+      createdBy: admin.id,
+      createdAt: new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000),
+    });
+  }
+
+  // 已归档演示文章（VER-04 归档说明页）
+  await client.insert(articles).values({
+    id: "00000000-0000-4000-8000-0000000000d6",
+    stableId: "archived-sample",
+    title: "旧版入门手册",
+    summary: "已被新版替代的入门材料。",
+    bodyMarkdown: "不应展示的正文",
+    primaryTopicId: anovaTopicId,
+    tags: ["旧版"],
+    contentOwnerId: admin.id,
+    status: "archived",
+    publishedAt: new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000),
+    updatedAt: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000),
+    createdAt: new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000),
   });
 } finally {
   await database.close();

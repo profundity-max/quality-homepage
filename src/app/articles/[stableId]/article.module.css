@@ -353,3 +353,37 @@
     position: static;
   }
 }
+
+/* VER-04 归档说明 */
+.archived {
+  max-width: 56ch;
+  margin: 0 auto;
+  padding: clamp(48px, 8vw, 96px) 0;
+}
+
+.archived h1 {
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
+  font-weight: 500;
+  margin: 0 0 16px;
+}
+
+.archivedBadge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--color-warning);
+  color: var(--color-warning);
+  font-size: 0.875rem;
+  margin: 0 0 20px;
+}
+
+.archived p {
+  color: var(--color-text-secondary);
+  line-height: 1.7;
+}
+
+.archivedNote {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-divider);
+}
