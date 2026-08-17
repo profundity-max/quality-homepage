@@ -4,7 +4,14 @@ import type { SQL } from "drizzle-orm";
 import type { Sql } from "postgres";
 
 import { createDatabaseClient } from "@/db/client";
-import { articles, articleAliases, sections, topics, users } from "@/db/schema";
+import {
+  articleVersions,
+  articles,
+  articleAliases,
+  sections,
+  topics,
+  users,
+} from "@/db/schema";
 
 export type TopicSummary = {
   id: string;
@@ -48,6 +55,8 @@ export type PublishedArticle = {
   nextReviewAt: Date | null;
   publishedAt: Date | null;
   readCount: number;
+  /** 该文章正在被编辑（已发布版本进入编辑、阅读者看到最后发布版本）。 */
+  editingInProgress: boolean;
 };
 
 export type AdjacentArticles = {
@@ -189,6 +198,30 @@ export function createKnowledgePublishingService(
     },
 
     async getPublishedArticleByStableId(stableId) {
+      // VER-01 读侧：已发布文章进入编辑（转草稿）期间，阅读者仍应看到
+      // 最后发布的版本（验收 §6「编辑已发布文章时，阅读者继续看到旧发布版本」）。
+      const articleRow = (
+        await client
+          .select({
+            id: articles.id,
+            stableId: articles.stableId,
+            status: articles.status,
+            publishedAt: articles.publishedAt,
+            updatedAt: articles.updatedAt,
+          })
+          .from(articles)
+          .where(eq(articles.stableId, stableId))
+          .limit(1)
+      )[0];
+      if (!articleRow) return null;
+
+      const isPublished = articleRow.status === "published";
+      const editingInProgress =
+        articleRow.status === "draft" && articleRow.publishedAt !== null;
+      // 已归档文章不在此入口展示（归档说明页由 T8 处理）
+      if (articleRow.status === "archived") return null;
+      if (!isPublished && !editingInProgress) return null;
+
       const rows = await client
         .select({
           id: articles.id,
@@ -213,34 +246,66 @@ export function createKnowledgePublishingService(
         .innerJoin(topics, eq(articles.primaryTopicId, topics.id))
         .innerJoin(sections, eq(topics.sectionId, sections.id))
         .leftJoin(users, eq(articles.contentOwnerId, users.id))
-        .where(and(eq(articles.stableId, stableId), publishedWhere))
+        .where(eq(articles.stableId, stableId))
         .limit(1);
       const row = rows[0];
       if (!row) return null;
 
+      // 编辑中：内容取文章行（草稿工作区）会泄露未发布草稿 →
+      // 改取最后一次发布的版本快照（article_versions 中 kind=publish 的最新行）。
+      let display = { ...row };
+      if (editingInProgress) {
+        const lastPublished = (
+          await client
+            .select({
+              title: articleVersions.title,
+              summary: articleVersions.summary,
+              bodyMarkdown: articleVersions.bodyMarkdown,
+              primaryTopicId: articleVersions.primaryTopicId,
+              tags: articleVersions.tags,
+              contentOwnerId: articleVersions.contentOwnerId,
+              lastReviewedAt: articleVersions.lastReviewedAt,
+              nextReviewAt: articleVersions.nextReviewAt,
+            })
+            .from(articleVersions)
+            .where(
+              and(
+                eq(articleVersions.articleId, articleRow.id),
+                eq(articleVersions.kind, "publish"),
+              ),
+            )
+            .orderBy(desc(articleVersions.version))
+            .limit(1)
+        )[0];
+        if (lastPublished) {
+          display = { ...display, ...lastPublished };
+        }
+      }
+
       const aliasRows = await client
         .select({ alias: articleAliases.alias })
         .from(articleAliases)
-        .where(eq(articleAliases.articleId, row.id))
+        .where(eq(articleAliases.articleId, display.id))
         .orderBy(asc(articleAliases.alias));
 
       return {
-        id: row.id,
-        stableId: row.stableId,
-        title: row.title,
-        summary: row.summary,
-        bodyMarkdown: row.bodyMarkdown,
-        topicName: row.topicName,
-        topicStableId: row.topicStableId,
-        sectionName: row.sectionName,
-        tags: row.tags,
+        id: display.id,
+        stableId: display.stableId,
+        title: display.title,
+        summary: display.summary,
+        bodyMarkdown: display.bodyMarkdown,
+        topicName: display.topicName,
+        topicStableId: display.topicStableId,
+        sectionName: display.sectionName,
+        tags: display.tags,
         aliases: aliasRows.map((aliasRow) => aliasRow.alias),
-        ownerDisplayName: row.ownerDisplayName,
-        updatedAt: row.updatedAt,
-        lastReviewedAt: row.lastReviewedAt,
-        nextReviewAt: row.nextReviewAt,
-        publishedAt: row.publishedAt,
-        readCount: row.readCount,
+        ownerDisplayName: display.ownerDisplayName,
+        updatedAt: display.updatedAt,
+        lastReviewedAt: display.lastReviewedAt,
+        nextReviewAt: display.nextReviewAt,
+        publishedAt: display.publishedAt,
+        readCount: display.readCount,
+        editingInProgress,
       };
     },
 
