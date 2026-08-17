@@ -56,6 +56,25 @@ export type TemplateService = {
     requestingUserId: string,
     versionId: string,
   ): Promise<TemplateVersionView>;
+  /** 发布版本：须扫描通过；旧有效版本变 superseded（TPL-07/08）。 */
+  publishTemplateVersion(
+    requestingUserId: string,
+    versionId: string,
+  ): Promise<TemplateVersionView>;
+  /** 模板版本列表（编辑者追溯历史，TPL-08）。 */
+  listTemplateVersions(
+    requestingUserId: string,
+    templateStableId: string,
+  ): Promise<TemplateVersionView[]>;
+  /** 模板副本：新标识、草稿、不复制历史/统计（TPL-10）。 */
+  duplicateTemplate(
+    requestingUserId: string,
+    templateStableId: string,
+  ): Promise<{ stableId: string; status: string }>;
+  /** 记录下载并返回当前有效版本文件（FILE-03/04，TPL-09）。 */
+  getActiveVersionForDownload(
+    templateStableId: string,
+  ): Promise<{ versionId: string; fileName: string; extension: string } | null>;
 };
 
 async function assertEditor(
@@ -230,6 +249,143 @@ export function createTemplateService(
         view.quarantineReason = reason;
       }
       return view;
+    },
+
+    async publishTemplateVersion(requestingUserId, versionId) {
+      await assertEditor(client, requestingUserId);
+      const version = (
+        await client
+          .select()
+          .from(templateVersions)
+          .where(eq(templateVersions.id, versionId))
+          .limit(1)
+      )[0];
+      if (!version) throw new Error("Version not found.");
+      if (version.quarantineState !== "passed") {
+        throw new Error("版本未通过恶意文件扫描，不能发布。");
+      }
+      if (version.status !== "draft") {
+        throw new Error("只有草稿版本可以发布。");
+      }
+
+      // TPL-07/08：旧有效版本变 superseded；新版本置 active
+      await client
+        .update(templateVersions)
+        .set({ status: "superseded" })
+        .where(
+          and(
+            eq(templateVersions.templateId, version.templateId),
+            eq(templateVersions.status, "active"),
+          ),
+        );
+      await client
+        .update(templateVersions)
+        .set({ status: "active" })
+        .where(eq(templateVersions.id, versionId));
+      // TPL-07 发布约束：补复核日期（+180 天）
+      const nextReview = new Date(Date.now() + 180 * 24 * 60 * 60 * 1000);
+      await client
+        .update(templates)
+        .set({
+          status: "published",
+          nextReviewAt: nextReview,
+          updatedAt: new Date(),
+        })
+        .where(eq(templates.id, version.templateId));
+
+      const rows = await client
+        .select()
+        .from(templateVersions)
+        .where(eq(templateVersions.id, versionId));
+      return toView(rows[0]!);
+    },
+
+    async listTemplateVersions(requestingUserId, templateStableId) {
+      await assertEditor(client, requestingUserId);
+      const template = (
+        await client
+          .select()
+          .from(templates)
+          .where(eq(templates.stableId, templateStableId))
+          .limit(1)
+      )[0];
+      if (!template) throw new Error("Template not found.");
+      const rows = await client
+        .select()
+        .from(templateVersions)
+        .where(eq(templateVersions.templateId, template.id))
+        .orderBy(desc(templateVersions.version));
+      return Promise.all(rows.map((row) => toView(row)));
+    },
+
+    async getActiveVersionForDownload(templateStableId) {
+      const template = (
+        await client
+          .select()
+          .from(templates)
+          .where(
+            and(
+              eq(templates.stableId, templateStableId),
+              eq(templates.status, "published"),
+            ),
+          )
+          .limit(1)
+      )[0];
+      if (!template) return null;
+      const version = (
+        await client
+          .select()
+          .from(templateVersions)
+          .where(
+            and(
+              eq(templateVersions.templateId, template.id),
+              eq(templateVersions.status, "active"),
+              eq(templateVersions.quarantineState, "passed"),
+            ),
+          )
+          .orderBy(desc(templateVersions.version))
+          .limit(1)
+      )[0];
+      if (!version) return null;
+      await client
+        .update(templateVersions)
+        .set({ downloadCount: sql`${templateVersions.downloadCount} + 1` })
+        .where(eq(templateVersions.id, version.id));
+      return {
+        versionId: version.id,
+        fileName: version.fileName,
+        extension: version.extension,
+      };
+    },
+
+    async duplicateTemplate(requestingUserId, templateStableId) {
+      await assertEditor(client, requestingUserId);
+      const source = (
+        await client
+          .select()
+          .from(templates)
+          .where(eq(templates.stableId, templateStableId))
+          .limit(1)
+      )[0];
+      if (!source) throw new Error("Template not found.");
+
+      const now = new Date();
+      const rows = await client
+        .insert(templates)
+        .values({
+          id: randomUUID(),
+          stableId: `tpl-${randomUUID().slice(0, 8)}`,
+          name: `${source.name}（副本）`,
+          purpose: source.purpose,
+          usageScenario: source.usageScenario,
+          categoryId: source.categoryId,
+          contentOwnerId: source.contentOwnerId,
+          status: "draft",
+          updatedAt: now,
+          createdAt: now,
+        })
+        .returning({ stableId: templates.stableId, status: templates.status });
+      return rows[0]!;
     },
   };
 }

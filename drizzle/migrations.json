@@ -11,6 +11,7 @@
     "0008_onboarding.sql",
     "0009_template_center.sql",
     "0010_books.sql",
-    "0011_template_quarantine_reason.sql"
+    "0011_template_quarantine_reason.sql",
+    "0012_template_download_count.sql"
   ]
 }

@@ -184,4 +184,85 @@ describe("template service quarantine", () => {
       }),
     ).rejects.toThrow(/editor|权限/i);
   });
+
+  test("publishes a scanned version and supersedes the old one (TPL-07/08)", async () => {
+    const service = createTemplateService(database, {
+      storage: createDiskFileStorage(directory),
+      scanner: cleanScanner,
+    });
+    const v1 = await service.uploadTemplateVersion(editorId, {
+      templateStableId: "pub-tpl",
+      name: "模板",
+      categoryId,
+      versionLabel: "1.0",
+      fileName: "v1.xlsx",
+      contentOwnerId: editorId,
+      fileBuffer: Buffer.from("v1"),
+    });
+    await service.scanTemplateVersion(editorId, v1.id);
+    const published = await service.publishTemplateVersion(editorId, v1.id);
+    expect(published.status).toBe("active");
+    expect(published.quarantineState).toBe("passed");
+
+    // 第二版：上传+扫描+发布 → v1 变 superseded
+    const v2 = await service.uploadTemplateVersion(editorId, {
+      templateStableId: "pub-tpl",
+      name: "模板",
+      categoryId,
+      versionLabel: "2.0",
+      changeNote: "改版",
+      fileName: "v2.xlsx",
+      contentOwnerId: editorId,
+      fileBuffer: Buffer.from("v2"),
+    });
+    await service.scanTemplateVersion(editorId, v2.id);
+    await service.publishTemplateVersion(editorId, v2.id);
+
+    const versions = await service.listTemplateVersions(editorId, "pub-tpl");
+    const v1Row = versions.find((v) => v.version === 1);
+    const v2Row = versions.find((v) => v.version === 2);
+    expect(v1Row?.status).toBe("superseded");
+    expect(v2Row?.status).toBe("active");
+  });
+
+  test("publishing a quarantined version is refused (FILE-02)", async () => {
+    const service = createTemplateService(database, {
+      storage: createDiskFileStorage(directory),
+      scanner: cleanScanner,
+    });
+    const v = await service.uploadTemplateVersion(editorId, {
+      templateStableId: "no-scan",
+      name: "模板",
+      categoryId,
+      versionLabel: "1.0",
+      fileName: "n.xlsx",
+      contentOwnerId: editorId,
+      fileBuffer: Buffer.from("n"),
+    });
+    await expect(
+      service.publishTemplateVersion(editorId, v.id),
+    ).rejects.toThrow(/扫描|quarantine|隔离/i);
+  });
+
+  test("creates a template duplicate with a fresh identity (TPL-10)", async () => {
+    const service = createTemplateService(database, {
+      storage: createDiskFileStorage(directory),
+      scanner: cleanScanner,
+    });
+    const v1 = await service.uploadTemplateVersion(editorId, {
+      templateStableId: "dup-tpl",
+      name: "模板",
+      categoryId,
+      versionLabel: "1.0",
+      fileName: "d1.xlsx",
+      contentOwnerId: editorId,
+      fileBuffer: Buffer.from("d1"),
+    });
+    await service.scanTemplateVersion(editorId, v1.id);
+    await service.publishTemplateVersion(editorId, v1.id);
+
+    const dup = await service.duplicateTemplate(editorId, "dup-tpl");
+    expect(dup.stableId).not.toBe("dup-tpl");
+    expect(dup.status).toBe("draft");
+  });
 });
