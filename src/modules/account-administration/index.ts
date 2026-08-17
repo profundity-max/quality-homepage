@@ -6,7 +6,13 @@ import type { Sql } from "postgres";
 
 import { createDatabaseClient } from "@/db/client";
 import { getDatabase } from "@/db/database";
-import { identityAuditEvents, type Role, sessions, users } from "@/db/schema";
+import {
+  articles,
+  identityAuditEvents,
+  type Role,
+  sessions,
+  users,
+} from "@/db/schema";
 import { normalizeUsername, type UserId } from "@/modules/identity";
 import {
   type PasswordHasher,
@@ -186,6 +192,22 @@ export function createAccountAdministrationModule({
           throw new Error("The current account cannot be disabled.");
         }
         await assertAdministratorContinuity(transaction, input.userId);
+        // GOV-04：停用有已发布文章的内容负责人前，必须先重分配
+        const ownedPublished = await transaction
+          .select({ id: articles.id })
+          .from(articles)
+          .where(
+            and(
+              eq(articles.contentOwnerId, input.userId),
+              eq(articles.status, "published"),
+            ),
+          )
+          .limit(1);
+        if (ownedPublished.length > 0) {
+          throw new Error(
+            "The account owns published articles; reassign their content before disabling (GOV-04).",
+          );
+        }
         const disabled = await transaction
           .update(users)
           .set({ disabledAt: occurredAt })

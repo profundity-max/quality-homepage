@@ -85,3 +85,18 @@ test("administrator can reorder topics (IA-07)", async ({ page }) => {
   await page.goto("/quality?topic=spc");
   await expect(page.getByRole("heading", { name: "SPC" })).toBeVisible();
 });
+
+test("management page shows due reviews and confirms still valid (GOV-02/03)", async ({
+  page,
+}) => {
+  await loginAsColumnAdmin(page);
+  await page.goto("/manage");
+
+  // 待复核区块包含 anova-intro（seed 中复核已到期）
+  const reviews = page.getByLabel("待复核内容");
+  await expect(reviews).toContainText("ANOVA 入门");
+
+  // 确认仍然有效 → 区块更新
+  await reviews.getByRole("button", { name: "确认仍然有效" }).click();
+  await expect(page.getByRole("status")).toContainText("内容复核已更新");
+});

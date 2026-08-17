@@ -504,6 +504,80 @@ describe("account administration", () => {
       /initial audited password|replacement audited password|wrong audited password/,
     );
   });
+
+  test("disabling an owner with published articles is blocked (GOV-04)", async () => {
+    database = new PGlite();
+    await migrate(database);
+    await bootstrapFirstAdministrator({
+      database,
+      username: "admin",
+      displayName: "品质管理员",
+      password: "correct horse battery staple",
+    });
+    const identity = createIdentityModule({ database });
+    const administrator = await identity.authenticate({
+      username: "admin",
+      password: "correct horse battery staple",
+    });
+    if (administrator.kind !== "authenticated") return;
+    await completeFirstPasswordChange(identity, administrator);
+    const accounts = createAccountAdministrationModule({ database });
+
+    await accounts.createMember({
+      requestingUserId: administrator.member.id,
+      username: "owner-with-articles",
+      displayName: "有文章负责人",
+      role: "editor",
+      temporaryPassword: "temporary owner password",
+    });
+    const members = await accounts.listMembers(administrator.member.id);
+    const owner = members.find(
+      (member) => member.username === "owner-with-articles",
+    );
+    if (!owner) return;
+
+    // 该用户成为一篇文章的内容负责人（已发布）
+    const { createDatabaseClient } = await import("@/db/client");
+    const { articles } = await import("@/db/schema");
+    const { eq } = await import("drizzle-orm");
+    const client = createDatabaseClient(database);
+    const now = new Date();
+    await client.insert(articles).values({
+      id: "00000000-0000-4000-8000-0000000000d1",
+      stableId: "owner-article",
+      title: "负责人文章",
+      summary: "s",
+      bodyMarkdown: "b",
+      primaryTopicId: "00000000-0000-4000-8000-000000000c04",
+      tags: [],
+      contentOwnerId: owner.id,
+      status: "published",
+      nextReviewAt: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
+      publishedAt: now,
+      updatedAt: now,
+      createdAt: now,
+    });
+
+    // 停用被阻止，提示先重分配（GOV-04）
+    await expect(
+      accounts.disableMember({
+        requestingUserId: administrator.member.id,
+        userId: owner.id,
+      }),
+    ).rejects.toThrow(/content owner|负责人|reassign|重分配/i);
+
+    // 无文章负责人可正常停用
+    const { createDatabaseClient: c2 } = await import("@/db/client");
+    const { articles: a2 } = await import("@/db/schema");
+    const { eq: e2 } = await import("drizzle-orm");
+    await c2(database).delete(a2).where(e2(a2.stableId, "owner-article"));
+    await expect(
+      accounts.disableMember({
+        requestingUserId: administrator.member.id,
+        userId: owner.id,
+      }),
+    ).resolves.toBeUndefined();
+  });
 });
 
 async function completeFirstPasswordChange(

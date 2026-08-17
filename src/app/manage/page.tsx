@@ -1,11 +1,14 @@
 import { redirect } from "next/navigation";
 
 import { getAccountAdministrationModule } from "@/modules/account-administration";
+import { getDatabase } from "@/db/database";
+import { createKnowledgePublishingService } from "@/modules/knowledge-publishing";
 
 import { requirePortalSession } from "../authorization";
 import { PortalShell } from "../portal-shell";
 import {
   changeRoleAction,
+  confirmReviewAction,
   createMemberAction,
   disableMemberAction,
   resetPasswordAction,
@@ -39,6 +42,9 @@ export default async function AccountManagementPage({
   if (!members) redirect("/");
   const notice = firstValue(params.notice);
   const error = firstValue(params.error);
+  const dueReviews = await createKnowledgePublishingService(getDatabase())
+    .listDueReviews(20)
+    .catch(() => []);
 
   return (
     <PortalShell currentPath="/manage">
@@ -51,7 +57,37 @@ export default async function AccountManagementPage({
           </div>
         </header>
 
-        {notice ? <p className={styles.notice}>{notice}</p> : null}
+        {dueReviews.length > 0 && (
+          <section className={styles.reviews} aria-label="待复核内容">
+            <h2>待复核内容（GOV-02）</h2>
+            <ul>
+              {dueReviews.map((review) => (
+                <li key={review.stableId} className={styles.reviewItem}>
+                  <span>
+                    {review.title} · 负责人 {review.ownerDisplayName} · 应复核于{" "}
+                    {review.nextReviewAt.toLocaleDateString("zh-CN")}
+                  </span>
+                  <form action={confirmReviewAction}>
+                    <input
+                      type="hidden"
+                      name="stableId"
+                      value={review.stableId}
+                    />
+                    <button className={styles.textButton} type="submit">
+                      确认仍然有效
+                    </button>
+                  </form>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        {notice ? (
+          <p className={styles.notice} role="status">
+            {notice}
+          </p>
+        ) : null}
         {error ? (
           <p className={styles.error} role="alert">
             {error}

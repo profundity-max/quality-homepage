@@ -59,6 +59,13 @@ export type PublishedArticle = {
   editingInProgress: boolean;
 };
 
+export type DueReview = {
+  stableId: string;
+  title: string;
+  ownerDisplayName: string;
+  nextReviewAt: Date;
+};
+
 export type ArchivedArticleInfo = {
   stableId: string;
   title: string;
@@ -89,6 +96,8 @@ export type KnowledgePublishingService = {
   listAllPublishedArticles(limit: number): Promise<ArticleSummary[]>;
   /** 归档说明（VER-04）：已归档文章打开旧链接时展示。 */
   getArchivedArticleInfo(stableId: string): Promise<ArchivedArticleInfo | null>;
+  /** 复核到期提醒（GOV-02）：next_review_at 已到期的已发布文章。 */
+  listDueReviews(limit: number): Promise<DueReview[]>;
   /** 阅读次数 +1（ART-06 基础计数）；非已发布文章不生效。 */
   recordRead(stableId: string): Promise<void>;
   /** 同主题内按更新时间排序的上一篇与下一篇（ART-06）。 */
@@ -319,6 +328,29 @@ export function createKnowledgePublishingService(
         readCount: display.readCount,
         editingInProgress,
       };
+    },
+
+    async listDueReviews(limit) {
+      const rows = await client
+        .select({
+          stableId: articles.stableId,
+          title: articles.title,
+          ownerDisplayName: sql<string>`coalesce(
+            ${users.displayName}, ${users.username}
+          )`,
+          nextReviewAt: articles.nextReviewAt,
+        })
+        .from(articles)
+        .leftJoin(users, eq(articles.contentOwnerId, users.id))
+        .where(
+          and(
+            eq(articles.status, "published"),
+            sql`${articles.nextReviewAt} <= now()`,
+          ),
+        )
+        .orderBy(asc(articles.nextReviewAt))
+        .limit(limit);
+      return rows.map((row) => ({ ...row, nextReviewAt: row.nextReviewAt! }));
     },
 
     async getArchivedArticleInfo(stableId) {

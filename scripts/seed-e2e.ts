@@ -173,6 +173,12 @@ try {
     alias: "方差分析入门",
   });
 
+  // GOV-02：让 anova-intro 复核到期（next_review_at 在过去）
+  await client
+    .update(articles)
+    .set({ nextReviewAt: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000) })
+    .where(eq(articles.stableId, "anova-intro"));
+
   // 版本历史（VER-03）：anova-intro 有一条发布版本记录
   const anovaArticle = (
     await client

@@ -7,6 +7,8 @@ import {
   getAccountAdministrationModule,
   type Role,
 } from "@/modules/account-administration";
+import { getDatabase } from "@/db/database";
+import { createKnowledgeEditingService } from "@/modules/knowledge-editing";
 
 import { requirePortalSession } from "../authorization";
 
@@ -102,6 +104,8 @@ function managementErrorMessage(error: unknown): string {
     return "必须保留至少一位有效管理员。";
   if (/actively locked/i.test(message)) return "该账号当前没有有效锁定。";
   if (/administrator/i.test(message)) return "没有账号管理权限。";
+  if (/reassign|重分配|GOV-04/i.test(message))
+    return "该账号仍有已发布文章，请先重分配内容负责人再停用（GOV-04）。";
   if (/username|unique/i.test(message)) return "用户名已存在或格式无效。";
   return "操作未完成，请检查输入后重试。";
 }
@@ -109,4 +113,14 @@ function managementErrorMessage(error: unknown): string {
 function readString(formData: FormData, name: string): string {
   const value = formData.get(name);
   return typeof value === "string" ? value : "";
+}
+
+export async function confirmReviewAction(formData: FormData): Promise<void> {
+  const stableId = readString(formData, "stableId");
+  await runManagementAction("内容复核已更新。", async (requestingUserId) => {
+    await createKnowledgeEditingService(getDatabase()).confirmStillValid(
+      requestingUserId,
+      stableId,
+    );
+  });
 }
