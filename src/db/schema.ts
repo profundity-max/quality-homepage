@@ -320,7 +320,45 @@ export const templateVersions = pgTable(
   ],
 );
 
+export const bookCategories = pgTable(
+  "book_categories",
+  {
+    id: uuid("id").primaryKey(),
+    stableId: text("stable_id").notNull(),
+    name: text("name").notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+  },
+  (table) => [uniqueIndex("book_categories_stable_id_idx").on(table.stableId)],
+);
+
+export const books = pgTable(
+  "books",
+  {
+    id: uuid("id").primaryKey(),
+    stableId: text("stable_id").notNull(),
+    title: text("title").notNull(),
+    author: text("author").notNull(),
+    coverImageId: uuid("cover_image_id"),
+    coverExtension: text("cover_extension"),
+    recommendation: text("recommendation").notNull().default(""),
+    audience: text("audience").notNull().default(""),
+    categoryId: uuid("category_id")
+      .notNull()
+      .references(() => bookCategories.id),
+    tags: text("tags").array().notNull().default([]),
+    recommendedBy: uuid("recommended_by").references(() => users.id),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("books_stable_id_idx").on(table.stableId),
+    index("books_category_id_idx").on(table.categoryId),
+  ],
+);
+
 export const onboardingSchema = { onboardingStages, onboardingSteps };
+export const bookSchema = { bookCategories, books };
 export const templateSchema = {
   templateCategories,
   templates,
