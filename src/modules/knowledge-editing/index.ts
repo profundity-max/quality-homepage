@@ -42,6 +42,7 @@ export type KnowledgeEditingService = {
     editorUserId: string,
     stableId: string,
     input: SaveDraftInput,
+    expectedUpdatedAt?: Date,
   ): Promise<EditingArticle>;
   publish(
     editorUserId: string,
@@ -208,8 +209,23 @@ export function createKnowledgeEditingService(
       return rows[0]!;
     },
 
-    async saveDraft(editorUserId, stableId, input) {
+    async saveDraft(editorUserId, stableId, input, expectedUpdatedAt) {
       await assertEditor(client, editorUserId);
+      const current = await findArticle(stableId);
+      if (!current) throw new Error("Article not found.");
+
+      // EDIT-07：乐观并发——期望版本与服务器版本不符即冲突，
+      // 禁止静默覆盖（他人已保存过）
+      if (
+        expectedUpdatedAt &&
+        current.updatedAt.getTime() !== expectedUpdatedAt.getTime()
+      ) {
+        throw new Error(
+          "Save conflict: the article changed on the server; " +
+            "reload and choose which version to keep.",
+        );
+      }
+
       return writeArticle(stableId, input, { status: "draft" });
     },
 

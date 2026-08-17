@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { migrate } from "@/db/migrate";
 import { createDatabaseClient } from "@/db/client";
 import { eq } from "drizzle-orm";
-import { articleVersions, articles, users } from "@/db/schema";
+import { articleVersions, users } from "@/db/schema";
 import {
   createKnowledgeEditingService,
   type SaveDraftInput,
@@ -12,7 +12,6 @@ import {
 
 const editorId = "00000000-0000-4000-8000-0000000000f1";
 const anovaTopicId = "00000000-0000-4000-8000-000000000c04";
-const spcTopicId = "00000000-0000-4000-8000-000000000c12";
 
 function draftInput(overrides: Partial<SaveDraftInput> = {}): SaveDraftInput {
   return {
@@ -224,5 +223,25 @@ describe("knowledge editing service", () => {
     expect(reader).not.toBeNull();
     expect(reader!.editingInProgress).toBe(true);
     expect(reader!.title).toBe("草稿标题");
+  });
+
+  test("saveDraft rejects stale saves and reports the conflict (EDIT-07)", async () => {
+    const service = createKnowledgeEditingService(database);
+    const created = await service.createDraft(editorId, draftInput());
+
+    // 第二次保存带旧 updatedAt → 冲突
+    const stale = new Date(created.updatedAt.getTime() - 1000);
+    await expect(
+      service.saveDraft(editorId, created.stableId, draftInput(), stale),
+    ).rejects.toThrow(/conflict|冲突/i);
+
+    // 带正确 updatedAt → 成功
+    const saved = await service.saveDraft(
+      editorId,
+      created.stableId,
+      { ...draftInput(), title: "新标题" },
+      created.updatedAt,
+    );
+    expect(saved.title).toBe("新标题");
   });
 });

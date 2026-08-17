@@ -249,3 +249,28 @@
   color: var(--color-warning);
   font-size: 0.875rem;
 }
+
+.conflictDialog {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 50;
+}
+
+.conflictDialog p {
+  background: var(--color-canvas);
+  padding: 20px 24px;
+  border-radius: 12px;
+  max-width: 480px;
+  text-align: center;
+}
+
+.conflictActions {
+  display: flex;
+  gap: 12px;
+}

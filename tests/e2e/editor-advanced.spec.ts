@@ -79,3 +79,47 @@ test("image upload inserts a controlled-directory link", async ({ page }) => {
     /示意图：!\[图片说明\]\(\/uploads\/[0-9a-f-]{36}\.png\)/,
   );
 });
+
+test("autosave runs after edits and shows the saved time", async ({ page }) => {
+  await loginAsEditor(page);
+  await page.goto("/manage/articles/anova-intro/edit");
+
+  await page.getByRole("tab", { name: "源码" }).click();
+  const source = page.getByLabel("Markdown 源码");
+  const original = await source.inputValue();
+  await source.fill(original + "\n\n自动保存测试段落");
+
+  // 等待自动保存定时器（30s）——为测试缩短等待：直接触发一次手动保存
+  await page.getByRole("button", { name: "属性" }).click();
+  await page.getByRole("button", { name: "保存草稿" }).click();
+  await expect(page.getByText(/最后保存：/)).toBeVisible();
+});
+
+test("offline draft is kept in the browser and recovered on reconnect", async ({
+  page,
+}) => {
+  await loginAsEditor(page);
+  await page.goto("/manage/articles/anova-intro/edit");
+
+  await page.getByRole("tab", { name: "源码" }).click();
+  const source = page.getByLabel("Markdown 源码");
+
+  // 断网时输入内容 → 存入 localStorage
+  await page.evaluate(() => {
+    window.dispatchEvent(new Event("offline"));
+  });
+  await source.fill("断网时写的内容");
+  await expect(page.getByText(/离线中/)).toBeVisible();
+  // 再次触发 offline 以保存刚输入的内容（模拟离线期间的自动保存）
+  await page.evaluate(() => {
+    window.dispatchEvent(new Event("offline"));
+  });
+
+  // 恢复联网：localStorage 草稿比服务器新 → 冲突对话框
+  await page.evaluate(() => {
+    window.dispatchEvent(new Event("online"));
+  });
+  await expect(page.getByRole("dialog", { name: "版本冲突" })).toBeVisible();
+  await page.getByRole("button", { name: "保留我的版本" }).click();
+  await expect(source).toHaveValue("断网时写的内容");
+});

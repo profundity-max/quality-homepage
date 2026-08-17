@@ -11,7 +11,8 @@ import {
 import type { TocEntry } from "@/modules/shared/markdown-renderer";
 
 import { MermaidRenderer } from "../../../../mermaid-renderer";
-import { uploadImageAction } from "../../upload-actions";
+import { autosaveDraftAction, uploadImageAction } from "../../upload-actions";
+import { createOfflineDraftController } from "@/modules/offline-drafts";
 import styles from "./editor.module.css";
 
 type EditorMode = "preview" | "source" | "split";
@@ -65,11 +66,95 @@ export function Editor({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [conflictMessage, setConflictMessage] = useState<string | null>(null);
+  const [conflictLocalContent, setConflictLocalContent] = useState<string>("");
+  const [conflictServerContent, setConflictServerContent] =
+    useState<string>("");
+  const [isOnline, setIsOnline] = useState(true);
+  const serverUpdatedAtRef = useRef<Date>(new Date(article.updatedAt));
+  const bodyRef = useRef(body);
+  bodyRef.current = body;
+  const titleRef = useRef(title);
+  titleRef.current = title;
+  const summaryRef = useRef(summary);
+  summaryRef.current = summary;
 
   // 预览渲染：正文变化时刷新
   useEffect(() => {
     void refreshPreview(body);
   }, [body]);
+
+  // 自动保存（EDIT-06）：正文变化后 30 秒无操作则保存
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (navigator.onLine && bodyRef.current !== article.bodyMarkdown) {
+        void runAutosave();
+      }
+    }, 30_000);
+    return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 离线检测（EDIT-06/07）
+  useEffect(() => {
+    function onOnline() {
+      setIsOnline(true);
+      void syncLocalDraft();
+    }
+    function onOffline() {
+      setIsOnline(false);
+      // 直接读 textarea 当前值（避免 React 渲染滞后）
+      const textarea = textareaRef.current;
+      const content = textarea ? textarea.value : bodyRef.current;
+      offlineController().saveLocalDraft(content);
+    }
+    window.addEventListener("online", onOnline);
+    window.addEventListener("offline", onOffline);
+    return () => {
+      window.removeEventListener("online", onOnline);
+      window.removeEventListener("offline", onOffline);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function offlineController() {
+    return createOfflineDraftController({
+      storage: window.localStorage,
+      key: `draft:${article.stableId}`,
+      now: () => new Date(),
+    });
+  }
+
+  async function runAutosave() {
+    if (!navigator.onLine) return;
+    const formData = new FormData();
+    formData.set("stableId", article.stableId);
+    formData.set("expectedUpdatedAt", serverUpdatedAtRef.current.toISOString());
+    formData.set("title", titleRef.current);
+    formData.set("summary", summaryRef.current);
+    formData.set("bodyMarkdown", bodyRef.current);
+    const result = await autosaveDraftAction(formData);
+    if (result.ok) {
+      serverUpdatedAtRef.current = new Date(result.updatedAt);
+      setLastSavedAt(new Date().toLocaleTimeString("zh-CN"));
+      offlineController().clearLocalDraft();
+    } else if (result.conflict) {
+      setConflictServerContent(body);
+      setConflictLocalContent(body);
+      setConflictMessage("服务器上的内容已被其他人更新。请选择保留哪一份：");
+    }
+  }
+
+  async function syncLocalDraft() {
+    const state = offlineController().loadLocalDraft(
+      serverUpdatedAtRef.current,
+    );
+    if (state.kind === "local-newer") {
+      setConflictServerContent(body);
+      setConflictLocalContent(state.content);
+      setConflictMessage("检测到断网期间编辑的内容，是否恢复到编辑器？");
+    }
+  }
 
   // 剪贴板粘贴图片（EDIT-05）
   useEffect(() => {
@@ -282,6 +367,7 @@ export function Editor({
       )}
       <div className={styles.statusBar}>
         <span>
+          {!isOnline && "离线中（内容保存在浏览器） · "}
           {lastSavedAt
             ? `最后保存：${lastSavedAt}`
             : article.status === "published"
@@ -290,6 +376,38 @@ export function Editor({
         </span>
       </div>
 
+      {conflictMessage && (
+        <div
+          className={styles.conflictDialog}
+          role="dialog"
+          aria-label="版本冲突"
+        >
+          <p>{conflictMessage}</p>
+          <div className={styles.conflictActions}>
+            <button
+              className={styles.primaryButton}
+              onClick={() => {
+                setBody(conflictLocalContent);
+                setConflictMessage(null);
+                offlineController().clearLocalDraft();
+              }}
+              type="button"
+            >
+              保留我的版本
+            </button>
+            <button
+              className={styles.publishButton}
+              onClick={() => {
+                setBody(conflictServerContent);
+                setConflictMessage(null);
+              }}
+              type="button"
+            >
+              保留服务器版本
+            </button>
+          </div>
+        </div>
+      )}
       <div className={styles.workspace}>
         {(mode === "source" || mode === "split") && (
           <textarea
@@ -394,7 +512,17 @@ export function Editor({
                 >
                   保存草稿
                 </button>
-                <button className={styles.publishButton} type="submit">
+                <button
+                  className={styles.publishButton}
+                  onClick={(event) => {
+                    // EDIT-08：发布必须在线
+                    if (!navigator.onLine) {
+                      event.preventDefault();
+                      setUploadError("发布必须在线完成，请联网后重试。");
+                    }
+                  }}
+                  type="submit"
+                >
                   发布
                 </button>
               </div>
