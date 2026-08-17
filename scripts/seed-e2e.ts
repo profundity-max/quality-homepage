@@ -158,7 +158,7 @@ try {
     "spc-basics",
     "SPC 基础",
     "统计过程控制的基本思想与工具。",
-    "## 控制图\n\n控制图是 SPC 的核心工具。",
+    "## 控制图\n\n控制图是 SPC 的核心工具。\n\n```mermaid\nflowchart LR\n  A[测量] --> B{稳定?}\n  B -- 是 --> C[受控]\n  B -- 否 --> D[分析特殊原因]\n```",
     spcTopicId,
     5,
   );

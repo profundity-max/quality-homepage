@@ -77,6 +77,8 @@ export type KnowledgePublishingService = {
   listRecentUpdates(limit: number): Promise<ArticleSummary[]>;
   /** 相关文章：同主题优先，其次共享标签（ART-06）。 */
   listRelatedArticles(stableId: string): Promise<ArticleSummary[]>;
+  /** 全部已发布文章（站内链接选择器用）。 */
+  listAllPublishedArticles(limit: number): Promise<ArticleSummary[]>;
   /** 阅读次数 +1（ART-06 基础计数）；非已发布文章不生效。 */
   recordRead(stableId: string): Promise<void>;
   /** 同主题内按更新时间排序的上一篇与下一篇（ART-06）。 */
@@ -310,6 +312,10 @@ export function createKnowledgePublishingService(
     },
 
     async listRecentUpdates(limit) {
+      return listPublishedSummaries(client, undefined, limit);
+    },
+
+    async listAllPublishedArticles(limit) {
       return listPublishedSummaries(client, undefined, limit);
     },
 

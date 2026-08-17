@@ -36,7 +36,7 @@ export default async function NewArticlePage() {
   return (
     <PortalShell currentPath="/manage/articles/new">
       <main id="main-content" tabIndex={-1}>
-        <Editor article={draft} topics={topics} />
+        <Editor article={draft} topics={topics} publishedArticles={[]} />
       </main>
     </PortalShell>
   );

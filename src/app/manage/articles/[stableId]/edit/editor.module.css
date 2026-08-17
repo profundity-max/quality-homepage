@@ -231,3 +231,9 @@
     grid-template-columns: 1fr;
   }
 }
+
+.menuEmpty {
+  padding: 8px 12px;
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+}

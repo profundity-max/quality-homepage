@@ -10,6 +10,7 @@ import {
 } from "@/modules/shared/markdown-renderer";
 import type { TocEntry } from "@/modules/shared/markdown-renderer";
 
+import { MermaidRenderer } from "../../../../mermaid-renderer";
 import styles from "./editor.module.css";
 
 type EditorMode = "preview" | "source" | "split";
@@ -40,11 +41,13 @@ const menuCommands: { label: string; command: FormatCommand }[] = [
 export function Editor({
   article,
   topics,
+  publishedArticles,
   saveDraftAction,
   publishAction,
 }: {
   article: EditingArticle;
   topics: { id: string; stableId: string; name: string; archived: boolean }[];
+  publishedArticles: { stableId: string; title: string }[];
   saveDraftAction?: (formData: FormData) => Promise<void>;
   publishAction?: (formData: FormData) => Promise<void>;
 }) {
@@ -55,6 +58,7 @@ export function Editor({
   const [showOutline, setShowOutline] = useState(false);
   const [showProperties, setShowProperties] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const [showLinks, setShowLinks] = useState(false);
   const [previewHtml, setPreviewHtml] = useState<string>("");
   const [toc, setToc] = useState<TocEntry[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -72,6 +76,23 @@ export function Editor({
     ]);
     setPreviewHtml(html);
     setToc(entries);
+  }
+
+  function insertInternalLink(title: string, stableId: string) {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    const { selectionStart, selectionEnd } = textarea;
+    const link = `[${title}](/articles/${stableId})`;
+    const text =
+      body.slice(0, selectionStart) + link + body.slice(selectionEnd);
+    setBody(text);
+    requestAnimationFrame(() => {
+      textarea.focus();
+      textarea.setSelectionRange(
+        selectionStart + link.length,
+        selectionStart + link.length,
+      );
+    });
   }
 
   function runCommand(command: FormatCommand) {
@@ -151,6 +172,36 @@ export function Editor({
               </div>
             )}
           </div>
+          <div className={styles.menuWrap}>
+            <button
+              className={styles.toolButton}
+              onClick={() => setShowLinks((v) => !v)}
+              type="button"
+              aria-expanded={showLinks}
+            >
+              站内链接
+            </button>
+            {showLinks && (
+              <div className={styles.menu}>
+                {publishedArticles.length === 0 && (
+                  <span className={styles.menuEmpty}>暂无已发布文章</span>
+                )}
+                {publishedArticles.map((item) => (
+                  <button
+                    key={item.stableId}
+                    className={styles.menuItem}
+                    onClick={() => {
+                      insertInternalLink(item.title, item.stableId);
+                      setShowLinks(false);
+                    }}
+                    type="button"
+                  >
+                    {item.title}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
         <div className={styles.panels}>
           <button
@@ -193,10 +244,9 @@ export function Editor({
         )}
         {(mode === "preview" || mode === "split") && (
           <div className={styles.previewArea} aria-label="预览">
-            <div
-              className={styles.preview}
-              dangerouslySetInnerHTML={{ __html: previewHtml }}
-            />
+            <div className={styles.preview}>
+              <MermaidRenderer key={previewHtml} html={previewHtml} />
+            </div>
           </div>
         )}
         {showOutline && toc.length > 0 && (

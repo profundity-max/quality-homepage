@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getDatabase } from "@/db/database";
 import { createKnowledgeEditingService } from "@/modules/knowledge-editing";
 import { createKnowledgeAdministrationService } from "@/modules/knowledge-administration";
+import { createKnowledgePublishingService } from "@/modules/knowledge-publishing";
 
 import { requirePortalSession } from "../../../../authorization";
 import { PortalShell } from "../../../../portal-shell";
@@ -28,6 +29,9 @@ export default async function EditArticlePage({
 
   const admin = createKnowledgeAdministrationService(getDatabase());
   const topics = await admin.listAllTopics(session.member.id).catch(() => []);
+  const published = await createKnowledgePublishingService(getDatabase())
+    .listAllPublishedArticles(100)
+    .catch(() => []);
 
   return (
     <PortalShell currentPath={`/manage/articles/${stableId}/edit`}>
@@ -35,6 +39,7 @@ export default async function EditArticlePage({
         <Editor
           article={article}
           topics={topics}
+          publishedArticles={published}
           saveDraftAction={saveDraftAction}
           publishAction={publishAction}
         />

@@ -286,4 +286,14 @@ describe("knowledge publishing read service", () => {
     expect(aroundExample.previous?.stableId).toBe("anova-intro");
     expect(aroundExample.next).toBeNull();
   });
+
+  test("lists all published articles for the internal-link picker", async () => {
+    const service = createKnowledgePublishingService(database);
+    const all = await service.listAllPublishedArticles(50);
+    expect(all.map((article) => article.stableId).sort()).toEqual([
+      "anova-example",
+      "anova-intro",
+      "spc-basics",
+    ]);
+  });
 });
