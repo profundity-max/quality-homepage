@@ -240,7 +240,92 @@ export const onboardingSteps = pgTable(
 );
 
 export const identitySchema = { users, sessions, identityAuditEvents };
+export type TemplateVersionStatus = "draft" | "active" | "superseded";
+export type QuarantineState = "pending" | "passed" | "failed" | "quarantined";
+
+export const templateCategories = pgTable(
+  "template_categories",
+  {
+    id: uuid("id").primaryKey(),
+    stableId: text("stable_id").notNull(),
+    name: text("name").notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("template_categories_stable_id_idx").on(table.stableId),
+  ],
+);
+
+export const templates = pgTable(
+  "templates",
+  {
+    id: uuid("id").primaryKey(),
+    stableId: text("stable_id").notNull(),
+    name: text("name").notNull(),
+    purpose: text("purpose").notNull().default(""),
+    usageScenario: text("usage_scenario").notNull().default(""),
+    categoryId: uuid("category_id")
+      .notNull()
+      .references(() => templateCategories.id),
+    contentOwnerId: uuid("content_owner_id").references(() => users.id),
+    status: text("status")
+      .$type<"draft" | "published" | "archived">()
+      .notNull()
+      .default("draft"),
+    lastReviewedAt: timestamp("last_reviewed_at", { withTimezone: true }),
+    nextReviewAt: timestamp("next_review_at", { withTimezone: true }),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("templates_stable_id_idx").on(table.stableId),
+    index("templates_category_id_idx").on(table.categoryId),
+  ],
+);
+
+export const templateVersions = pgTable(
+  "template_versions",
+  {
+    id: uuid("id").primaryKey(),
+    templateId: uuid("template_id")
+      .notNull()
+      .references(() => templates.id),
+    version: integer("version").notNull(),
+    versionLabel: text("version_label").notNull(),
+    changeNote: text("change_note").notNull().default(""),
+    fileName: text("file_name").notNull(),
+    extension: text("extension").notNull(),
+    byteSize: integer("byte_size").notNull(),
+    sha256: text("sha256").notNull(),
+    software: text("software").notNull().default(""),
+    status: text("status")
+      .$type<TemplateVersionStatus>()
+      .notNull()
+      .default("draft"),
+    quarantineState: text("quarantine_state")
+      .$type<QuarantineState>()
+      .notNull()
+      .default("pending"),
+    uploadedBy: uuid("uploaded_by").references(() => users.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("template_versions_template_id_version_idx").on(
+      table.templateId,
+      table.version,
+    ),
+    index("template_versions_template_id_idx").on(table.templateId),
+  ],
+);
+
 export const onboardingSchema = { onboardingStages, onboardingSteps };
+export const templateSchema = {
+  templateCategories,
+  templates,
+  templateVersions,
+};
 export const knowledgeSchema = {
   sections,
   topics,
