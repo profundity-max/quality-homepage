@@ -207,7 +207,40 @@ export const articleVersions = pgTable(
   ],
 );
 
+export const onboardingStages = pgTable(
+  "onboarding_stages",
+  {
+    id: uuid("id").primaryKey(),
+    stableId: text("stable_id").notNull(),
+    name: text("name").notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
+    description: text("description").notNull().default(""),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("onboarding_stages_stable_id_idx").on(table.stableId),
+  ],
+);
+
+export const onboardingSteps = pgTable(
+  "onboarding_steps",
+  {
+    id: uuid("id").primaryKey(),
+    stageId: uuid("stage_id")
+      .notNull()
+      .references(() => onboardingStages.id),
+    sortOrder: integer("sort_order").notNull().default(0),
+    title: text("title").notNull(),
+    description: text("description").notNull().default(""),
+    articleStableId: text("article_stable_id"),
+    templateStableId: text("template_stable_id"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+  },
+  (table) => [index("onboarding_steps_stage_id_idx").on(table.stageId)],
+);
+
 export const identitySchema = { users, sessions, identityAuditEvents };
+export const onboardingSchema = { onboardingStages, onboardingSteps };
 export const knowledgeSchema = {
   sections,
   topics,
