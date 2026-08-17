@@ -1,10 +1,15 @@
 import { createHash, randomUUID } from "node:crypto";
 import type { PGlite } from "@electric-sql/pglite";
-import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
 import type { Sql } from "postgres";
 
 import { createDatabaseClient } from "@/db/client";
-import { templateVersions, templates, users } from "@/db/schema";
+import {
+  templateCategories,
+  templateVersions,
+  templates,
+  users,
+} from "@/db/schema";
 import type { FileStorage } from "@/modules/file-storage";
 
 export type ScanResult = { safe: boolean; reason?: string };
@@ -75,6 +80,33 @@ export type TemplateService = {
   getActiveVersionForDownload(
     templateStableId: string,
   ): Promise<{ versionId: string; fileName: string; extension: string } | null>;
+  /** 阅读者视图：分类 → 已发布模板列表（TPL-03/09）。 */
+  listPublishedTemplatesByCategory(): Promise<
+    {
+      stableId: string;
+      name: string;
+      templates: {
+        stableId: string;
+        name: string;
+        versionLabel: string;
+        extension: string;
+        byteSize: number;
+      }[];
+    }[]
+  >;
+  /** 阅读者视图：模板详情（TPL-11/12）。 */
+  getPublishedTemplate(templateStableId: string): Promise<{
+    stableId: string;
+    name: string;
+    purpose: string;
+    usageScenario: string;
+    versionLabel: string;
+    changeNote: string;
+    extension: string;
+    byteSize: number;
+    software: string;
+    downloadCount: number;
+  } | null>;
 };
 
 async function assertEditor(
@@ -355,6 +387,97 @@ export function createTemplateService(
         versionId: version.id,
         fileName: version.fileName,
         extension: version.extension,
+      };
+    },
+
+    async listPublishedTemplatesByCategory() {
+      const categories = await client
+        .select({
+          id: templateCategories.id,
+          stableId: templateCategories.stableId,
+          name: templateCategories.name,
+        })
+        .from(templateCategories)
+        .where(isNull(templateCategories.archivedAt))
+        .orderBy(asc(templateCategories.sortOrder));
+      const templatesForCategories = await client
+        .select({
+          id: templates.id,
+          stableId: templates.stableId,
+          name: templates.name,
+          categoryId: templates.categoryId,
+        })
+        .from(templates)
+        .where(eq(templates.status, "published"));
+      const activeVersions = await client
+        .select({
+          templateId: templateVersions.templateId,
+          versionLabel: templateVersions.versionLabel,
+          extension: templateVersions.extension,
+          byteSize: templateVersions.byteSize,
+        })
+        .from(templateVersions)
+        .where(eq(templateVersions.status, "active"));
+      const versionByTemplate = new Map(
+        activeVersions.map((v) => [v.templateId, v]),
+      );
+      return categories.map((category) => ({
+        stableId: category.stableId,
+        name: category.name,
+        templates: templatesForCategories
+          .filter((tpl) => tpl.categoryId === category.id)
+          .map((tpl) => {
+            const version = versionByTemplate.get(tpl.id);
+            return {
+              stableId: tpl.stableId,
+              name: tpl.name,
+              versionLabel: version?.versionLabel ?? "",
+              extension: version?.extension ?? "",
+              byteSize: version?.byteSize ?? 0,
+            };
+          }),
+      }));
+    },
+
+    async getPublishedTemplate(templateStableId) {
+      const template = (
+        await client
+          .select()
+          .from(templates)
+          .where(
+            and(
+              eq(templates.stableId, templateStableId),
+              eq(templates.status, "published"),
+            ),
+          )
+          .limit(1)
+      )[0];
+      if (!template) return null;
+      const version = (
+        await client
+          .select()
+          .from(templateVersions)
+          .where(
+            and(
+              eq(templateVersions.templateId, template.id),
+              eq(templateVersions.status, "active"),
+            ),
+          )
+          .orderBy(desc(templateVersions.version))
+          .limit(1)
+      )[0];
+      if (!version) return null;
+      return {
+        stableId: template.stableId,
+        name: template.name,
+        purpose: template.purpose,
+        usageScenario: template.usageScenario,
+        versionLabel: version.versionLabel,
+        changeNote: version.changeNote,
+        extension: version.extension,
+        byteSize: version.byteSize,
+        software: version.software,
+        downloadCount: version.downloadCount,
       };
     },
 

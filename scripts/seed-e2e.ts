@@ -13,6 +13,9 @@ import {
   articleVersions,
   articles,
   articleAliases,
+  templateCategories,
+  templateVersions,
+  templates,
   users,
 } from "../src/db/schema";
 import { resolveE2EDataDirectory } from "./e2e-seed-guard";
@@ -202,6 +205,44 @@ try {
       createdAt: new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000),
     });
   }
+
+  // 模板中心（TPL）：一个已发布模板 + 有效版本
+  await client.insert(templateCategories).values({
+    id: "00000000-0000-4000-8000-0000000000c1",
+    stableId: "demo-cat",
+    name: "演示分类",
+    sortOrder: 0,
+    createdAt: new Date(),
+  });
+  await client.insert(templates).values({
+    id: "00000000-0000-4000-8000-0000000000c2",
+    stableId: "demo-template",
+    name: "演示检验记录表",
+    purpose: "来料检验记录",
+    usageScenario: "IQC 场景",
+    categoryId: "00000000-0000-4000-8000-0000000000c1",
+    contentOwnerId: admin.id,
+    status: "published",
+    nextReviewAt: new Date(now.getTime() + 180 * 24 * 60 * 60 * 1000),
+    updatedAt: now,
+    createdAt: now,
+  });
+  await client.insert(templateVersions).values({
+    id: "00000000-0000-4000-8000-0000000000d1",
+    templateId: "00000000-0000-4000-8000-0000000000c2",
+    version: 1,
+    versionLabel: "1.0",
+    changeNote: "初版",
+    fileName: "record.xlsx",
+    extension: "xlsx",
+    byteSize: 2048,
+    sha256: "0".repeat(64),
+    software: "Excel",
+    status: "active",
+    quarantineState: "passed",
+    uploadedBy: admin.id,
+    createdAt: now,
+  });
 
   // 已归档演示文章（VER-04 归档说明页）
   await client.insert(articles).values({
