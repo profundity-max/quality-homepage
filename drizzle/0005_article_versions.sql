@@ -28,9 +28,6 @@ CREATE TABLE IF NOT EXISTS article_versions (
   )
 );
 
-CREATE INDEX IF NOT EXISTS article_versions_article_id_idx
-  ON article_versions(article_id);
-
 INSERT INTO schema_migrations (name)
 VALUES ('0005_article_versions.sql')
 ON CONFLICT (name) DO NOTHING;

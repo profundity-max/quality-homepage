@@ -192,7 +192,6 @@ export const articleVersions = pgTable(
       table.articleId,
       table.version,
     ),
-    index("article_versions_article_id_idx").on(table.articleId),
   ],
 );
 
