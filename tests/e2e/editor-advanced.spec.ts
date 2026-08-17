@@ -58,3 +58,24 @@ test("mermaid diagram renders as SVG in the reading page", async ({ page }) => {
   await expect(page.locator("article svg")).toBeVisible();
   await expect(page.locator("article svg").first()).toContainText("受控");
 });
+
+test("image upload inserts a controlled-directory link", async ({ page }) => {
+  await loginAsEditor(page);
+  await page.goto("/manage/articles/anova-intro/edit");
+
+  await page.getByRole("tab", { name: "源码" }).click();
+  const source = page.getByLabel("Markdown 源码");
+  await source.fill("示意图：");
+
+  // 通过隐藏 file input 上传（label 触发）
+  const fileInput = page.locator('input[type="file"]');
+  await fileInput.setInputFiles({
+    name: "test.png",
+    mimeType: "image/png",
+    buffer: Buffer.from("fake-png"),
+  });
+
+  await expect(source).toHaveValue(
+    /示意图：!\[图片说明\]\(\/uploads\/[0-9a-f-]{36}\.png\)/,
+  );
+});

@@ -161,6 +161,16 @@ export const articleAliases = pgTable(
   ],
 );
 
+export const imageAssets = pgTable("image_assets", {
+  id: uuid("id").primaryKey(),
+  fileName: text("file_name").notNull(),
+  extension: text("extension").notNull(),
+  byteSize: integer("byte_size").notNull(),
+  sha256: text("sha256").notNull(),
+  uploadedBy: uuid("uploaded_by").references(() => users.id),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+});
+
 export const articleVersions = pgTable(
   "article_versions",
   {
@@ -203,4 +213,5 @@ export const knowledgeSchema = {
   articles,
   articleAliases,
   articleVersions,
+  imageAssets,
 };

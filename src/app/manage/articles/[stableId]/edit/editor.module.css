@@ -237,3 +237,15 @@
   font-size: 0.8125rem;
   color: var(--color-text-secondary);
 }
+
+.fileInput {
+  display: none;
+}
+
+.uploadError {
+  margin: 0;
+  padding: 8px 24px;
+  background: rgba(217, 119, 6, 0.12);
+  color: var(--color-warning);
+  font-size: 0.875rem;
+}

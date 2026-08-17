@@ -11,6 +11,7 @@ import {
 import type { TocEntry } from "@/modules/shared/markdown-renderer";
 
 import { MermaidRenderer } from "../../../../mermaid-renderer";
+import { uploadImageAction } from "../../upload-actions";
 import styles from "./editor.module.css";
 
 type EditorMode = "preview" | "source" | "split";
@@ -63,11 +64,52 @@ export function Editor({
   const [toc, setToc] = useState<TocEntry[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   // 预览渲染：正文变化时刷新
   useEffect(() => {
     void refreshPreview(body);
   }, [body]);
+
+  // 剪贴板粘贴图片（EDIT-05）
+  useEffect(() => {
+    function onPaste(event: ClipboardEvent) {
+      const file = Array.from(event.clipboardData?.files ?? []).find((item) =>
+        item.type.startsWith("image/"),
+      );
+      if (file) {
+        event.preventDefault();
+        void uploadImageFile(file);
+      }
+    }
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+  }, []);
+
+  async function uploadImageFile(file: File) {
+    const formData = new FormData();
+    formData.set("image", file);
+    const result = await uploadImageAction(formData);
+    if (!result.ok) {
+      setUploadError(result.error);
+      return;
+    }
+    setUploadError(null);
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    const { selectionStart, selectionEnd } = textarea;
+    const markdown = `![图片说明](${result.url})`;
+    const text =
+      body.slice(0, selectionStart) + markdown + body.slice(selectionEnd);
+    setBody(text);
+    requestAnimationFrame(() => {
+      textarea.focus();
+      textarea.setSelectionRange(
+        selectionStart + markdown.length,
+        selectionStart + markdown.length,
+      );
+    });
+  }
 
   async function refreshPreview(markdown: string) {
     const [html, entries] = await Promise.all([
@@ -172,6 +214,18 @@ export function Editor({
               </div>
             )}
           </div>
+          <label className={styles.toolButton} role="button">
+            上传图片
+            <input
+              className={styles.fileInput}
+              type="file"
+              accept="image/png,image/jpeg,image/gif,image/webp"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) void uploadImageFile(file);
+              }}
+            />
+          </label>
           <div className={styles.menuWrap}>
             <button
               className={styles.toolButton}
@@ -221,6 +275,11 @@ export function Editor({
         </div>
       </header>
 
+      {uploadError && (
+        <p className={styles.uploadError} role="alert">
+          {uploadError}
+        </p>
+      )}
       <div className={styles.statusBar}>
         <span>
           {lastSavedAt
