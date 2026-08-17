@@ -12,8 +12,20 @@ export type SavedFile = {
 };
 
 export type FileStorage = {
-  save(buffer: Buffer, extension: string): Promise<SavedFile>;
-  read(id: string, extension: string): Promise<Buffer | null>;
+  /**
+   * 保存文件到受控目录。allowedExtensions 为 null 时不限制扩展名
+   * （模板文件 TPL-05 任意扩展名）；默认仅图片（EDIT-05）。
+   */
+  save(
+    buffer: Buffer,
+    extension: string,
+    allowedExtensions?: Set<string> | null,
+  ): Promise<SavedFile>;
+  read(
+    id: string,
+    extension: string,
+    allowedExtensions?: Set<string> | null,
+  ): Promise<Buffer | null>;
 };
 
 /**
@@ -24,9 +36,13 @@ export type FileStorage = {
 export function createDiskFileStorage(rootDirectory: string): FileStorage {
   const normalizedRoot = resolve(rootDirectory);
 
-  function validateExtension(extension: string): void {
+  function validateExtension(
+    extension: string,
+    allowedExtensions: Set<string> | null,
+  ): void {
+    if (allowedExtensions === null) return; // 模板文件不限制扩展名
     const ext = extension.toLowerCase().replace(/^\./, "");
-    if (!ALLOWED_EXTENSIONS.has(ext)) {
+    if (!allowedExtensions.has(ext)) {
       throw new Error(`不允许的扩展名：${extension}`);
     }
   }
@@ -38,8 +54,8 @@ export function createDiskFileStorage(rootDirectory: string): FileStorage {
   }
 
   return {
-    async save(buffer, extension) {
-      validateExtension(extension);
+    async save(buffer, extension, allowedExtensions = ALLOWED_EXTENSIONS) {
+      validateExtension(extension, allowedExtensions);
       const id = randomUUID();
       const ext = extension.toLowerCase().replace(/^\./, "");
       await mkdir(normalizedRoot, { recursive: true });
@@ -47,9 +63,9 @@ export function createDiskFileStorage(rootDirectory: string): FileStorage {
       return { id, url: `/uploads/${id}.${ext}` };
     },
 
-    async read(id, extension) {
+    async read(id, extension, allowedExtensions = ALLOWED_EXTENSIONS) {
       assertIdSafe(id);
-      validateExtension(extension);
+      validateExtension(extension, allowedExtensions);
       const ext = extension.toLowerCase().replace(/^\./, "");
       try {
         return await readFile(join(normalizedRoot, `${id}.${ext}`));

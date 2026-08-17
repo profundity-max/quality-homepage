@@ -308,6 +308,7 @@ export const templateVersions = pgTable(
       .$type<QuarantineState>()
       .notNull()
       .default("pending"),
+    quarantineReason: text("quarantine_reason"),
     uploadedBy: uuid("uploaded_by").references(() => users.id),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
   },
