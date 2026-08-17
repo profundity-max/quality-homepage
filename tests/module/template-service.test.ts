@@ -265,4 +265,59 @@ describe("template service quarantine", () => {
     expect(dup.stableId).not.toBe("dup-tpl");
     expect(dup.status).toBe("draft");
   });
+
+  test("lists published templates by category for readers (TPL-09)", async () => {
+    const service = createTemplateService(database, {
+      storage: createDiskFileStorage(directory),
+      scanner: cleanScanner,
+    });
+    const v = await service.uploadTemplateVersion(editorId, {
+      templateStableId: "reader-tpl",
+      name: "检验记录表",
+      purpose: "来料检验记录",
+      usageScenario: "IQC",
+      categoryId,
+      versionLabel: "1.0",
+      fileName: "record.xlsx",
+      software: "Excel",
+      contentOwnerId: editorId,
+      fileBuffer: Buffer.from("r"),
+    });
+    await service.scanTemplateVersion(editorId, v.id);
+    await service.publishTemplateVersion(editorId, v.id);
+
+    const byCategory = await service.listPublishedTemplatesByCategory();
+    const cat = byCategory.find((c) => c.stableId === "inspection-and-testing");
+    expect(cat).toBeDefined();
+    expect(cat!.templates.some((t) => t.stableId === "reader-tpl")).toBe(true);
+    const detail = await service.getPublishedTemplate("reader-tpl");
+    expect(detail).not.toBeNull();
+    expect(detail!.name).toBe("检验记录表");
+    expect(detail!.software).toBe("Excel");
+    expect(detail!.versionLabel).toBe("1.0");
+    expect(detail!.byteSize).toBe(1);
+  });
+
+  test("readers cannot see draft or archived templates", async () => {
+    const service = createTemplateService(database, {
+      storage: createDiskFileStorage(directory),
+      scanner: cleanScanner,
+    });
+    await service.uploadTemplateVersion(editorId, {
+      templateStableId: "draft-tpl",
+      name: "草稿模板",
+      categoryId,
+      versionLabel: "1.0",
+      fileName: "d.xlsx",
+      contentOwnerId: editorId,
+      fileBuffer: Buffer.from("d"),
+    });
+    const byCategory = await service.listPublishedTemplatesByCategory();
+    expect(
+      byCategory.some((c) =>
+        c.templates.some((t) => t.stableId === "draft-tpl"),
+      ),
+    ).toBe(false);
+    await expect(service.getPublishedTemplate("draft-tpl")).resolves.toBeNull();
+  });
 });
