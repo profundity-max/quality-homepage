@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { getAccountAdministrationModule } from "@/modules/account-administration";
@@ -56,6 +57,16 @@ export default async function AccountManagementPage({
             <p>创建部门账号，并维护角色、登录锁定与访问状态。</p>
           </div>
         </header>
+
+        {session.member.role === "administrator" ? (
+          <section className={styles.panel} aria-label="内容管理入口">
+            <h2>内容管理</h2>
+            <div className={styles.actions}>
+              <Link href="/manage/columns">栏目与主题管理</Link>
+              <Link href="/manage/onboarding">新人路线管理</Link>
+            </div>
+          </section>
+        ) : null}
 
         {dueReviews.length > 0 && (
           <section className={styles.reviews} aria-label="待复核内容">

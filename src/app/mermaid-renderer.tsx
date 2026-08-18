@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import mermaid from "mermaid";
 
@@ -28,7 +28,7 @@ function ensureMermaidInitialized() {
  */
 export function MermaidRenderer({ html }: { html: string }) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const initialHtmlRef = useRef(html);
+  const [initialHtml] = useState(html);
 
   useEffect(() => {
     ensureMermaidInitialized();
@@ -69,9 +69,6 @@ export function MermaidRenderer({ html }: { html: string }) {
   }, []);
 
   return (
-    <div
-      ref={containerRef}
-      dangerouslySetInnerHTML={{ __html: initialHtmlRef.current }}
-    />
+    <div ref={containerRef} dangerouslySetInnerHTML={{ __html: initialHtml }} />
   );
 }
