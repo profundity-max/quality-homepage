@@ -50,7 +50,56 @@ export type TemplateVersionView = {
   createdAt: Date;
 };
 
+export type ManagedTemplateCategory = {
+  id: string;
+  stableId: string;
+  name: string;
+  sortOrder: number;
+  archivedAt: Date | null;
+  templateCount: number;
+};
+
+export type AdminTemplate = {
+  id: string;
+  stableId: string;
+  name: string;
+  purpose: string;
+  usageScenario: string;
+  status: "draft" | "published" | "archived";
+  categoryId: string;
+  categoryName: string;
+  versions: TemplateVersionView[];
+};
+
 export type TemplateService = {
+  /** 管理端：分类列表（含已归档）及模板数（TPL-04）。 */
+  listCategoriesForAdmin(
+    requestingUserId: string,
+  ): Promise<ManagedTemplateCategory[]>;
+  /** 管理端：新增用途分类（TPL-04）。 */
+  createTemplateCategory(
+    requestingUserId: string,
+    input: { name: string },
+  ): Promise<ManagedTemplateCategory>;
+  /** 管理端：分类改名（TPL-04）。 */
+  renameTemplateCategory(
+    requestingUserId: string,
+    categoryStableId: string,
+    name: string,
+  ): Promise<ManagedTemplateCategory>;
+  /** 管理端：分类排序（TPL-04）。 */
+  moveTemplateCategory(
+    requestingUserId: string,
+    categoryStableId: string,
+    direction: "up" | "down",
+  ): Promise<void>;
+  /** 管理端：归档分类；阅读侧隐藏（TPL-04）。 */
+  archiveTemplateCategory(
+    requestingUserId: string,
+    categoryStableId: string,
+  ): Promise<ManagedTemplateCategory>;
+  /** 管理端：模板列表（含草稿/历史版本，TPL-07/08）。 */
+  listTemplatesForAdmin(requestingUserId: string): Promise<AdminTemplate[]>;
   /** 上传模板版本进隔离区（FILE-01）。 */
   uploadTemplateVersion(
     requestingUserId: string,
@@ -198,6 +247,164 @@ export function createTemplateService(
   }
 
   return {
+    async listCategoriesForAdmin(requestingUserId) {
+      await assertEditor(client, requestingUserId);
+      const counts = await client
+        .select({
+          categoryId: templates.categoryId,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(templates)
+        .groupBy(templates.categoryId);
+      const countByCategory = new Map(
+        counts.map((row) => [row.categoryId, row.count]),
+      );
+      const rows = await client
+        .select()
+        .from(templateCategories)
+        .orderBy(asc(templateCategories.sortOrder));
+      return rows.map((row) => ({
+        id: row.id,
+        stableId: row.stableId,
+        name: row.name,
+        sortOrder: row.sortOrder,
+        archivedAt: row.archivedAt,
+        templateCount: countByCategory.get(row.id) ?? 0,
+      }));
+    },
+
+    async createTemplateCategory(requestingUserId, input) {
+      await assertEditor(client, requestingUserId);
+      const name = input.name.trim();
+      if (!name) throw new Error("分类名称不能为空。");
+      const maxOrder = (
+        await client
+          .select({
+            max: sql<number>`coalesce(max(${templateCategories.sortOrder}), -1)`,
+          })
+          .from(templateCategories)
+      )[0]?.max;
+      const rows = await client
+        .insert(templateCategories)
+        .values({
+          id: randomUUID(),
+          stableId: `category-${randomUUID().slice(0, 8)}`,
+          name,
+          sortOrder: (maxOrder ?? -1) + 1,
+          createdAt: new Date(),
+        })
+        .returning();
+      return {
+        id: rows[0]!.id,
+        stableId: rows[0]!.stableId,
+        name: rows[0]!.name,
+        sortOrder: rows[0]!.sortOrder,
+        archivedAt: rows[0]!.archivedAt,
+        templateCount: 0,
+      };
+    },
+
+    async renameTemplateCategory(requestingUserId, categoryStableId, name) {
+      await assertEditor(client, requestingUserId);
+      const trimmed = name.trim();
+      if (!trimmed) throw new Error("分类名称不能为空。");
+      const rows = await client
+        .update(templateCategories)
+        .set({ name: trimmed })
+        .where(eq(templateCategories.stableId, categoryStableId))
+        .returning();
+      if (rows.length === 0) throw new Error("分类不存在。");
+      return {
+        id: rows[0]!.id,
+        stableId: rows[0]!.stableId,
+        name: rows[0]!.name,
+        sortOrder: rows[0]!.sortOrder,
+        archivedAt: rows[0]!.archivedAt,
+        templateCount: 0,
+      };
+    },
+
+    async moveTemplateCategory(requestingUserId, categoryStableId, direction) {
+      await assertEditor(client, requestingUserId);
+      const categories = await client
+        .select({
+          id: templateCategories.id,
+          stableId: templateCategories.stableId,
+          sortOrder: templateCategories.sortOrder,
+        })
+        .from(templateCategories)
+        .orderBy(asc(templateCategories.sortOrder));
+      const index = categories.findIndex(
+        (category) => category.stableId === categoryStableId,
+      );
+      if (index === -1) throw new Error("分类不存在。");
+      const swapIndex = direction === "up" ? index - 1 : index + 1;
+      if (swapIndex < 0 || swapIndex >= categories.length) return;
+      const current = categories[index]!;
+      const neighbor = categories[swapIndex]!;
+      await client
+        .update(templateCategories)
+        .set({ sortOrder: neighbor.sortOrder })
+        .where(eq(templateCategories.id, current.id));
+      await client
+        .update(templateCategories)
+        .set({ sortOrder: current.sortOrder })
+        .where(eq(templateCategories.id, neighbor.id));
+    },
+
+    async archiveTemplateCategory(requestingUserId, categoryStableId) {
+      await assertEditor(client, requestingUserId);
+      const rows = await client
+        .update(templateCategories)
+        .set({ archivedAt: new Date() })
+        .where(eq(templateCategories.stableId, categoryStableId))
+        .returning();
+      if (rows.length === 0) throw new Error("分类不存在。");
+      return {
+        id: rows[0]!.id,
+        stableId: rows[0]!.stableId,
+        name: rows[0]!.name,
+        sortOrder: rows[0]!.sortOrder,
+        archivedAt: rows[0]!.archivedAt,
+        templateCount: 0,
+      };
+    },
+
+    async listTemplatesForAdmin(requestingUserId) {
+      await assertEditor(client, requestingUserId);
+      const rows = await client
+        .select({
+          id: templates.id,
+          stableId: templates.stableId,
+          name: templates.name,
+          purpose: templates.purpose,
+          usageScenario: templates.usageScenario,
+          status: templates.status,
+          categoryId: templates.categoryId,
+          categoryName: templateCategories.name,
+        })
+        .from(templates)
+        .innerJoin(
+          templateCategories,
+          eq(templateCategories.id, templates.categoryId),
+        )
+        .orderBy(asc(templateCategories.sortOrder), asc(templates.createdAt));
+      const versions = await client
+        .select()
+        .from(templateVersions)
+        .orderBy(desc(templateVersions.version));
+      const versionsByTemplate = new Map<string, TemplateVersionView[]>();
+      for (const version of versions) {
+        const list = versionsByTemplate.get(version.templateId) ?? [];
+        list.push(await toView(version));
+        versionsByTemplate.set(version.templateId, list);
+      }
+      return rows.map((row) => ({
+        ...row,
+        versions: versionsByTemplate.get(row.id) ?? [],
+      }));
+    },
+
     async uploadTemplateVersion(requestingUserId, input) {
       await assertEditor(client, requestingUserId);
       if (input.fileBuffer.byteLength > maxFileBytes) {

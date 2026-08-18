@@ -9,6 +9,7 @@ import {
 
 import { requirePortalSession } from "../../authorization";
 import { PortalShell } from "../../portal-shell";
+import { DirectionButtons } from "../direction-buttons";
 import {
   createStepAction,
   deleteStepAction,
@@ -199,44 +200,5 @@ function StepRow({ step }: { step: ManagedStep }) {
         <button type="submit">更新步骤</button>
       </form>
     </div>
-  );
-}
-
-function DirectionButtons({
-  action,
-  idName,
-  idValue,
-  labelPrefix,
-}: {
-  action: (formData: FormData) => Promise<void>;
-  idName: string;
-  idValue: string;
-  labelPrefix: string;
-}) {
-  return (
-    <>
-      <form action={action}>
-        <input type="hidden" name={idName} value={idValue} />
-        <input type="hidden" name="direction" value="up" />
-        <button
-          aria-label={`${labelPrefix} 上移`}
-          className={styles.textButton}
-          type="submit"
-        >
-          ↑
-        </button>
-      </form>
-      <form action={action}>
-        <input type="hidden" name={idName} value={idValue} />
-        <input type="hidden" name="direction" value="down" />
-        <button
-          aria-label={`${labelPrefix} 下移`}
-          className={styles.textButton}
-          type="submit"
-        >
-          ↓
-        </button>
-      </form>
-    </>
   );
 }
