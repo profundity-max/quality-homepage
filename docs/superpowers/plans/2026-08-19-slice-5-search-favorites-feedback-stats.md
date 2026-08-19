@@ -67,11 +67,11 @@ tests/e2e/stats.spec.ts
 
 **Produced interfaces:** Drizzle tables `articleFavorites`, `contentFeedback`, `searchEvents`, `searchAggregates`, `articleReadEvents`, `articleDailyReach`, `templateDownloadEvents` mirroring reviewed SQL.
 
-- [ ] Step 1: Write the failing migration test (tables exist; unique favorite pair; feedback type/status checks; search event retention columns; daily reach upsert key).
-- [ ] Step 2: Run and verify FAIL because tables are absent.
-- [ ] Step 3: Write `0013_search_engagement.sql` with the tables, checks, and indexes above; append to `schema_migrations`.
-- [ ] Step 4: Mirror in `src/db/schema.ts` and export through the appropriate schema group.
-- [ ] Step 5: Verify and commit.
+- [x] Step 1: Write the failing migration test (tables exist; unique favorite pair; feedback type/status checks; search event retention columns; daily reach upsert key).
+- [x] Step 2: Run and verify FAIL because tables are absent.
+- [x] Step 3: Write `0013_search_engagement.sql` with the tables, checks, and indexes above; append to `schema_migrations`.
+- [x] Step 4: Mirror in `src/db/schema.ts` and export through the appropriate schema group.
+- [x] Step 5: Verify and commit.
 
 ```bash
 npm run format && npm run lint && npm run typecheck
@@ -100,9 +100,9 @@ SearchService {
 }
 ```
 
-- [ ] Step 1: Failing tests: Chinese/English/alias hits (“标准差”“σ”“Sigma” resolve the same topic), grouped quick search, full-search filters, no-result alias hints, search recording, no-result term listing.
-- [ ] Step 2: Implement with `ILIKE` over tokenized query; articles match title/summary/body/section/topic/tags/aliases; topics match name/aliases (only topics with published articles, IA-08); templates match name/purpose/scenario/active version note; books match title/author/recommendation/category/tags. Rank by exact > prefix > contains; snippet extraction for body matches; alias hints via substring/prefix/Levenshtein (JS helper, engine-independent).
-- [ ] Step 3: Verify and commit.
+- [x] Step 1: Failing tests: Chinese/English/alias hits (“标准差”“σ”“Sigma” resolve the same topic), grouped quick search, full-search filters, no-result alias hints, search recording, no-result term listing.
+- [x] Step 2: Implement with `ILIKE` over tokenized query; articles match title/summary/body/section/topic/tags/aliases; topics match name/aliases (only topics with published articles, IA-08); templates match name/purpose/scenario/active version note; books match title/author/recommendation/category/tags. Rank by exact > prefix > contains; snippet extraction for body matches; alias hints via substring/prefix/Levenshtein (JS helper, engine-independent).
+- [x] Step 3: Verify and commit.
 
 ```bash
 npm run format && npm run lint && npm run typecheck
@@ -117,9 +117,9 @@ git commit -m "feat: implement PostgreSQL full-site search service"
 
 **Interfaces:** `GET /api/search/quick?q=` (session-guarded, returns grouped JSON); `/search?q=&types=&section=&tag=&updated=` full page with filters, `<mark>` highlighting, no-result alias hints plus “知识缺口” note submission (SEARCH-07); home hero launcher opens the centered quick panel (SEARCH-05) with arrow-key navigation and “查看全部”.
 
-- [ ] Step 1: Failing UI/module tests for the route contract and no-result behavior; update `tests/e2e/editorial-home.spec.ts` placeholder expectation.
-- [ ] Step 2: Implement route, client panel, and results page; every executed search writes `search_events`.
-- [ ] Step 3: Verify and commit.
+- [x] Step 1: Failing UI/module tests for the route contract and no-result behavior; update `tests/e2e/editorial-home.spec.ts` placeholder expectation.
+- [x] Step 2: Implement route, client panel, and results page; every executed search writes `search_events`.
+- [x] Step 3: Verify and commit.
 
 ```bash
 npm run format && npm run lint && npm run typecheck
@@ -143,9 +143,9 @@ FavoritesService {
 }
 ```
 
-- [ ] Step 1: Failing module tests (toggle on/off, only published articles, per-user isolation).
-- [ ] Step 2: Implement module; article page button with server action; `/favorites` list page.
-- [ ] Step 3: Verify and commit.
+- [x] Step 1: Failing module tests (toggle on/off, only published articles, per-user isolation).
+- [x] Step 2: Implement module; article page button with server action; `/favorites` list page.
+- [x] Step 3: Verify and commit.
 
 ```bash
 npm run format && npm run lint && npm run typecheck
@@ -160,9 +160,9 @@ git commit -m "feat: add personal article favorites"
 
 **Interfaces:** `submitFeedback`, `listFeedback({ status?, limit })`, `resolveFeedback({ id, handledBy, status: "resolved" | "ignored", note? })`; five types (`error/outdated/unclear/missing/other` → 内容错误/内容过期/表述不清/缺少相关内容/其他).
 
-- [ ] Step 1: Failing module tests (five types, required description, editor-only processing, status transitions).
-- [ ] Step 2: Article-page dialog + action; `/manage/feedback` list with resolve/ignore (editor+admin via service-level `assertEditor`).
-- [ ] Step 3: Verify and commit.
+- [x] Step 1: Failing module tests (five types, required description, editor-only processing, status transitions).
+- [x] Step 2: Article-page dialog + action; `/manage/feedback` list with resolve/ignore (editor+admin via service-level `assertEditor`).
+- [x] Step 3: Verify and commit.
 
 ```bash
 npm run format && npm run lint && npm run typecheck
@@ -190,9 +190,9 @@ ContentStatsService {
 }
 ```
 
-- [ ] Step 1: Failing module tests (30-minute dedup, daily reach, growth window, long-unread, search-driven open, purge preserves aggregates).
-- [ ] Step 2: Implement; article page records via stats module (editors/admins still excluded, STAT-02); download route records events.
-- [ ] Step 3: Verify and commit.
+- [x] Step 1: Failing module tests (30-minute dedup, daily reach, growth window, long-unread, search-driven open, purge preserves aggregates).
+- [x] Step 2: Implement; article page records via stats module (editors/admins still excluded, STAT-02); download route records events.
+- [x] Step 3: Verify and commit.
 
 ```bash
 npm run format && npm run lint && npm run typecheck
@@ -206,9 +206,9 @@ git commit -m "feat: implement content statistics with dedup and retention"
 **Files:** create `src/app/manage/stats/page.tsx`, `actions.ts`; modify `src/app/manage/page.tsx` links.
 
 - Editors see aggregate dashboard + CSV export (STAT-05/06/07); admins additionally see 90-day identity search/reach detail and the “执行合规数据清理” action (STAT-06/08/11). STAT-10 declaration rendered on the page. `assertEditor`/`assertAdministrator` at service level; readers redirected.
-- [ ] Step 1: Failing role/e2e checks; STAT-10 text test.
-- [ ] Step 2: Implement dashboard (metric cards + tables + export + cleanup button).
-- [ ] Step 3: Verify and commit.
+- [x] Step 1: Failing role/e2e checks; STAT-10 text test.
+- [x] Step 2: Implement dashboard (metric cards + tables + export + cleanup button).
+- [x] Step 3: Verify and commit.
 
 ```bash
 npm run format && npm run lint && npm run typecheck
@@ -221,9 +221,9 @@ git commit -m "feat: add editor and administrator statistics dashboard"
 
 **Files:** modify `scripts/seed-e2e.ts`; create `tests/e2e/search.spec.ts`, `favorites.spec.ts`, `feedback.spec.ts`, `stats.spec.ts`; update `CONTEXT.md` if vocabulary is missing; optionally ADR for retention semantics; update roadmap checkbox state.
 
-- [ ] Step 1: Seed published articles with aliases, templates, books; seed read/search/download events in the e2e database.
-- [ ] Step 2: E2E coverage: search by title/body/alias, quick panel keyboard, filters, no-result gap note; favorite/unfavorite lifecycle; five-type feedback + editor resolve; stats role gates, dedup read, retention declaration.
-- [ ] Step 3: Full gate and close tickets with acceptance evidence:
+- [x] Step 1: Seed published articles with aliases, templates, books; seed read/search/download events in the e2e database.
+- [x] Step 2: E2E coverage: search by title/body/alias, quick panel keyboard, filters, no-result gap note; favorite/unfavorite lifecycle; five-type feedback + editor resolve; stats role gates, dedup read, retention declaration.
+- [x] Step 3: Full gate and close tickets with acceptance evidence:
 
 ```bash
 npm run format:check

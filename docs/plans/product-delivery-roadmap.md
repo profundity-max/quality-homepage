@@ -33,6 +33,10 @@
 
 验收重点：SEARCH、FAV、FDBK、STAT 全部需求，尤其 30 分钟去重、90 天身份保留和禁止绩效用途。
 
+> 状态：已完成（2026-08-19，Slice 5 实施计划见
+> `docs/superpowers/plans/2026-08-19-slice-5-search-favorites-feedback-stats.md`；
+> 验收证据见 GitHub Issue #49，剩余风险与下一切片入口在该票面。）
+
 ## Slice 6：治理、迁移、审计与运行保障
 
 交付完整历史恢复、复核与负责人交接、回收站、Markdown 导入导出、审计、文件引用保护、自动备份、恢复演练、告警、日志轮转和安全清理。完成内容填充与 1–2 周试运行后进入正式上线验收。

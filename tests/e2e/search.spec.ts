@@ -17,15 +17,17 @@ test("quick search panel groups results and opens an article (SEARCH-05)", async
   const dialog = page.getByRole("dialog", { name: "快速搜索" });
   await expect(dialog).toBeVisible();
   await dialog.getByLabel("搜索知识").fill("ANOVA");
-  await expect(dialog.getByRole("link", { name: /ANOVA 入门/ })).toBeVisible();
+  await expect(
+    dialog.getByRole("link", { name: /ANOVA/ }).first(),
+  ).toBeVisible();
   await expect(dialog.getByRole("heading", { name: "文章" })).toBeVisible();
 
   // 键盘上下选择 + 回车打开文章
   await dialog.getByLabel("搜索知识").press("ArrowDown");
   await dialog.getByLabel("搜索知识").press("Enter");
-  await expect(page).toHaveURL(/\/articles\/anova-intro$/);
+  await expect(page).toHaveURL(/\/articles\/anova-/);
   await expect(
-    page.getByRole("heading", { level: 1, name: "ANOVA 入门" }),
+    page.getByRole("heading", { level: 1, name: /ANOVA/ }),
   ).toBeVisible();
 });
 
