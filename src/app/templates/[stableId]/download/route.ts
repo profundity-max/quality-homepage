@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { getDatabase } from "@/db/database";
+import { createContentStatsService } from "@/modules/content-stats";
 import { createTemplateService } from "@/modules/template-service";
 import { createDiskFileStorage } from "@/modules/file-storage";
 import { resolveDataDirectory } from "@/modules/file-storage/configuration";
@@ -31,6 +32,12 @@ export async function GET(
   if (!buffer) {
     return NextResponse.json({ error: "文件缺失" }, { status: 404 });
   }
+
+  // FILE-04/STAT-04：记录下载事件（下载人数明细），download_count 同步累加
+  await createContentStatsService(getDatabase()).recordTemplateDownload({
+    templateVersionId: active.versionId,
+    userId: session.member.id,
+  });
 
   // FILE-03：强制附件下载，安全处理文件名（去路径/控制字符）
   const safeName = active.fileName

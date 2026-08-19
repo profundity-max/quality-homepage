@@ -586,10 +586,6 @@ export function createTemplateService(
           .limit(1)
       )[0];
       if (!version) return null;
-      await client
-        .update(templateVersions)
-        .set({ downloadCount: sql`${templateVersions.downloadCount} + 1` })
-        .where(eq(templateVersions.id, version.id));
       return {
         versionId: version.id,
         fileName: version.fileName,

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { getDatabase } from "@/db/database";
+import { createContentStatsService } from "@/modules/content-stats";
 import { createFavoritesService } from "@/modules/favorites";
 import { createKnowledgePublishingService } from "@/modules/knowledge-publishing";
 import {
@@ -97,13 +98,17 @@ export default async function ArticlePage({
   const isEditorOrAdmin =
     session.member.role === "editor" || session.member.role === "administrator";
 
-  // 阅读计数：仅阅读者计入（编辑预览与自动化访问不计入，CONTEXT.md「阅读次数」）
-  if (!isEditorOrAdmin) {
-    await service.recordRead(stableId);
-  }
+  // 阅读计数：仅阅读者计入（编辑预览与自动化访问不计入，STAT-02）
+  // 同一用户 30 分钟内重复打开同一文章只计一次（STAT-01）
+  const countedThisRead =
+    !isEditorOrAdmin &&
+    (await createContentStatsService(getDatabase()).recordArticleRead({
+      articleId: article.id,
+      userId: session.member.id,
+    }));
 
-  // 阅读次数展示：加上本次记录（若为编辑者则不加）
-  const displayedReadCount = article.readCount + (isEditorOrAdmin ? 0 : 1);
+  // 阅读次数展示：加上本次记录（若已去重或为编辑者则不加）
+  const displayedReadCount = article.readCount + (countedThisRead ? 1 : 0);
 
   return (
     <PortalShell currentPath={`/articles/${stableId}`}>
