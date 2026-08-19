@@ -47,12 +47,6 @@
   margin-bottom: 12px;
 }
 
-.searchPosition a {
-  display: inline-flex;
-  min-height: 44px;
-  align-items: center;
-}
-
 .sections {
   padding: 0 clamp(20px, 8vw, 128px) 120px;
 }

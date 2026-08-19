@@ -48,3 +48,8 @@ a {
     transition: none !important;
   }
 }
+mark.search-highlight {
+  background: color-mix(in srgb, var(--color-accent) 24%, transparent);
+  color: inherit;
+  border-radius: 3px;
+}

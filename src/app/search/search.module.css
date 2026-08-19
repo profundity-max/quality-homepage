@@ -1,0 +1,212 @@
+.layout {
+  padding: clamp(32px, 6vw, 96px) clamp(20px, 8vw, 128px) 120px;
+}
+
+.header {
+  margin-bottom: 32px;
+}
+
+.eyebrow {
+  color: var(--color-text-secondary);
+  letter-spacing: 0.12em;
+}
+
+.header h1 {
+  margin: 8px 0 0;
+  font-size: clamp(2.25rem, 5vw, 4rem);
+  font-weight: 500;
+  letter-spacing: -0.04em;
+}
+
+.searchForm {
+  margin-bottom: 40px;
+  padding: 20px;
+  border: 1px solid var(--color-divider);
+  border-radius: 16px;
+  background: var(--color-surface);
+}
+
+.queryRow {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.queryRow label {
+  font-weight: 600;
+}
+
+.queryRow input {
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--color-divider);
+  border-radius: 10px;
+  background: var(--color-surface-muted);
+  color: var(--color-text);
+  font: inherit;
+}
+
+.queryRow button {
+  min-height: 44px;
+  padding: 0 22px;
+  border: 1px solid var(--color-accent);
+  border-radius: 10px;
+  background: var(--color-accent);
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  margin: 20px 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.filters legend {
+  padding: 0;
+  font-weight: 600;
+}
+
+.filterGroup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  color: var(--color-text-secondary);
+}
+
+.filterGroup label {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.filterGroup select,
+.filterGroup input[type="text"] {
+  min-height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--color-divider);
+  border-radius: 8px;
+  background: var(--color-surface-muted);
+  color: var(--color-text);
+  font: inherit;
+}
+
+.summary {
+  color: var(--color-text-secondary);
+}
+
+.group {
+  margin-top: 36px;
+}
+
+.group h2 {
+  margin: 0 0 12px;
+  font-size: 1.1rem;
+}
+
+.group ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--color-divider);
+}
+
+.group li + li {
+  border-top: 1px solid var(--color-divider);
+}
+
+.result {
+  display: grid;
+  gap: 6px;
+  padding: 14px 4px;
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.result:hover .resultTitle {
+  color: var(--color-link);
+}
+
+.resultTitle {
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.resultMeta {
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+
+.snippet {
+  color: var(--color-text-secondary);
+}
+
+.noResult,
+.empty {
+  margin-top: 24px;
+  padding: 28px 24px;
+  border: 1px solid var(--color-divider);
+  border-radius: 16px;
+  background: var(--color-surface);
+}
+
+.noResult h2,
+.empty h2 {
+  margin: 0 0 12px;
+}
+
+.noResult p,
+.empty p {
+  color: var(--color-text-secondary);
+}
+
+.alias {
+  margin-right: 10px;
+  color: var(--color-link);
+}
+
+.gapForm {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+  max-width: 560px;
+}
+
+.gapForm label {
+  font-weight: 600;
+}
+
+.gapForm textarea {
+  min-height: 72px;
+  padding: 10px;
+  border: 1px solid var(--color-divider);
+  border-radius: 10px;
+  background: var(--color-surface-muted);
+  color: var(--color-text);
+  font: inherit;
+}
+
+.gapForm button {
+  justify-self: start;
+  min-height: 44px;
+  padding: 0 20px;
+  border: 1px solid var(--color-accent);
+  border-radius: 10px;
+  background: var(--color-accent);
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+}
+
+@media (max-width: 640px) {
+  .queryRow {
+    grid-template-columns: 1fr;
+  }
+}

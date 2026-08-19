@@ -8,6 +8,7 @@ import { createOnboardingService } from "@/modules/onboarding";
 import { createDiskFileStorage } from "@/modules/file-storage";
 import { resolveDataDirectory } from "@/modules/file-storage/configuration";
 import { createPersonalizedHome } from "@/modules/personalized-home";
+import { QuickSearch } from "@/ui/search/quick-search";
 
 import { requirePortalSession } from "./authorization";
 import styles from "./home.module.css";
@@ -70,10 +71,10 @@ export default async function HomePage() {
             <h1>{model.name}</h1>
             <p className={styles.belief}>{model.belief}</p>
           </div>
-          <aside className={styles.searchPosition} aria-label="站内搜索位置">
-            <span>站内搜索</span>
-            <p>搜索将随知识内容一同开放</p>
-            <Link href="/search">查看搜索建设状态</Link>
+          <aside className={styles.searchPosition} aria-label="站内搜索">
+            <span>全站搜索</span>
+            <p>文章、主题、模板与书单一站查找</p>
+            <QuickSearch />
           </aside>
         </section>
 

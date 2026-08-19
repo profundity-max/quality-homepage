@@ -153,7 +153,7 @@ test("Editorial Space works across desktop, theme, keyboard, and mobile", async 
     ),
   ).toBe(true);
   await expect(page.getByRole("heading", { name: "新人专区" })).toBeVisible();
-  await expect(page.getByText("搜索将随知识内容一同开放")).toBeVisible();
+  await expect(page.getByRole("button", { name: "搜索知识" })).toBeVisible();
   await page
     .locator("main section", { hasText: "新人专区" })
     .getByRole("link")

@@ -172,6 +172,17 @@ try {
     spcTopicId,
     5,
   );
+  // SEARCH-04：别名主题下的一篇已发布文章，让 σ / Sigma / 标准差 可命中主题
+  const sigmaTopicId = "00000000-0000-4000-8000-000000000c01";
+  await published(
+    "00000000-0000-4000-8000-0000000000d4",
+    "sigma-basics",
+    "标准差与正态分布",
+    "σ、Sigma 与分布的关系",
+    "## σ 的意义\n\n标准差衡量数据的离散程度。",
+    sigmaTopicId,
+    2,
+  );
   await client.insert(articleAliases).values({
     id: "00000000-0000-4000-8000-000000000e01",
     articleId: "00000000-0000-4000-8000-0000000000d1",
