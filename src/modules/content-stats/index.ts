@@ -167,22 +167,6 @@ export function createContentStatsService(
       )[0];
       if (!article) return false;
 
-      const recent = await client
-        .select({ id: articleReadEvents.id })
-        .from(articleReadEvents)
-        .where(
-          and(
-            eq(articleReadEvents.userId, userId),
-            eq(articleReadEvents.articleId, articleId),
-            gte(
-              articleReadEvents.readAt,
-              new Date(instant.getTime() - thirtyMinutesMs),
-            ),
-          ),
-        )
-        .limit(1);
-      if (recent.length > 0) return false;
-
       const dayStart = new Date(
         Date.UTC(
           instant.getUTCFullYear(),
@@ -190,22 +174,41 @@ export function createContentStatsService(
           instant.getUTCDate(),
         ),
       );
-      const sameDay = await client
-        .select({ id: articleReadEvents.id })
-        .from(articleReadEvents)
-        .where(
-          and(
-            eq(articleReadEvents.userId, userId),
-            eq(articleReadEvents.articleId, articleId),
-            gte(articleReadEvents.readAt, dayStart),
-            sql`${articleReadEvents.readAt} < ${new Date(
-              dayStart.getTime() + dayMs,
-            )}`,
-          ),
-        )
-        .limit(1);
 
+      // STAT-01：去重检查与计数在同一事务内，避免并发首读双计。
+      let counted = false;
       await client.transaction(async (transaction) => {
+        const recent = await transaction
+          .select({ id: articleReadEvents.id })
+          .from(articleReadEvents)
+          .where(
+            and(
+              eq(articleReadEvents.userId, userId),
+              eq(articleReadEvents.articleId, articleId),
+              gte(
+                articleReadEvents.readAt,
+                new Date(instant.getTime() - thirtyMinutesMs),
+              ),
+            ),
+          )
+          .limit(1);
+        if (recent.length > 0) return;
+
+        const sameDay = await transaction
+          .select({ id: articleReadEvents.id })
+          .from(articleReadEvents)
+          .where(
+            and(
+              eq(articleReadEvents.userId, userId),
+              eq(articleReadEvents.articleId, articleId),
+              gte(articleReadEvents.readAt, dayStart),
+              sql`${articleReadEvents.readAt} < ${new Date(
+                dayStart.getTime() + dayMs,
+              )}`,
+            ),
+          )
+          .limit(1);
+
         await transaction.insert(articleReadEvents).values({
           id: randomUUID(),
           articleId,
@@ -231,8 +234,9 @@ export function createContentStatsService(
               },
             });
         }
+        counted = true;
       });
-      return true;
+      return counted;
     },
 
     async recordTemplateDownload({
