@@ -1,10 +1,12 @@
 import {
   boolean,
   char,
+  date,
   index,
   integer,
   jsonb,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uniqueIndex,
@@ -366,6 +368,152 @@ export const templateSchema = {
   templates,
   templateVersions,
 };
+export type FeedbackType =
+  | "error"
+  | "outdated"
+  | "unclear"
+  | "missing"
+  | "other";
+export type FeedbackStatus = "pending" | "resolved" | "ignored";
+
+export const articleFavorites = pgTable(
+  "article_favorites",
+  {
+    id: uuid("id").primaryKey(),
+    articleId: uuid("article_id")
+      .notNull()
+      .references(() => articles.id),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("article_favorites_article_user_idx").on(
+      table.articleId,
+      table.userId,
+    ),
+    index("article_favorites_user_idx").on(table.userId),
+  ],
+);
+
+export const contentFeedback = pgTable(
+  "content_feedback",
+  {
+    id: uuid("id").primaryKey(),
+    articleId: uuid("article_id")
+      .notNull()
+      .references(() => articles.id),
+    reporterUserId: uuid("reporter_user_id")
+      .notNull()
+      .references(() => users.id),
+    feedbackType: text("feedback_type").$type<FeedbackType>().notNull(),
+    description: text("description").notNull(),
+    status: text("status").$type<FeedbackStatus>().notNull().default("pending"),
+    handledBy: uuid("handled_by").references(() => users.id),
+    handledAt: timestamp("handled_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+  },
+  (table) => [
+    index("content_feedback_status_idx").on(table.status),
+    index("content_feedback_article_idx").on(table.articleId),
+  ],
+);
+
+export const searchEvents = pgTable(
+  "search_events",
+  {
+    id: uuid("id").primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id),
+    query: text("query").notNull(),
+    hasResults: boolean("has_results").notNull(),
+    note: text("note"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+  },
+  (table) => [
+    index("search_events_created_at_idx").on(table.createdAt),
+    index("search_events_user_created_at_idx").on(
+      table.userId,
+      table.createdAt,
+    ),
+    index("search_events_has_results_idx").on(table.hasResults),
+  ],
+);
+
+export const searchAggregates = pgTable("search_aggregates", {
+  query: text("query").primaryKey(),
+  hasResults: boolean("has_results").notNull(),
+  searchCount: integer("search_count").notNull().default(1),
+  lastSearchedAt: timestamp("last_searched_at", {
+    withTimezone: true,
+  }).notNull(),
+});
+
+export const articleReadEvents = pgTable(
+  "article_read_events",
+  {
+    id: uuid("id").primaryKey(),
+    articleId: uuid("article_id")
+      .notNull()
+      .references(() => articles.id),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id),
+    readAt: timestamp("read_at", { withTimezone: true }).notNull(),
+  },
+  (table) => [
+    index("article_read_events_dedup_idx").on(
+      table.userId,
+      table.articleId,
+      table.readAt,
+    ),
+    index("article_read_events_article_idx").on(table.articleId),
+    index("article_read_events_read_at_idx").on(table.readAt),
+  ],
+);
+
+export const articleDailyReach = pgTable(
+  "article_daily_reach",
+  {
+    articleId: uuid("article_id")
+      .notNull()
+      .references(() => articles.id),
+    readDay: date("read_day").notNull(),
+    reachCount: integer("reach_count").notNull().default(0),
+  },
+  (table) => [primaryKey({ columns: [table.articleId, table.readDay] })],
+);
+
+export const templateDownloadEvents = pgTable(
+  "template_download_events",
+  {
+    id: uuid("id").primaryKey(),
+    templateVersionId: uuid("template_version_id")
+      .notNull()
+      .references(() => templateVersions.id),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id),
+    downloadedAt: timestamp("downloaded_at", { withTimezone: true }).notNull(),
+  },
+  (table) => [
+    index("template_download_events_version_idx").on(table.templateVersionId),
+    index("template_download_events_user_idx").on(table.userId),
+  ],
+);
+
+export const engagementSchema = {
+  articleFavorites,
+  contentFeedback,
+  searchEvents,
+  searchAggregates,
+  articleReadEvents,
+  articleDailyReach,
+  templateDownloadEvents,
+};
+
 export const knowledgeSchema = {
   sections,
   topics,

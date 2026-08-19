@@ -9,7 +9,7 @@ export function createDatabaseClient(database: PGlite | Sql) {
   if ("unsafe" in database) {
     return drizzlePostgres(database, {
       schema: identitySchema,
-    }) as unknown as ReturnType<typeof drizzle<typeof identitySchema>>;
+    }) as unknown as ReturnType<typeof drizzle>;
   }
   return drizzle(database, { schema: identitySchema });
 }
