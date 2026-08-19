@@ -102,6 +102,12 @@ export type SearchService = {
     note?: string;
     occurredAt?: Date;
   }): Promise<void>;
+  addSearchNote(input: {
+    userId: string;
+    query: string;
+    note: string;
+    occurredAt?: Date;
+  }): Promise<void>;
   suggestAliases(query: string): Promise<string[]>;
   listNoResultTerms(limit?: number): Promise<NoResultTerm[]>;
 };
@@ -706,6 +712,30 @@ export function createSearchService(database: PGlite | Sql): SearchService {
             },
           });
       });
+    },
+
+    async addSearchNote({ userId, query, note }) {
+      const trimmed = query.trim();
+      const trimmedNote = note.trim();
+      if (!trimmed || !trimmedNote) return;
+      const latest = (
+        await client
+          .select({ id: searchEvents.id })
+          .from(searchEvents)
+          .where(
+            and(
+              eq(searchEvents.userId, userId),
+              eq(searchEvents.query, trimmed),
+            ),
+          )
+          .orderBy(desc(searchEvents.createdAt))
+          .limit(1)
+      )[0];
+      if (!latest) return;
+      await client
+        .update(searchEvents)
+        .set({ note: trimmedNote })
+        .where(eq(searchEvents.id, latest.id));
     },
 
     async suggestAliases(query) {

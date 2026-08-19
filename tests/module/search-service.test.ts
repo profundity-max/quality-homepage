@@ -340,6 +340,27 @@ describe("search service", () => {
     ]);
   });
 
+  test("attaches a knowledge-gap note to the latest matching search (SEARCH-07)", async () => {
+    const search = service();
+    await search.recordSearch({
+      userId: READER_ID,
+      query: "TVC 均热板",
+      hasResults: false,
+      occurredAt: NOW,
+    });
+    await search.addSearchNote({
+      userId: READER_ID,
+      query: "TVC 均热板",
+      note: "希望补充超薄均热板工艺资料",
+    });
+
+    const events = await createDatabaseClient(database)
+      .select()
+      .from(searchEvents);
+    expect(events).toHaveLength(1);
+    expect(events[0]?.note).toBe("希望补充超薄均热板工艺资料");
+  });
+
   test("suggests possible aliases when there are no results (SEARCH-07)", async () => {
     const suggestions = await service().suggestAliases("标准");
     expect(suggestions).toContain("标准差");
