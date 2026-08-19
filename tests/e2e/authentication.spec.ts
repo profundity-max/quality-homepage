@@ -418,6 +418,19 @@ test("identity lifecycle protects lockout, sessions, revocation, and disabled ac
   await mobileMemberCard.getByRole("button", { name: "更新角色" }).click();
   await expect(page.getByText("账号角色已更新。")).toBeVisible();
 
+  // 恢复共享 fixture：本流程把 columnadmin 降级为 reader，若不恢复，
+  // 后续依赖管理员账号的 e2e（栏目管理、管理端 UI 等）会全部失败。
+  const restoreColumnAdminCard = page
+    .getByRole("article")
+    .filter({ hasText: "@columnadmin" });
+  await restoreColumnAdminCard
+    .getByLabel("调整 columnadmin 的角色")
+    .selectOption("administrator");
+  await restoreColumnAdminCard
+    .getByRole("button", { name: "更新角色" })
+    .click();
+  await expect(page.getByText("账号角色已更新。")).toBeVisible();
+
   await mobilePage.getByLabel("用户名").fill("mobile-member");
   await mobilePage.getByLabel("密码").fill("lasting mobile password");
   await mobilePage.getByRole("button", { name: "登录" }).click();
