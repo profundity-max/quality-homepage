@@ -13,8 +13,16 @@ import type { TocEntry } from "@/modules/shared/markdown-renderer";
 import { requirePortalSession } from "../../authorization";
 import { PortalShell } from "../../portal-shell";
 import { MermaidRenderer } from "../../mermaid-renderer";
-import { toggleFavoriteAction } from "./actions";
+import { submitFeedbackAction, toggleFavoriteAction } from "./actions";
 import styles from "./article.module.css";
+
+const feedbackTypes = [
+  { value: "error", label: "内容错误" },
+  { value: "outdated", label: "内容过期" },
+  { value: "unclear", label: "表述不清" },
+  { value: "missing", label: "缺少相关内容" },
+  { value: "other", label: "其他" },
+] as const;
 
 function formatDate(value: Date | null): string {
   if (!value) return "—";
@@ -27,10 +35,13 @@ function formatDate(value: Date | null): string {
 
 export default async function ArticlePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ stableId: string }>;
+  searchParams: Promise<{ feedback?: string }>;
 }) {
   const { stableId } = await params;
+  const query = await searchParams;
   const session = await requirePortalSession(`/articles/${stableId}`);
 
   const service = createKnowledgePublishingService(getDatabase());
@@ -173,6 +184,42 @@ export default async function ArticlePage({
               {isFavorite ? "取消收藏" : "收藏"}
             </button>
           </form>
+
+          {query.feedback === "submitted" ? (
+            <p className={styles.feedbackNotice} role="status">
+              反馈已提交，感谢你的补充。
+            </p>
+          ) : null}
+
+          <details className={styles.feedback}>
+            <summary>内容反馈</summary>
+            <form action={submitFeedbackAction} className={styles.feedbackForm}>
+              <input type="hidden" name="stableId" value={article.stableId} />
+              <fieldset>
+                <legend>反馈类型</legend>
+                {feedbackTypes.map((type) => (
+                  <label key={type.value}>
+                    <input
+                      type="radio"
+                      name="feedbackType"
+                      value={type.value}
+                      defaultChecked={type.value === "error"}
+                    />
+                    {type.label}
+                  </label>
+                ))}
+              </fieldset>
+              <label htmlFor="feedback-description">说明</label>
+              <textarea
+                id="feedback-description"
+                name="description"
+                rows={3}
+                required
+                placeholder="请描述你发现的问题或缺失内容"
+              />
+              <button type="submit">提交反馈</button>
+            </form>
+          </details>
         </aside>
 
         <article className={styles.article}>

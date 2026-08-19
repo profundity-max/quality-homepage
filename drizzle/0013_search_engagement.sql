@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS content_feedback (
     CHECK (status IN ('pending', 'resolved', 'ignored')),
   handled_by uuid REFERENCES users(id),
   handled_at timestamptz,
+  resolution_note text,
   created_at timestamptz NOT NULL
 );
 

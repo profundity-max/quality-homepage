@@ -66,6 +66,7 @@ export default async function AccountManagementPage({
               <Link href="/manage/onboarding">新人路线管理</Link>
               <Link href="/manage/templates">模板管理</Link>
               <Link href="/manage/books">书单管理</Link>
+              <Link href="/manage/feedback">内容反馈处理</Link>
             </div>
           </section>
         ) : null}

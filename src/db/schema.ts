@@ -412,6 +412,7 @@ export const contentFeedback = pgTable(
     status: text("status").$type<FeedbackStatus>().notNull().default("pending"),
     handledBy: uuid("handled_by").references(() => users.id),
     handledAt: timestamp("handled_at", { withTimezone: true }),
+    resolutionNote: text("resolution_note"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
   },
   (table) => [

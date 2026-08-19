@@ -79,6 +79,75 @@
   background: color-mix(in srgb, var(--color-accent) 12%, transparent);
 }
 
+.feedbackNotice {
+  margin-bottom: 12px;
+  color: var(--color-link);
+}
+
+.feedback {
+  margin-bottom: 20px;
+  border: 1px solid var(--color-divider);
+  border-radius: 10px;
+}
+
+.feedback summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.feedbackForm {
+  display: grid;
+  gap: 10px;
+  padding: 0 14px 14px;
+}
+
+.feedbackForm fieldset {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.feedbackForm legend {
+  padding: 0;
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+
+.feedbackForm label {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.feedbackForm textarea {
+  min-height: 64px;
+  padding: 8px 10px;
+  border: 1px solid var(--color-divider);
+  border-radius: 8px;
+  background: var(--color-surface-muted);
+  color: var(--color-text);
+  font: inherit;
+}
+
+.feedbackForm button {
+  justify-self: start;
+  min-height: 44px;
+  padding: 0 18px;
+  border: 1px solid var(--color-accent);
+  border-radius: 10px;
+  background: var(--color-accent);
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+}
+
 .versionLink {
   margin: 0 0 20px;
 }
