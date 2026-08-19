@@ -41,6 +41,9 @@ export async function PortalShell({
           <Link className={styles.searchLink} href="/search">
             搜索
           </Link>
+          <Link className={styles.searchLink} href="/favorites">
+            收藏
+          </Link>
           <ThemeControl current={currentTheme} />
           <form action={logoutAction}>
             <button className={styles.textButton} type="submit">
@@ -57,6 +60,9 @@ export async function PortalShell({
             <div className={styles.mobileTools}>
               <Link className={styles.searchLink} href="/search">
                 搜索
+              </Link>
+              <Link className={styles.searchLink} href="/favorites">
+                收藏
               </Link>
               <ThemeControl current={currentTheme} />
               <form action={logoutAction}>

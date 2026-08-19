@@ -59,6 +59,26 @@
   color: var(--color-text-secondary);
 }
 
+.favoriteForm {
+  margin-bottom: 20px;
+}
+
+.favoriteForm button {
+  min-height: 44px;
+  padding: 0 18px;
+  border: 1px solid var(--color-divider);
+  border-radius: 10px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.favoriteForm button[aria-pressed="true"] {
+  border-color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+}
+
 .versionLink {
   margin: 0 0 20px;
 }

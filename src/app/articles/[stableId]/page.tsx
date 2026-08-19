@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { getDatabase } from "@/db/database";
+import { createFavoritesService } from "@/modules/favorites";
 import { createKnowledgePublishingService } from "@/modules/knowledge-publishing";
 import {
   renderMarkdown,
@@ -12,6 +13,7 @@ import type { TocEntry } from "@/modules/shared/markdown-renderer";
 import { requirePortalSession } from "../../authorization";
 import { PortalShell } from "../../portal-shell";
 import { MermaidRenderer } from "../../mermaid-renderer";
+import { toggleFavoriteAction } from "./actions";
 import styles from "./article.module.css";
 
 function formatDate(value: Date | null): string {
@@ -71,10 +73,14 @@ export default async function ArticlePage({
 
   if (!article) notFound();
 
-  // 渲染正文并提取目录
-  const [bodyHtml, bodyToc] = await Promise.all([
+  // 渲染正文、提取目录并读取收藏状态
+  const [bodyHtml, bodyToc, isFavorite] = await Promise.all([
     renderMarkdown(article.bodyMarkdown),
     extractTableOfContents(article.bodyMarkdown),
+    createFavoritesService(getDatabase()).isFavorite(
+      session.member.id,
+      article.id,
+    ),
   ]);
 
   const isEditorOrAdmin =
@@ -155,6 +161,18 @@ export default async function ArticlePage({
           )}
 
           <p className={styles.readCount}>阅读次数：{displayedReadCount}</p>
+
+          <form action={toggleFavoriteAction} className={styles.favoriteForm}>
+            <input type="hidden" name="articleId" value={article.id} />
+            <input type="hidden" name="stableId" value={article.stableId} />
+            <button
+              type="submit"
+              aria-pressed={isFavorite}
+              className={isFavorite ? styles.favoriteActive : undefined}
+            >
+              {isFavorite ? "取消收藏" : "收藏"}
+            </button>
+          </form>
         </aside>
 
         <article className={styles.article}>
