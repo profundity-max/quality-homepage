@@ -10,7 +10,7 @@ import { createDatabaseClient } from "@/db/client";
 import { articles, users } from "@/db/schema";
 import { createDiskFileStorage } from "@/modules/file-storage";
 import { createContentMigrationService } from "@/modules/content-migration";
-import { zipFiles } from "@/modules/markdown-package";
+import { parseFrontmatter, unzip, zipFiles } from "@/modules/markdown-package";
 
 const EDITOR_ID = "00000000-0000-4000-8000-0000000000f1";
 const ADMIN_ID = "00000000-0000-4000-8000-0000000000f2";
@@ -183,5 +183,67 @@ topic: spc
     expect(result).toEqual({ imported: 1, skipped: 2 });
     const after = (await client.select().from(articles)).length;
     expect(after).toBe(before + 1);
+  });
+
+  test("exports a single article as a readable markdown package (PORT-06)", async () => {
+    const markdown = `---
+title: ANOVA 入门
+summary: 方差分析基础
+topic: anova
+tags:
+  - 统计
+aliases: [方差分析入门]
+---
+
+正文内容
+`;
+    const { stableId } = await service().importMarkdownFile({
+      editorUserId: EDITOR_ID,
+      markdown,
+    });
+    const buffer = await service().exportArticlePackage(stableId);
+    const entries = unzip(buffer);
+    const exported = entries.get(`${stableId}.md`)!.toString("utf8");
+    const { frontmatter, body } = parseFrontmatter(exported);
+    expect(frontmatter).toMatchObject({
+      title: "ANOVA 入门",
+      topic: "anova",
+      tags: ["统计"],
+      aliases: ["方差分析入门"],
+    });
+    expect(body).toContain("正文内容");
+  });
+
+  test("full-site export contains manifest, sections, topics, templates and aliases (PORT-07/08/09)", async () => {
+    const { stableId } = await service().importMarkdownFile({
+      editorUserId: EDITOR_ID,
+      markdown: `---
+title: 导出测试文章
+summary: 摘要
+topic: anova
+aliases: [别名A]
+---
+
+正文
+`,
+    });
+    const buffer = await service().exportFullSite();
+    const entries = unzip(buffer);
+    expect(entries.has("manifest.yaml")).toBe(true);
+    expect(entries.get("manifest.yaml")!.toString("utf8")).toMatch(
+      /articles: 1/,
+    );
+    expect(entries.get("sections.yaml")!.toString("utf8")).toContain(
+      "quality-knowledge",
+    );
+    expect(entries.get("topics.yaml")!.toString("utf8")).toContain(
+      "stable_id: anova",
+    );
+    expect(entries.get("templates/templates.yaml")).toBeDefined();
+    const articleFile = entries
+      .get(`articles/${stableId}.md`)!
+      .toString("utf8");
+    expect(articleFile).toContain("别名A");
+    expect(articleFile).toContain("导出测试文章");
   });
 });

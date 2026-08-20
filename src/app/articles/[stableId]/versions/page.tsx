@@ -44,6 +44,14 @@ export default async function ArticleVersionsPage({
           <p className={styles.eyebrow}>品集｜Q Nexus · 版本历史</p>
           <h1>{article.title}</h1>
           <p>共 {versions.length} 个版本（含恢复记录）</p>
+          <p>
+            <a
+              href={`/api/migration/export/article?stableId=${stableId}`}
+              download
+            >
+              导出为 Markdown 包
+            </a>
+          </p>
         </header>
 
         {query.notice && (
