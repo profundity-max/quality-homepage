@@ -25,12 +25,12 @@ npm run e2e:serve
 
 打开 **http://127.0.0.1:3000**，用演示账号登录：
 
-| 账号 | 密码 | 角色 | 用途 |
-|---|---|---|---|
-| `member` | `member secure password` | 阅读者 | 浏览首页/知识/新人路线/模板/书单 |
-| `editor` | `editor secure password` | 编辑者 | 编辑发布文章、查看版本历史 |
-| `columnadmin` | `column admin secure password` | 管理员（免首改密） | 栏目/主题管理、内容复核 |
-| `admin` | `correct horse battery staple` | 管理员（bootstrap） | **首次登录会被强制改密**（产品行为） |
+| 账号          | 密码                           | 角色                | 用途                                 |
+| ------------- | ------------------------------ | ------------------- | ------------------------------------ |
+| `member`      | `member secure password`       | 阅读者              | 浏览首页/知识/新人路线/模板/书单     |
+| `editor`      | `editor secure password`       | 编辑者              | 编辑发布文章、查看版本历史           |
+| `columnadmin` | `column admin secure password` | 管理员（免首改密）  | 栏目/主题管理、内容复核              |
+| `admin`       | `correct horse battery staple` | 管理员（bootstrap） | **首次登录会被强制改密**（产品行为） |
 
 > 演示数据在 `.data/e2e/`（被 `.gitignore` 忽略）。`npm run e2e:serve` 每次会**清空重建** seed 数据。
 > 生产/正式环境需要 PostgreSQL：见 `docs/deployment.md` 与 `.env.example`。
@@ -64,22 +64,32 @@ npm run identity:bootstrap  # 初始化首位管理员
 
 现有模块（`src/modules/`）：
 
-| 模块 | 职责 |
-|---|---|
-| `identity` | 账号、会话、登录锁定、强制改密、首次管理员 bootstrap |
-| `account-administration` | 管理员维护账号/角色/锁定（含 GOV-04 停用负责人联动） |
-| `personalized-home` | 首页问候与导航模型（Asia/Shanghai 时段问候） |
-| `knowledge-publishing` | 知识阅读侧：主题树、文章详情、最近更新、相关文章、阅读计数、归档说明、复核到期 |
-| `knowledge-editing` | 文章编辑服务：草稿/发布/beginEdit/恢复版本/副本/归档/确认复核/编辑占用锁 |
-| `knowledge-administration` | 栏目/主题管理：增改排序归档、管理员门禁、IA-09 归档守卫 |
-| `editor-commands` | 编辑器格式化命令（纯函数：加粗/标题/列表/引用/Callout/表格等） |
-| `offline-drafts` | 离线草稿控制器（localStorage 时间戳比较，纯函数可测） |
-| `file-storage` | 受控文件目录存储（磁盘实现 + 扩展名白名单，模板可 null 白名单） |
-| `image-service` | 图片上传（受控目录 + `image_assets` 元数据 + sha256） |
-| `template-service` | 模板中心：上传隔离区、扫描 adapter、版本流转、下载、阅读者视图 |
-| `book-service` | 推荐书目：分类、书籍视图、封面 |
-| `onboarding` | 新人六阶段路线读取 |
-| `shared` | `password-hasher`、`markdown-renderer`（安全 Markdown 管线） |
+| 模块                       | 职责                                                                           |
+| -------------------------- | ------------------------------------------------------------------------------ |
+| `identity`                 | 账号、会话、登录锁定、强制改密、首次管理员 bootstrap                           |
+| `account-administration`   | 管理员维护账号/角色/锁定（含 GOV-04 停用负责人联动）                           |
+| `personalized-home`        | 首页问候与导航模型（Asia/Shanghai 时段问候）                                   |
+| `knowledge-publishing`     | 知识阅读侧：主题树、文章详情、最近更新、相关文章、阅读计数、归档说明、复核到期 |
+| `knowledge-editing`        | 文章编辑服务：草稿/发布/beginEdit/恢复版本/副本/归档/确认复核/编辑占用锁       |
+| `knowledge-administration` | 栏目/主题管理：增改排序归档、管理员门禁、IA-09 归档守卫                        |
+| `search`                   | 分组快速搜索、类型/栏目/标签/时间筛选、别名命中、搜索记录、无结果建议          |
+| `favorites`                | 文章收藏（仅本人可见的个人列表）                                               |
+| `feedback`                 | 五类内容反馈提交与编辑者处理（已解决/忽略）                                    |
+| `content-stats`            | 阅读触达统计：30 分钟去重、7/30/90 天聚合、看板指标、90 天身份清理             |
+| `content-audit`            | 内容审计事件（append-only）记录与查询                                          |
+| `recycle-bin`              | 回收站：归档列表、30 天保留、恢复、图片引用保护下的永久删除                    |
+| `markdown-package`         | YAML frontmatter 解析/序列化 + ZIP 打包解包                                    |
+| `content-migration`        | Markdown/ZIP 导入（批量预检）+ 单篇/全站导出（含模板与别名）                   |
+| `backup`                   | 加密备份（AES-256-GCM）、7 日 + 8 周保留、恢复预检                             |
+| `editor-commands`          | 编辑器格式化命令（纯函数：加粗/标题/列表/引用/Callout/表格等）                 |
+| `offline-drafts`           | 离线草稿控制器（localStorage 时间戳比较，纯函数可测）                          |
+| `file-storage`             | 受控文件目录存储（磁盘实现 + 扩展名白名单，模板可 null 白名单）                |
+| `image-service`            | 图片上传（受控目录 + `image_assets` 元数据 + sha256）                          |
+| `template-service`         | 模板中心：上传隔离区、扫描 adapter、版本流转、下载、阅读者视图                 |
+| `book-service`             | 推荐书目：分类、书籍视图、封面                                                 |
+| `onboarding`               | 新人六阶段路线读取                                                             |
+| `onboarding-admin`         | 新人路线管理（阶段/步骤维护）                                                  |
+| `shared`                   | `password-hasher`、`markdown-renderer`（安全 Markdown 管线）                   |
 
 ### 2.2 数据层（Drizzle + 手写 SQL 迁移）
 
@@ -87,43 +97,45 @@ npm run identity:bootstrap  # 初始化首位管理员
 - 迁移是**手写 SQL**：`drizzle/NNNN_*.sql` + `drizzle/migrations.json` 清单；每个迁移文件末尾自我登记进 `schema_migrations`
 - 约定：`CREATE TABLE IF NOT EXISTS`、uuid 主键、snake_case 列名、索引 `*_idx` 命名、seed 数据 `ON CONFLICT (id) DO NOTHING`（幂等）
 
-**迁移历史（0000–0012）**：
+**迁移历史（0000–0014）**：
 
-| 迁移 | 内容 |
-|---|---|
-| 0000 | 身份基座：users / sessions / identity_audit_events（append-only 触发器） |
-| 0001 | 登录防护（失败次数/锁定列） |
-| 0002 | 会话生命周期约束 |
-| 0003 | 内容基座：sections / topics / topic_aliases / articles / article_aliases + 栏目体系 seed（37 主题）+ 发布必填 CHECK |
-| 0004 | 文章阅读计数列 |
-| 0005 | article_versions 版本快照表（kind=publish/restore + 恢复原因条件 CHECK） |
-| 0006 | image_assets 图片元数据表 |
-| 0007 | 编辑占用列（editing_by / editing_at） |
-| 0008 | 新人路线：onboarding_stages / onboarding_steps + 六阶段 seed |
-| 0009 | 模板中心：template_categories / templates / template_versions（八分类 seed） |
-| 0010 | 推荐书目：book_categories / books（五分类 seed） |
-| 0011 | 模板隔离原因列（quarantine_reason） |
-| 0012 | 模板下载计数列（download_count） |
+| 迁移 | 内容                                                                                                                       |
+| ---- | -------------------------------------------------------------------------------------------------------------------------- |
+| 0000 | 身份基座：users / sessions / identity_audit_events（append-only 触发器）                                                   |
+| 0001 | 登录防护（失败次数/锁定列）                                                                                                |
+| 0002 | 会话生命周期约束                                                                                                           |
+| 0003 | 内容基座：sections / topics / topic_aliases / articles / article_aliases + 栏目体系 seed（37 主题）+ 发布必填 CHECK        |
+| 0004 | 文章阅读计数列                                                                                                             |
+| 0005 | article_versions 版本快照表（kind=publish/restore + 恢复原因条件 CHECK）                                                   |
+| 0006 | image_assets 图片元数据表                                                                                                  |
+| 0007 | 编辑占用列（editing_by / editing_at）                                                                                      |
+| 0008 | 新人路线：onboarding_stages / onboarding_steps + 六阶段 seed                                                               |
+| 0009 | 模板中心：template_categories / templates / template_versions（八分类 seed）                                               |
+| 0010 | 推荐书目：book_categories / books（五分类 seed）                                                                           |
+| 0011 | 模板隔离原因列（quarantine_reason）                                                                                        |
+| 0012 | 模板下载计数列（download_count）                                                                                           |
+| 0013 | 搜索互动：favorites / article_feedback / search_events / search_aggregates / read_details / daily_reach / download_details |
+| 0014 | 治理与审计：content_audit_events（append-only）+ 归档列 + backups                                                          |
 
 ### 2.3 路由地图（`src/app/`）
 
-| 路由 | 功能 | 权限 |
-|---|---|---|
-| `/` | 首页（问候 + 真实知识/模板/书单/新人入口 + 最近更新） | 登录 |
-| `/login` `/change-password` | 登录 / 强制改密 | 公开 / 登录 |
-| `/quality` `/thermal` | 知识入口页（可收起分类树 + 主题文章列表） | 登录 |
-| `/articles/[stableId]` | 文章三栏阅读页（目录/相关/上下篇/阅读计数/归档说明） | 登录 |
-| `/articles/[stableId]/versions` | 版本历史页（恢复需填原因） | 编辑者/管理员 |
-| `/onboarding` | 新人六阶段路线（总览 + 阶段 + 上下篇导航） | 登录 |
-| `/templates` `/templates/[stableId]` | 模板中心 / 模板详情（QMS 提示 + 下载） | 登录 |
-| `/books` | 推荐书单 | 登录 |
-| `/manage` | 账户管理 + 待复核内容（GOV-02/03） | 管理员 |
-| `/manage/columns` | 栏目/主题管理 | 管理员 |
-| `/manage/articles/[stableId]/edit` `/manage/articles/new` | Markdown 编辑器（三模式 + 自动保存 + 离线 + 占用） | 编辑者/管理员 |
-| `/uploads/[id]` | 受控图片访问 | 登录 |
-| `/templates/[stableId]/download` | 模板附件下载（计数） | 登录 |
-| `/api/articles/[stableId]/take-over` | 编辑占用接管 | 编辑者/管理员 |
-| `/api/health/live` `/api/health/ready` | 健康检查 | 公开 |
+| 路由                                                      | 功能                                                  | 权限          |
+| --------------------------------------------------------- | ----------------------------------------------------- | ------------- |
+| `/`                                                       | 首页（问候 + 真实知识/模板/书单/新人入口 + 最近更新） | 登录          |
+| `/login` `/change-password`                               | 登录 / 强制改密                                       | 公开 / 登录   |
+| `/quality` `/thermal`                                     | 知识入口页（可收起分类树 + 主题文章列表）             | 登录          |
+| `/articles/[stableId]`                                    | 文章三栏阅读页（目录/相关/上下篇/阅读计数/归档说明）  | 登录          |
+| `/articles/[stableId]/versions`                           | 版本历史页（恢复需填原因）                            | 编辑者/管理员 |
+| `/onboarding`                                             | 新人六阶段路线（总览 + 阶段 + 上下篇导航）            | 登录          |
+| `/templates` `/templates/[stableId]`                      | 模板中心 / 模板详情（QMS 提示 + 下载）                | 登录          |
+| `/books`                                                  | 推荐书单                                              | 登录          |
+| `/manage`                                                 | 账户管理 + 待复核内容（GOV-02/03）                    | 管理员        |
+| `/manage/columns`                                         | 栏目/主题管理                                         | 管理员        |
+| `/manage/articles/[stableId]/edit` `/manage/articles/new` | Markdown 编辑器（三模式 + 自动保存 + 离线 + 占用）    | 编辑者/管理员 |
+| `/uploads/[id]`                                           | 受控图片访问                                          | 登录          |
+| `/templates/[stableId]/download`                          | 模板附件下载（计数）                                  | 登录          |
+| `/api/articles/[stableId]/take-over`                      | 编辑占用接管                                          | 编辑者/管理员 |
+| `/api/health/live` `/api/health/ready`                    | 健康检查                                              | 公开          |
 
 ### 2.4 关键设计决策（ADR 摘要）
 
@@ -134,6 +146,7 @@ npm run identity:bootstrap  # 初始化首位管理员
 5. **ADR-0006**：内容寻址用不可变稳定标识（`stable_id`，改名不断链）
 6. **ADR-0007**：文章版本快照表 + 乐观并发（`expectedUpdatedAt` 冲突检测）
 7. **ADR-0008**：模板隔离区 + 扫描后发布 + 版本快照
+8. **ADR-0009**：统计保留与匿名化（阅读触达 90 天身份保留、禁止绩效用途）
 
 ---
 
@@ -141,73 +154,76 @@ npm run identity:bootstrap  # 初始化首位管理员
 
 ### 3.1 切片总览（roadmap 共 6 个切片）
 
-| 切片 | 内容 | 状态 |
-|---|---|---|
-| **Slice 1** | 基础、身份与 Editorial Space 门户骨架 | ✅ 完成（issues #1–#10） |
-| **Slice 2** | 栏目与知识阅读闭环 | ✅ 完成（issues #11–#18） |
-| **Slice 3** | Markdown 编辑与发布闭环 | ✅ 完成（issues #20–#29） |
+| 切片        | 内容                                         | 状态                      |
+| ----------- | -------------------------------------------- | ------------------------- |
+| **Slice 1** | 基础、身份与 Editorial Space 门户骨架        | ✅ 完成（issues #1–#10）  |
+| **Slice 2** | 栏目与知识阅读闭环                           | ✅ 完成（issues #11–#18） |
+| **Slice 3** | Markdown 编辑与发布闭环                      | ✅ 完成（issues #20–#29） |
 | **Slice 4** | 新人路线、模板中心与推荐书目（**内容闭环**） | ✅ 完成（issues #30–#37） |
-| **Slice 5** | 搜索、收藏、反馈与内容统计 | ⏸ 暂停（已拆规划，未实施） |
-| **Slice 6** | 治理、迁移、审计与运行保障 | ⏸ 暂停（未实施；正式上线需先完成） |
+| **Slice 5** | 搜索、收藏、反馈与内容统计                   | ✅ 完成（issues #42–#49） |
+| **Slice 6** | 治理、迁移、审计与运行保障                   | ✅ 完成（issues #50–#57） |
 
-> 当前代码状态：43 个提交在 `main`；原型分支 `prototype/q-nexus-ui` 保留。
+> 当前代码状态：69 个提交在 `main`；原型分支 `prototype/q-nexus-ui` 保留。
 
 ### 3.2 已完成能力清单
 
 **身份与门户（Slice 1）**
+
 - 账号/角色（reader/editor/administrator）、登录锁定（5 次/15 分钟）、强制首改密、会话（浏览器 7 天持久）、账户管理（创建/改角色/禁用/解锁/重置密码）、"最后一位有效管理员"保护
 - Editorial Space 首页：时段问候（Asia/Shanghai）、浅/深色主题、键盘导航、移动抽屉
 
 **知识阅读（Slice 2）**
+
 - 内容模型：栏目树（品质知识 6 栏目 34 主题 + 散热知识 2 栏目）、37 主题 seed、稳定标识、文章别名、发布必填约束
 - 主题树递归剪枝（空主题/归档栏目对阅读者隐藏）、相关文章（同主题→共享标签）、最近更新、阅读计数（编辑者不计）
 - 安全 Markdown 渲染器：remark/rehype 管线 + rehype-sanitize + KaTeX + 六种 Callout + 目录提取
 - 三栏阅读页、知识入口页（可收起分类树）、首页真实入口 + 最近更新、栏目/主题管理（含 IA-09 归档守卫）
 
 **编辑发布（Slice 3）**
+
 - 文章版本：快照表 + kind（publish/restore）+ 恢复原因；已发布文章编辑期间阅读者仍见旧版本
 - 编辑器：三模式（预览/源码/分栏）、工具栏 + 命令菜单、大纲/属性面板、Mermaid 安全渲染、站内链接选择器
 - 图片上传（受控目录 + 元数据 + sha256）、自动保存（30s）+ 离线草稿（localStorage）+ 冲突人工选择、发布必须在线
 - 编辑占用（acquire/release/takeover）、版本历史页、归档说明页、内容复核（GOV-02 提醒/03 确认/04 停用联动）
 
 **内容闭环（Slice 4）**
+
 - 新人六阶段路线（步骤可引用文章/模板）、模板中心（八分类、隔离区 + 可注入扫描 adapter、草稿→发布→历史流转、附件下载 + 计数、QMS 提示）、推荐书单（五分类、封面/占位）、首页真实入口
 
 ### 3.3 尚未完成 / 已知边界
 
-- **Slice 5/6 暂停**：搜索、收藏/反馈、内容统计；治理/迁移/审计/备份/告警
-- **管理端 UI 缺口**（服务层已支持，页面待做）：模板/书单维护、模板上传、新人阶段调整（ONB-08）
-- **已知边界**（各 issue 关闭评论有详细记录）：并发发布 max+1 无事务锁；编辑占用无超时自动释放；扫描为本地 adapter（真实病毒库待部署环境）；下载人数去重统计留待 Slice 5；Docker 相关测试（`test:postgres:container` / `test:compose`）需 CI/有 Docker 环境
-- **上线前置**：issue #9（Mac Studio IT 运维准备，`ready-for-human`）+ Slice 6
+- **上线前置（人工项）**：issue #9（Mac Studio IT 运维准备，`ready-for-human`）+ `docs/operations/launch-checklist.md`（内容填充、备份口令保管、恢复演练、1–2 周试运行等）
+- **已知边界**（各 issue 关闭评论有详细记录）：并发发布 max+1 无事务锁；编辑占用无超时自动释放；扫描为本地 adapter（真实病毒库待部署环境）；PORT-10（自动定时导入）明确不在本期范围
+- **已可运行**：`test:postgres:container` 与 compose 测试需要 Docker（本机已通过 Colima 验证；CI 亦可跑）
 
 ---
 
 ## 四、测试
 
-| 层级 | 位置 | 说明 |
-|---|---|---|
-| 单元/集成 | `tests/module/*.test.ts`、`tests/integration/*.test.ts` | 177+ 用例，PGlite 内存库 + `migrate()`，无需 Docker |
-| 端到端 | `tests/e2e/*.spec.ts`（14 个文件，50 个场景） | Playwright，webServer 自动 seed |
-| compose | `tests/compose-e2e/` + `scripts/verify-compose*.mjs` | 需要 Docker（CI 跑） |
+| 层级      | 位置                                                    | 说明                                                            |
+| --------- | ------------------------------------------------------- | --------------------------------------------------------------- |
+| 单元/集成 | `tests/module/*.test.ts`、`tests/integration/*.test.ts` | 277 用例（46 个文件），PGlite 内存库 + `migrate()`，无需 Docker |
+| 端到端    | `tests/e2e/*.spec.ts`（24 个文件，76 个场景）           | Playwright，webServer 自动 seed                                 |
+| compose   | `tests/compose-e2e/` + `scripts/verify-compose*.mjs`    | 需要 Docker（CI 跑）                                            |
 
 **e2e 账号**（由 `scripts/seed-e2e.ts` 生成）：`member` / `editor` / `columnadmin`（见上文表格）。
-**e2e 环境变量**（`playwright.config.ts`）：`Q_NEXUS_E2E=1`、`Q_NEXUS_DATABASE_PATH=.data/e2e`、`Q_NEXUS_LOCKOUT_SECONDS=10`、`Q_NEXUS_BROWSER_SESSION_SECONDS=2`（**注意：浏览器会话仅 2 秒，跨页面的长流程测试需勾选"保持登录 7 天"**）。
+**e2e 环境变量**（`playwright.config.ts`）：`Q_NEXUS_E2E=1`、`Q_NEXUS_DATABASE_PATH=.data/e2e`、`Q_NEXUS_LOCKOUT_SECONDS=10`、`Q_NEXUS_BROWSER_SESSION_SECONDS=15`（**注意：浏览器会话仅 15 秒，跨页面的长流程测试需勾选"保持登录 7 天"**）。
 
 ---
 
 ## 五、环境变量（`.env.example`）
 
-| 变量 | 用途 | 默认 |
-|---|---|---|
-| `DATABASE_URL` | PostgreSQL 连接串（非 E2E 必需） | — |
-| `Q_NEXUS_E2E=1` | E2E 模式（PGlite 文件库，禁生产） | 未设 |
-| `Q_NEXUS_DATABASE_PATH` | E2E 数据库目录（必须含 `e2e`） | — |
-| `Q_NEXUS_DATA_DIR` | 受控文件目录（图片/模板）根路径 | `.data/uploads` |
-| `Q_NEXUS_MAX_LOGIN_FAILURES` | 登录失败上限 | 5 |
-| `Q_NEXUS_LOCKOUT_MINUTES` | 锁定分钟数 | 15 |
-| `Q_NEXUS_BROWSER_SESSION_SECONDS` | 浏览器会话有效期 | 43200 |
-| `Q_NEXUS_HTTPS=1` | 反向代理 HTTPS 时设置 | 未设 |
-| `Q_NEXUS_E2E_CONTROL_TOKEN` | E2E 控制令牌 | — |
+| 变量                              | 用途                              | 默认            |
+| --------------------------------- | --------------------------------- | --------------- |
+| `DATABASE_URL`                    | PostgreSQL 连接串（非 E2E 必需）  | —               |
+| `Q_NEXUS_E2E=1`                   | E2E 模式（PGlite 文件库，禁生产） | 未设            |
+| `Q_NEXUS_DATABASE_PATH`           | E2E 数据库目录（必须含 `e2e`）    | —               |
+| `Q_NEXUS_DATA_DIR`                | 受控文件目录（图片/模板）根路径   | `.data/uploads` |
+| `Q_NEXUS_MAX_LOGIN_FAILURES`      | 登录失败上限                      | 5               |
+| `Q_NEXUS_LOCKOUT_MINUTES`         | 锁定分钟数                        | 15              |
+| `Q_NEXUS_BROWSER_SESSION_SECONDS` | 浏览器会话有效期                  | 43200           |
+| `Q_NEXUS_HTTPS=1`                 | 反向代理 HTTPS 时设置             | 未设            |
+| `Q_NEXUS_E2E_CONTROL_TOKEN`       | E2E 控制令牌                      | —               |
 
 ---
 
@@ -222,6 +238,7 @@ npm run identity:bootstrap  # 初始化首位管理员
 5. 提交前必须：`npm run lint && npm run typecheck && npm run test:local && npm run build`
 
 **目录速查**：
+
 - 需求：`docs/requirements/`；路线：`docs/plans/`；决策：`docs/adr/`；架构：`docs/architecture/`
 - 术语表（**写作/命名必读**）：`CONTEXT.md`；栏目体系：`栏目体系.md`
 - 代理约定：`AGENTS.md`（含 Next.js 16 变更说明）；`docs/agents/`
