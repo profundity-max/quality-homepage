@@ -209,12 +209,13 @@ if [[ -n "$gateway" ]]; then
   note "若打不开，浏览器手动访问路由器地址 $gateway"
 fi
 ask Q_NEXUS_BIND_ADDRESS "确认部署用的局域网 IP（当前默认 192.168.60.152）:"
+Q_NEXUS_BIND_ADDRESS="${Q_NEXUS_BIND_ADDRESS:-192.168.60.152}"
 [[ -n "$Q_NEXUS_BIND_ADDRESS" ]] && write_env Q_NEXUS_BIND_ADDRESS "$Q_NEXUS_BIND_ADDRESS"
 pause "确认 IP 已固定后继续"
 
 # ── Stage 2 · .env 密钥与绑定 ────────────────────────────────────────────
 stage "生成密钥并写入 .env"
-say "数据库密码与备份口令将自动生成强随机值并写入 $ENV_FILE（已被 git 忽略）。"
+say "数据库密码与备份口令将自动生成强随机值并写入 ${ENV_FILE}（已被 git 忽略）。"
 if [[ -z "$(_existing Q_NEXUS_DB_PASSWORD || true)" ]]; then
   Q_NEXUS_DB_PASSWORD=$(openssl rand -hex 24)
   write_env Q_NEXUS_DB_PASSWORD "$Q_NEXUS_DB_PASSWORD"
