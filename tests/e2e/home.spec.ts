@@ -35,14 +35,12 @@ test("home shows real knowledge entries and recent updates", async ({
 test("recent updates link to the reading page", async ({ page }) => {
   await loginAsMember(page);
   const updates = page.getByRole("region", { name: "最近更新" });
-  // 最新文章（updatedAt 最近）是 anova-example
+  // 不依赖具体哪篇排第一（复核确认会把 anova-intro 的 updatedAt 刷到最新）
   const first = updates.getByRole("link").first();
-  await expect(first).toContainText("ANOVA 实例");
+  const firstHref = await first.getAttribute("href");
   await first.click();
-  await expect(page).toHaveURL(/\/articles\/anova-example$/);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-    "ANOVA 实例",
-  );
+  await expect(page).toHaveURL(firstHref!);
+  await expect(page.getByRole("heading", { level: 1 })).not.toBeEmpty();
 });
 
 test("knowledge entry links from home reach the entry pages", async ({

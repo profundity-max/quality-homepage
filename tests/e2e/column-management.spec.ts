@@ -31,6 +31,16 @@ test("administrator can rename a topic without breaking its stable link", async 
   await expect(
     page.getByRole("heading", { name: "ANOVA 方差分析" }),
   ).toBeVisible();
+
+  // 还原主题名，避免污染后续依赖 "ANOVA" 名称的 e2e（知识入口、阅读路径等）
+  await page.goto("/manage/columns");
+  const renameBack = page.getByLabel("重命名主题 ANOVA 方差分析");
+  await renameBack.fill("ANOVA");
+  await renameBack
+    .locator("xpath=ancestor::form")
+    .getByRole("button", { name: "改名" })
+    .click();
+  await expect(page.getByRole("status")).toContainText("主题已改名");
 });
 
 test("administrator sees empty topics in the admin view (IA-08)", async ({

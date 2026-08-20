@@ -22,7 +22,7 @@ test("internal link picker inserts a stable-id link in the editor", async ({
   page,
 }) => {
   await loginAsEditor(page);
-  await page.goto("/manage/articles/anova-intro/edit");
+  await page.goto("/manage/articles/edit-fixture/edit");
 
   await page.getByRole("tab", { name: "源码" }).click();
   const source = page.getByLabel("Markdown 源码");
@@ -38,7 +38,7 @@ test("internal link picker inserts a stable-id link in the editor", async ({
 
 test("callout commands are available in the command menu", async ({ page }) => {
   await loginAsEditor(page);
-  await page.goto("/manage/articles/anova-intro/edit");
+  await page.goto("/manage/articles/edit-fixture/edit");
 
   await page.getByRole("tab", { name: "源码" }).click();
   const source = page.getByLabel("Markdown 源码");
@@ -61,7 +61,7 @@ test("mermaid diagram renders as SVG in the reading page", async ({ page }) => {
 
 test("image upload inserts a controlled-directory link", async ({ page }) => {
   await loginAsEditor(page);
-  await page.goto("/manage/articles/anova-intro/edit");
+  await page.goto("/manage/articles/edit-fixture/edit");
 
   await page.getByRole("tab", { name: "源码" }).click();
   const source = page.getByLabel("Markdown 源码");
@@ -82,7 +82,7 @@ test("image upload inserts a controlled-directory link", async ({ page }) => {
 
 test("autosave runs after edits and shows the saved time", async ({ page }) => {
   await loginAsEditor(page);
-  await page.goto("/manage/articles/anova-intro/edit");
+  await page.goto("/manage/articles/edit-fixture/edit");
 
   await page.getByRole("tab", { name: "源码" }).click();
   const source = page.getByLabel("Markdown 源码");
@@ -99,7 +99,7 @@ test("offline draft is kept in the browser and recovered on reconnect", async ({
   page,
 }) => {
   await loginAsEditor(page);
-  await page.goto("/manage/articles/anova-intro/edit");
+  await page.goto("/manage/articles/edit-fixture/edit");
 
   await page.getByRole("tab", { name: "源码" }).click();
   const source = page.getByLabel("Markdown 源码");

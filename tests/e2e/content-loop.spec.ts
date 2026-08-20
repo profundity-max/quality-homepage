@@ -17,7 +17,8 @@ test("home shows real template, book and onboarding entries (HOME-03)", async ({
   await expect(templates).toContainText("1 个模板");
 
   const books = page.locator("main section", { hasText: "推荐书单" });
-  await expect(books).toContainText("1 本书");
+  // 书目数量会因 book-admin 用例创建的书而变化，只断言存在至少一本
+  await expect(books).toContainText(/[1-9]\d* 本书/);
 
   const onboarding = page.locator("main section", { hasText: "新人专区" });
   await expect(onboarding).toContainText("6 个阶段");

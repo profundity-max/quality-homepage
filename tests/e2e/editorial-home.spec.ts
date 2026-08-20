@@ -116,6 +116,11 @@ test("Editorial Space works across desktop, theme, keyboard, and mobile", async 
     .click();
   await expect(page).toHaveURL(/\/quality$/);
   await expect(page.getByRole("heading", { name: "品质知识" })).toBeVisible();
+  // seed 首个主题是 sigma，点选 ANOVA 后断言其文章区（与 knowledge-entry 一致）
+  await page
+    .getByRole("complementary", { name: "分类树" })
+    .getByRole("link", { name: "ANOVA" })
+    .click();
   await expect(page.getByRole("heading", { name: "ANOVA" })).toBeVisible();
   await expect(
     page.getByRole("link", { name: "品质知识", exact: true }),

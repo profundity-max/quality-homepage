@@ -172,6 +172,17 @@ try {
     spcTopicId,
     5,
   );
+  // 编辑类 e2e 专用已发布文章：编辑/发布链路测试只改这篇文章，
+  // 保持 anova-intro 等阅读/搜索/回收站 fixture 全程纯净（编辑会将其转草稿）。
+  await published(
+    "00000000-0000-4000-8000-0000000000d5",
+    "edit-fixture",
+    "编辑测试样例",
+    "编辑测试用的已发布文章。",
+    "## 编辑测试正文\n\n编辑测试正文段落。\n\n> [!important] 前提\n> 编辑测试的调用块前提。",
+    anovaTopicId,
+    4,
+  );
   // SEARCH-04：别名主题下的一篇已发布文章，让 σ / Sigma / 标准差 可命中主题
   const sigmaTopicId = "00000000-0000-4000-8000-000000000c01";
   await published(
@@ -211,6 +222,31 @@ try {
       title: "ANOVA 入门",
       summary: "方差分析的基础概念与适用场景。",
       bodyMarkdown: "## 什么是 ANOVA\n\n方差分析用于比较多个组的均值差异。",
+      primaryTopicId: anovaTopicId,
+      tags: ["统计"],
+      contentOwnerId: admin.id,
+      createdBy: admin.id,
+      createdAt: new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000),
+    });
+  }
+
+  // 编辑 fixture 也带一条版本记录，供发布闭环的版本历史/恢复终点使用（VER-03）
+  const fixtureArticle = (
+    await client
+      .select({ id: articles.id })
+      .from(articles)
+      .where(eq(articles.stableId, "edit-fixture"))
+  )[0];
+  if (fixtureArticle) {
+    await client.insert(articleVersions).values({
+      id: "00000000-0000-4000-8000-000000000e03",
+      articleId: fixtureArticle.id,
+      version: 1,
+      kind: "publish",
+      title: "编辑测试样例",
+      summary: "编辑测试用的已发布文章。",
+      bodyMarkdown:
+        "## 编辑测试正文\n\n编辑测试正文段落。\n\n> [!important] 前提\n> 编辑测试的调用块前提。",
       primaryTopicId: anovaTopicId,
       tags: ["统计"],
       contentOwnerId: admin.id,

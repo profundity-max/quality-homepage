@@ -15,7 +15,7 @@ export default defineConfig({
       Q_NEXUS_E2E: "1",
       Q_NEXUS_DATABASE_PATH: ".data/e2e",
       Q_NEXUS_LOCKOUT_SECONDS: "10",
-      Q_NEXUS_BROWSER_SESSION_SECONDS: "2",
+      Q_NEXUS_BROWSER_SESSION_SECONDS: "15",
       Q_NEXUS_E2E_CONTROL_TOKEN: "browser-test-control",
       BACKUP_PASSPHRASE: "e2e-backup-passphrase",
       BACKUP_TARGET_DIR: ".data/e2e/backups",

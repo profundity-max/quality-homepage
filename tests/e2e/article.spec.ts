@@ -54,9 +54,11 @@ test("article page renders all section-8 elements in order", async ({
   // 相关文章：同主题优先 → ANOVA 实例
   await expect(page.getByLabel("相关文章")).toContainText("ANOVA 实例");
 
-  // 收藏/反馈入口不出现
-  await expect(page.getByText("收藏", { exact: true })).toHaveCount(0);
-  await expect(page.getByText("内容反馈", { exact: true })).toHaveCount(0);
+  // 收藏/反馈入口对登录成员可见（FAV/反馈针对登录用户）
+  await expect(
+    page.getByRole("button", { name: "收藏", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText("内容反馈", { exact: true })).toBeVisible();
 
   // 版本历史仅编辑者/管理员 → 阅读者不可见
   await expect(page.getByRole("link", { name: "版本历史" })).toHaveCount(0);

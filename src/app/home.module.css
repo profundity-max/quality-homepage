@@ -172,6 +172,9 @@
   color: var(--color-text-secondary);
   font-size: 0.875rem;
   white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .updateEmpty {

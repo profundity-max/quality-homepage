@@ -21,7 +21,9 @@ test("knowledge entry pages show the real column tree and published articles", a
   await expect(tree).toContainText("数据与统计基础");
   await expect(tree.getByRole("link", { name: "ANOVA" })).toBeVisible();
 
-  // 默认选中第一个有内容的主题，展示其已发布文章
+  // 选中 ANOVA 主题后展示其已发布文章（seed 首个主题已变为 sigma）
+  await tree.getByRole("link", { name: "ANOVA" }).click();
+  await expect(page).toHaveURL(/topic=anova/);
   await expect(page.getByRole("heading", { name: "ANOVA" })).toBeVisible();
   await expect(page.getByRole("link", { name: "ANOVA 入门" })).toBeVisible();
   await expect(page.getByText("方差分析的基础概念与适用场景。")).toBeVisible();

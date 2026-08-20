@@ -35,9 +35,10 @@ test("full reading path: home → entry → tree → topic → article → recen
   // 回首页 → 最近更新可跳转
   await page.goto("/");
   const updates = page.getByRole("region", { name: "最近更新" });
-  await expect(updates.getByRole("link").first()).toContainText("ANOVA 实例");
-  await updates.getByRole("link").first().click();
-  await expect(page).toHaveURL(/\/articles\/anova-example$/);
+  const firstUpdate = updates.getByRole("link").first();
+  const firstHref = await firstUpdate.getAttribute("href");
+  await firstUpdate.click();
+  await expect(page).toHaveURL(firstHref!);
 });
 
 test("demo article renders tables, formulas, code blocks and internal links", async ({
@@ -96,7 +97,12 @@ test("full reading path survives 390px width (common definition)", async ({
   await expect(page).toHaveURL(/\/quality$/);
   // 分类树与文章列表在窄屏堆叠可用
   await expect(page.getByRole("heading", { name: "品质知识" })).toBeVisible();
-  await page.getByRole("link", { name: "ANOVA 入门" }).click();
+  // seed 首个主题是 sigma，先点选 ANOVA 主题
+  await page
+    .getByRole("complementary", { name: "分类树" })
+    .getByRole("link", { name: "ANOVA" })
+    .click();
+  await page.getByRole("link", { name: "ANOVA 入门", exact: true }).click();
   await expect(page).toHaveURL(/\/articles\/anova-intro$/);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
     "ANOVA 入门",

@@ -12,7 +12,7 @@ test("editor switches between preview, source and split modes", async ({
   page,
 }) => {
   await loginAsEditor(page);
-  await page.goto("/manage/articles/anova-intro/edit");
+  await page.goto("/manage/articles/edit-fixture/edit");
 
   // 默认即时预览
   const tabs = page.getByRole("tablist", { name: "编辑模式" });
@@ -35,7 +35,7 @@ test("toolbar command wraps selection and command menu opens", async ({
   page,
 }) => {
   await loginAsEditor(page);
-  await page.goto("/manage/articles/anova-intro/edit");
+  await page.goto("/manage/articles/edit-fixture/edit");
 
   await page.getByRole("tab", { name: "源码" }).click();
   const source = page.getByLabel("Markdown 源码");
@@ -55,10 +55,10 @@ test("toolbar command wraps selection and command menu opens", async ({
 
 test("editor outline and properties panels open", async ({ page }) => {
   await loginAsEditor(page);
-  await page.goto("/manage/articles/anova-intro/edit");
+  await page.goto("/manage/articles/edit-fixture/edit");
 
   await page.getByRole("button", { name: "大纲" }).click();
-  await expect(page.getByLabel("文章大纲")).toContainText("什么是 ANOVA");
+  await expect(page.getByLabel("文章大纲")).toContainText("编辑测试正文");
 
   await page.getByRole("button", { name: "属性" }).click();
   await expect(page.getByLabel("文章属性")).toContainText("标题");
@@ -68,7 +68,7 @@ test("editor outline and properties panels open", async ({ page }) => {
 test("editor works at 390px", async ({ page }) => {
   await loginAsEditor(page);
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/manage/articles/anova-intro/edit");
+  await page.goto("/manage/articles/edit-fixture/edit");
 
   await expect(page.getByRole("tablist", { name: "编辑模式" })).toBeVisible();
   await page.getByRole("button", { name: "命令菜单" }).click();
@@ -83,7 +83,7 @@ test("second editor sees occupancy banner and can take over (EDIT-09)", async ({
 }) => {
   // 编辑者 A 打开编辑器（获取占用）
   await loginAsEditor(page);
-  await page.goto("/manage/articles/anova-intro/edit");
+  await page.goto("/manage/articles/edit-fixture/edit");
   await expect(page.getByRole("tablist", { name: "编辑模式" })).toBeVisible();
   // 验证 A 的会话在 route handler 有效
 
@@ -96,7 +96,7 @@ test("second editor sees occupancy banner and can take over (EDIT-09)", async ({
   await pageB.getByLabel("保持登录 7 天").check();
   await pageB.getByRole("button", { name: "登录" }).click();
   await expect(pageB).toHaveURL(/\/$/);
-  await pageB.goto("/manage/articles/anova-intro/edit");
+  await pageB.goto("/manage/articles/edit-fixture/edit");
   await pageB.waitForTimeout(1000);
   console.log("B URL:", pageB.url());
   const errors: string[] = [];
@@ -104,7 +104,7 @@ test("second editor sees occupancy banner and can take over (EDIT-09)", async ({
   pageB.on("console", (m) => {
     if (m.type() === "error") errors.push(m.text());
   });
-  await expect(pageB).toHaveURL(/\/manage\/articles\/anova-intro\/edit/);
+  await expect(pageB).toHaveURL(/\/manage\/articles\/edit-fixture\/edit/);
   await expect(pageB.getByRole("status"))
     .toHaveCount(0, { timeout: 2000 })
     .catch(() => {});
