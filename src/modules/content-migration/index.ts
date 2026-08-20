@@ -4,7 +4,16 @@ import { and, asc, eq, isNull, sql } from "drizzle-orm";
 import type { Sql } from "postgres";
 
 import { createDatabaseClient } from "@/db/client";
-import { articleAliases, articles, topics, users } from "@/db/schema";
+import {
+  articleAliases,
+  articles,
+  sections,
+  templateVersions,
+  templates,
+  topicAliases,
+  topics,
+  users,
+} from "@/db/schema";
 import type { FileStorage } from "@/modules/file-storage";
 import { createImageService } from "@/modules/image-service";
 import { createKnowledgeEditingService } from "@/modules/knowledge-editing";
@@ -348,10 +357,113 @@ export function createContentMigrationService(
       const files: { path: string; content: Buffer }[] = [];
       const manifest = {
         generatedAt: new Date().toISOString(),
-        sections: [] as string[],
-        topics: [] as string[],
-        articles: [] as string[],
+        sections: 0,
+        topics: 0,
+        articles: 0,
+        templates: 0,
       };
+
+      const sectionRows = await client
+        .select({
+          stableId: sections.stableId,
+          name: sections.name,
+          parentStableId: sql<string | null>`(
+            select parent.stable_id from sections parent
+            where parent.id = ${sections.parentId}
+          )`,
+        })
+        .from(sections)
+        .orderBy(asc(sections.sortOrder));
+      files.push({
+        path: "sections.yaml",
+        content: Buffer.from(
+          sectionRows
+            .map(
+              (section) =>
+                `- stable_id: ${section.stableId}\n  name: ${section.name}\n  parent: ${section.parentStableId ?? ""}`,
+            )
+            .join("\n") + "\n",
+          "utf8",
+        ),
+      });
+      manifest.sections = sectionRows.length;
+
+      const topicRows = await client
+        .select({
+          stableId: topics.stableId,
+          name: topics.name,
+          sectionStableId: sections.stableId,
+        })
+        .from(topics)
+        .innerJoin(sections, eq(topics.sectionId, sections.id))
+        .orderBy(asc(topics.stableId));
+      const topicIds = topicRows.map((row) => row.stableId);
+      const aliasRows = topicIds.length
+        ? await client
+            .select({
+              topicStableId: topics.stableId,
+              alias: topicAliases.alias,
+            })
+            .from(topicAliases)
+            .innerJoin(topics, eq(topicAliases.topicId, topics.id))
+            .where(
+              sql`${topics.stableId} in (${topicIds
+                .map((id) => sql`${id}`)
+                .join(", ")})`,
+            )
+        : [];
+      const aliasesByTopic = new Map<string, string[]>();
+      for (const row of aliasRows) {
+        const list = aliasesByTopic.get(row.topicStableId) ?? [];
+        list.push(row.alias);
+        aliasesByTopic.set(row.topicStableId, list);
+      }
+      files.push({
+        path: "topics.yaml",
+        content: Buffer.from(
+          topicRows
+            .map(
+              (topic) =>
+                `- stable_id: ${topic.stableId}\n  name: ${topic.name}\n  section: ${topic.sectionStableId}\n  aliases: [${(
+                  aliasesByTopic.get(topic.stableId) ?? []
+                ).join(", ")}]`,
+            )
+            .join("\n") + "\n",
+          "utf8",
+        ),
+      });
+      manifest.topics = topicRows.length;
+
+      const templateRows = await client
+        .select({
+          stableId: templates.stableId,
+          name: templates.name,
+          versionLabel: templateVersions.versionLabel,
+          version: templateVersions.version,
+        })
+        .from(templates)
+        .innerJoin(
+          templateVersions,
+          and(
+            eq(templateVersions.templateId, templates.id),
+            eq(templateVersions.status, "active"),
+          ),
+        )
+        .orderBy(asc(templates.stableId));
+      files.push({
+        path: "templates/templates.yaml",
+        content: Buffer.from(
+          templateRows
+            .map(
+              (template) =>
+                `- stable_id: ${template.stableId}\n  name: ${template.name}\n  active_version: ${template.versionLabel}`,
+            )
+            .join("\n") + "\n",
+          "utf8",
+        ),
+      });
+      manifest.templates = templateRows.length;
+
       const articleRows = await client
         .select({
           stableId: articles.stableId,
@@ -368,11 +480,17 @@ export function createContentMigrationService(
         .innerJoin(topics, eq(articles.primaryTopicId, topics.id))
         .orderBy(asc(articles.stableId));
       for (const article of articleRows) {
+        const articleAliasRows = await client
+          .select({ alias: articleAliases.alias })
+          .from(articleAliases)
+          .innerJoin(articles, eq(articleAliases.articleId, articles.id))
+          .where(eq(articles.stableId, article.stableId));
         const frontmatter: FrontmatterFields = {
           title: article.title,
           summary: article.summary,
           topic: article.topicStableId,
           tags: article.tags,
+          aliases: articleAliasRows.map((row) => row.alias),
           status: article.status,
           reviewed_at: article.lastReviewedAt?.toISOString().slice(0, 10),
           next_review_at: article.nextReviewAt?.toISOString().slice(0, 10),
@@ -384,14 +502,16 @@ export function createContentMigrationService(
             "utf8",
           ),
         });
-        manifest.articles.push(article.stableId);
+        manifest.articles += 1;
       }
       files.unshift({
         path: "manifest.yaml",
         content: Buffer.from(
-          `generated_at: ${manifest.generatedAt}\narticles:\n${manifest.articles
-            .map((stableId) => `  - ${stableId}`)
-            .join("\n")}\n`,
+          `generated_at: ${manifest.generatedAt}\n` +
+            `sections: ${manifest.sections}\n` +
+            `topics: ${manifest.topics}\n` +
+            `articles: ${manifest.articles}\n` +
+            `templates: ${manifest.templates}\n`,
           "utf8",
         ),
       });
