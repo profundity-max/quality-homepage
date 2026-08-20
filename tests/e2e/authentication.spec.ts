@@ -144,20 +144,36 @@ test("identity lifecycle protects lockout, sessions, revocation, and disabled ac
   ).toBeVisible();
   // seed 里存在第二个管理员（columnadmin），先将其降级（此时 admin 仍在，
   // 降级应成功），使 admin 成为最后一位有效管理员后再断言拒绝降级。
-  const columnAdminCard = page
-    .getByRole("article")
-    .filter({ hasText: "@columnadmin" });
-  await columnAdminCard
-    .getByLabel("调整 columnadmin 的角色")
-    .selectOption("reader");
-  await columnAdminCard.getByRole("button", { name: "更新角色" }).click();
-  await administratorCard
-    .getByLabel("调整 admin 的角色")
-    .selectOption("reader");
-  await administratorCard.getByRole("button", { name: "更新角色" }).click();
-  await expect(
-    page.getByText("必须保留至少一位有效管理员。", { exact: true }),
-  ).toBeVisible();
+  try {
+    const columnAdminCard = page
+      .getByRole("article")
+      .filter({ hasText: "@columnadmin" });
+    await columnAdminCard
+      .getByLabel("调整 columnadmin 的角色")
+      .selectOption("reader");
+    await columnAdminCard.getByRole("button", { name: "更新角色" }).click();
+    // Server Action 重定向完成后页面才会渲染最新角色状态；
+    // 等待导航落地，避免下一次提交落在未完成的旧页面上。
+    await expect(page).toHaveURL(/\/manage\?notice=/);
+    await administratorCard
+      .getByLabel("调整 admin 的角色")
+      .selectOption("reader");
+    await administratorCard.getByRole("button", { name: "更新角色" }).click();
+    await expect(
+      page.getByText("必须保留至少一位有效管理员。", { exact: true }),
+    ).toBeVisible();
+  } finally {
+    // 无论断言是否失败都恢复 columnadmin：它是后续 e2e 共用的管理员 fixture，
+    // 若以 reader 留在库里，会连锁击溃栏目管理、管理端 UI、导出等全部用例。
+    const restoreCard = page
+      .getByRole("article")
+      .filter({ hasText: "@columnadmin" });
+    await restoreCard
+      .getByLabel("调整 columnadmin 的角色")
+      .selectOption("administrator");
+    await restoreCard.getByRole("button", { name: "更新角色" }).click();
+    await expect(page.getByText("账号角色已更新。")).toBeVisible();
+  }
 
   const createAccountRegion = page.getByRole("region", {
     name: "创建账号",
@@ -314,7 +330,8 @@ test("identity lifecycle protects lockout, sessions, revocation, and disabled ac
   await page.goto("/login?next=https%3A%2F%2Fattacker.example%2Fsteal");
   await expect(page).toHaveURL(/\/$/);
 
-  await page.waitForTimeout(2_100);
+  // 浏览器会话 TTL 由 playwright.config 设为 15 秒（见 README），等待其过期
+  await page.waitForTimeout(15_100);
   await page.goto("/");
   await expect(page).toHaveURL(/\/login$/);
 
@@ -416,19 +433,6 @@ test("identity lifecycle protects lockout, sessions, revocation, and disabled ac
     .getByLabel("调整 mobile-member 的角色")
     .selectOption("editor");
   await mobileMemberCard.getByRole("button", { name: "更新角色" }).click();
-  await expect(page.getByText("账号角色已更新。")).toBeVisible();
-
-  // 恢复共享 fixture：本流程把 columnadmin 降级为 reader，若不恢复，
-  // 后续依赖管理员账号的 e2e（栏目管理、管理端 UI 等）会全部失败。
-  const restoreColumnAdminCard = page
-    .getByRole("article")
-    .filter({ hasText: "@columnadmin" });
-  await restoreColumnAdminCard
-    .getByLabel("调整 columnadmin 的角色")
-    .selectOption("administrator");
-  await restoreColumnAdminCard
-    .getByRole("button", { name: "更新角色" })
-    .click();
   await expect(page.getByText("账号角色已更新。")).toBeVisible();
 
   await mobilePage.getByLabel("用户名").fill("mobile-member");
