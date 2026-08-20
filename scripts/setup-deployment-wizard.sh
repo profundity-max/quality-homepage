@@ -193,7 +193,7 @@ banner "品集｜Q Nexus — Mac Studio 本地部署与运维准备"
 
 # ── Stage 1 · 固定 IP ─────────────────────────────────────────────────────
 stage "固定局域网 IP（有线以太网）"
-say "本项目将通过有线以太网在 $(_existing Q_NEXUS_BIND_ADDRESS || printf '192.168.60.152') 提供访问。"
+say "本项目将通过有线以太网在 $(_existing QNEXUS_LAN_IP || printf '192.168.60.152') 提供访问。"
 say "当前本机网络接口："
 for iface in en0 en1 en2 en3; do
   ip=$(ipconfig getifaddr "$iface" 2>/dev/null || true)
@@ -202,13 +202,16 @@ done
 say ""
 step "打开 系统设置 → 网络 → 以太网，确认 IP 为 192.168.60.152。"
 step "若显示为 DHCP 自动获取，请到路由器后台为该网卡 MAC 配置 DHCP 保留（静态地址）。"
-ask Q_NEXUS_BIND_ADDRESS "确认部署用的局域网 IP（当前默认 192.168.60.152）:"
-Q_NEXUS_BIND_ADDRESS="${Q_NEXUS_BIND_ADDRESS:-192.168.60.152}"
-[[ -n "$Q_NEXUS_BIND_ADDRESS" ]] && write_env Q_NEXUS_BIND_ADDRESS "$Q_NEXUS_BIND_ADDRESS"
+ask LAN_IP "确认部署用的局域网 IP（当前默认 192.168.60.152）:"
+LAN_IP="${LAN_IP:-192.168.60.152}"
+write_env QNEXUS_LAN_IP "$LAN_IP"
+# Colima（macOS Virtualization.framework）的端口转发不支持绑定具体局域网 IP，
+# 必须用 0.0.0.0（仅监听本机内网接口，符合 SEC-01）；实际访问仍走 QNEXUS_LAN_IP。
+write_env Q_NEXUS_BIND_ADDRESS "0.0.0.0"
 # 找到持有该 IP 的接口，并打开它所在网段的路由器（不是默认网关/WiFi 路由器）
 wired_iface=""
 for iface in en0 en1 en2 en3; do
-  if [[ "$(ipconfig getifaddr "$iface" 2>/dev/null || true)" == "$Q_NEXUS_BIND_ADDRESS" ]]; then
+  if [[ "$(ipconfig getifaddr "$iface" 2>/dev/null || true)" == "$LAN_IP" ]]; then
     wired_iface="$iface"
     break
   fi
@@ -220,13 +223,13 @@ if [[ -n "$wired_iface" ]]; then
     open_url "http://$wired_gateway"
     say "如果页面空白：先试 https://${wired_gateway}；"
     say "或者直接在 macOS 里配置静态 IP：系统设置 → 网络 → 以太网 → 详细信息 →"
-    say "TCP/IP → 配置 IPv4 选『手动』，IP 填 ${Q_NEXUS_BIND_ADDRESS}、"
+    say "TCP/IP → 配置 IPv4 选『手动』，IP 填 ${LAN_IP}、"
     say "子网掩码 255.255.255.0、路由器填 ${wired_gateway}（同样能达到固定 IP 目的）。"
   else
     warn "未能读取有线网卡路由器地址；可在系统设置里把以太网配置为静态 IP。"
   fi
 else
-  warn "未找到持有 $Q_NEXUS_BIND_ADDRESS 的接口；请确认该 IP 属于有线以太网。"
+  warn "未找到持有 $LAN_IP 的接口；请确认该 IP 属于有线以太网。"
 fi
 pause "确认 IP 已固定后继续"
 
@@ -263,9 +266,10 @@ fi
 say "执行：docker compose up --build --detach --wait"
 docker compose up --build --detach --wait
 say "检查健康端点："
-curl -fsS "http://${Q_NEXUS_BIND_ADDRESS}:${Q_NEXUS_PORT}/api/health/live" && echo "  live OK"
-curl -fsS "http://${Q_NEXUS_BIND_ADDRESS}:${Q_NEXUS_PORT}/api/health/ready" && echo "  ready OK"
-if ! curl -fsS "http://${Q_NEXUS_BIND_ADDRESS}:${Q_NEXUS_PORT}/api/health/live" >/dev/null; then
+LAN_IP=$(_existing QNEXUS_LAN_IP || printf '%s' "$Q_NEXUS_BIND_ADDRESS")
+curl -fsS "http://${LAN_IP}:${Q_NEXUS_PORT}/api/health/live" && echo "  live OK"
+curl -fsS "http://${LAN_IP}:${Q_NEXUS_PORT}/api/health/ready" && echo "  ready OK"
+if ! curl -fsS "http://${LAN_IP}:${Q_NEXUS_PORT}/api/health/live" >/dev/null; then
   warn "局域网地址访问失败：请检查 macOS 防火墙是否放行 Docker/端口，或本机防火墙设置。"
 fi
 pause "确认两个健康检查都返回 ok 后继续"
@@ -274,18 +278,32 @@ pause "确认两个健康检查都返回 ok 后继续"
 stage "创建首位管理员（一次性初始化）"
 say "该命令是交互式的：密码只从隐藏输入读取，不会出现在命令参数或日志中。"
 ask Q_NEXUS_ADMIN_USERNAME "管理员用户名（如 qadmin）:"
-say "执行：docker compose --profile operations run --rm bootstrap --username \"$Q_NEXUS_ADMIN_USERNAME\""
-step "按提示输入并确认一个强密码（至少 14 位）"
-docker compose --profile operations run --rm bootstrap --username "$Q_NEXUS_ADMIN_USERNAME"
 write_env Q_NEXUS_ADMIN_USERNAME "$Q_NEXUS_ADMIN_USERNAME"
+normalized=$(printf '%s' "$Q_NEXUS_ADMIN_USERNAME" | tr '[:upper:]' '[:lower:]')
+existing=$(docker compose exec -T db psql -U q_nexus -d q_nexus -tAc \
+  "select count(*) from users where normalized_username='${normalized}'" | tr -d '[:space:]' || true)
+if [[ "$existing" =~ ^[1-9] ]]; then
+  say "已存在该管理员，跳过初始化（幂等）。"
+else
+  say "执行：docker compose --profile operations run --rm bootstrap --username \"$Q_NEXUS_ADMIN_USERNAME\""
+  step "按提示输入并确认一个强密码（至少 14 位）"
+  docker compose --profile operations run --rm bootstrap --username "$Q_NEXUS_ADMIN_USERNAME"
+fi
 pause "首位管理员创建完成后继续"
 
 # ── Stage 5 · 第二位管理员 ───────────────────────────────────────────────
 stage "创建第二位管理员（网页）"
-open_url "http://${Q_NEXUS_BIND_ADDRESS}:${Q_NEXUS_PORT}/login"
-step "用首位管理员账号登录；首次登录会要求修改密码"
-step "进入 管理 → 账户管理 → 创建账号：角色选 管理员，临时密码 ≥14 位"
-step "创建后让该账号完成首次改密（AUTH-11：至少两名管理员）"
+LAN_IP=$(_existing QNEXUS_LAN_IP || printf '%s' "$Q_NEXUS_BIND_ADDRESS")
+admins=$(docker compose exec -T db psql -U q_nexus -d q_nexus -tAc \
+  "select count(*) from users where role='administrator' and disabled_at is null" | tr -d '[:space:]' || true)
+if [[ "$admins" =~ ^[2-9] ]]; then
+  say "已存在至少两位有效管理员，跳过（AUTH-11 满足）。"
+else
+  open_url "http://${LAN_IP}:${Q_NEXUS_PORT}/login"
+  step "用首位管理员账号登录；首次登录会要求修改密码"
+  step "进入 管理 → 账户管理 → 创建账号：角色选 管理员，临时密码 ≥14 位"
+  step "创建后让该账号完成首次改密（AUTH-11：至少两名管理员）"
+fi
 pause "确认第二位管理员创建并完成改密后继续"
 
 # ── Stage 6 · 备份目标（移动硬盘） ───────────────────────────────────────

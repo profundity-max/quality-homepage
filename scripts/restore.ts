@@ -42,8 +42,15 @@ try {
   for (const entry of result.entries.slice(0, 20)) console.log(`  ${entry}`);
 
   if (applyDirectory) {
+    if (!database) {
+      throw new Error("--apply 需要 DATABASE_URL 以定位备份文件。");
+    }
+    const row =
+      await database`select target from backups where id = ${backupId}`;
+    const target = row[0]?.target as string | undefined;
+    if (!target) throw new Error(`备份记录不存在：${backupId}`);
     const { readFile } = await import("node:fs/promises");
-    const payload = await readFile(resolve(targetDirectory, `${backupId}.bin`));
+    const payload = await readFile(resolve(targetDirectory, target));
     const entries = unzip(decryptBuffer(payload, passphrase));
     for (const [path, content] of entries) {
       const destination = resolve(applyDirectory, path);
