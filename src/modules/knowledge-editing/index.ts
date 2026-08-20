@@ -15,6 +15,9 @@ export type SaveDraftInput = {
   tags: string[];
   contentOwnerId: string | null;
   nextReviewAt: Date | null;
+  /** SEC-07：标记为案例文章后，发布必须确认已脱敏。 */
+  isCaseArticle?: boolean;
+  desensitizedConfirmed?: boolean;
 };
 
 export type EditingArticle = {
@@ -33,6 +36,7 @@ export type EditingArticle = {
   editingBy: string | null;
   editingAt: Date | null;
   readCount: number;
+  isCaseArticle: boolean;
   updatedAt: Date;
 };
 
@@ -149,6 +153,7 @@ const articleColumns = {
   editingBy: articles.editingBy,
   editingAt: articles.editingAt,
   readCount: articles.readCount,
+  isCaseArticle: articles.isCaseArticle,
   updatedAt: articles.updatedAt,
 } as const;
 
@@ -208,6 +213,12 @@ export function createKnowledgeEditingService(
     if (missing.length > 0) {
       throw new Error(`发布缺少必填项：${missing.join("、")}`);
     }
+    // SEC-07：案例文章发布前必须确认已脱敏
+    if (input.isCaseArticle && !input.desensitizedConfirmed) {
+      throw new Error(
+        "案例文章发布前必须确认已移除客户、项目、人员和可追溯编号。",
+      );
+    }
   }
 
   async function writeArticle(
@@ -230,6 +241,7 @@ export function createKnowledgeEditingService(
         tags: input.tags,
         contentOwnerId: input.contentOwnerId,
         nextReviewAt: input.nextReviewAt,
+        isCaseArticle: input.isCaseArticle ?? false,
         updatedAt: new Date(),
         ...patch,
       })
@@ -258,6 +270,7 @@ export function createKnowledgeEditingService(
           contentOwnerId: input.contentOwnerId,
           status: "draft",
           nextReviewAt: input.nextReviewAt,
+          isCaseArticle: input.isCaseArticle ?? false,
           updatedAt: now,
           createdAt: now,
         })

@@ -4,7 +4,7 @@ import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import type { Sql } from "postgres";
 
 import { createDatabaseClient } from "@/db/client";
-import { contentAuditEvents, users } from "@/db/schema";
+import { contentAuditEvents, identityAuditEvents, users } from "@/db/schema";
 
 export type ContentAuditEvent = {
   id: string;
@@ -36,6 +36,18 @@ export type ContentAuditService = {
       limit?: number;
     },
   ): Promise<ContentAuditEvent[]>;
+  listIdentityAuditEvents(
+    requestingUserId: string,
+    limit?: number,
+  ): Promise<
+    {
+      eventType: string;
+      outcome: string;
+      actorName: string | null;
+      metadata: Record<string, unknown>;
+      occurredAt: Date;
+    }[]
+  >;
 };
 
 async function assertEditorOrAdmin(
@@ -115,6 +127,28 @@ export function createContentAuditService(
           desc(contentAuditEvents.occurredAt),
           desc(contentAuditEvents.id),
         )
+        .limit(limit);
+      return rows.map((row) => ({
+        ...row,
+        metadata: (row.metadata ?? {}) as Record<string, unknown>,
+      }));
+    },
+
+    async listIdentityAuditEvents(requestingUserId, limit = 50) {
+      await assertEditorOrAdmin(client, requestingUserId);
+      const rows = await client
+        .select({
+          eventType: identityAuditEvents.eventType,
+          outcome: identityAuditEvents.outcome,
+          actorName: sql<string | null>`coalesce(
+            ${users.displayName}, ${users.username}
+          )`,
+          metadata: identityAuditEvents.metadata,
+          occurredAt: identityAuditEvents.occurredAt,
+        })
+        .from(identityAuditEvents)
+        .leftJoin(users, eq(identityAuditEvents.actorUserId, users.id))
+        .orderBy(desc(identityAuditEvents.occurredAt))
         .limit(limit);
       return rows.map((row) => ({
         ...row,

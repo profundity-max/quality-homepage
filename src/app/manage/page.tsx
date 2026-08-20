@@ -72,6 +72,7 @@ export default async function AccountManagementPage({
               <Link href="/manage/import">内容导入</Link>
               <Link href="/manage/export">内容导出</Link>
               <Link href="/manage/backups">备份与恢复</Link>
+              <Link href="/manage/audit">审计日志</Link>
             </div>
           </section>
         ) : null}

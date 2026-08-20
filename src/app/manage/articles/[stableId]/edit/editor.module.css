@@ -300,3 +300,10 @@
 .takeOverButton:hover {
   background: rgba(217, 119, 6, 0.1);
 }
+
+.desensitizeConfirm {
+  padding: 8px 10px;
+  border: 1px solid var(--color-warning);
+  border-radius: 8px;
+  color: var(--color-warning);
+}

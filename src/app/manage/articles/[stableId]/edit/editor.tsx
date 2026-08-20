@@ -63,6 +63,7 @@ export function Editor({
   const [body, setBody] = useState(article.bodyMarkdown);
   const [title, setTitle] = useState(article.title);
   const [summary, setSummary] = useState(article.summary);
+  const [isCaseArticle, setIsCaseArticle] = useState(article.isCaseArticle);
   const [showOutline, setShowOutline] = useState(false);
   const [showProperties, setShowProperties] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
@@ -530,7 +531,30 @@ export function Editor({
                   }
                 />
               </label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={isCaseArticle}
+                  onChange={(event) => setIsCaseArticle(event.target.checked)}
+                />
+                案例文章（客户/项目/人员需脱敏，SEC-07）
+              </label>
+              <input
+                type="hidden"
+                name="isCaseArticle"
+                value={isCaseArticle ? "1" : ""}
+              />
               <input type="hidden" name="bodyMarkdown" value={body} />
+              {isCaseArticle ? (
+                <label className={styles.desensitizeConfirm}>
+                  <input
+                    type="checkbox"
+                    name="desensitizedConfirmed"
+                    required
+                  />
+                  已确认移除客户、项目、人员和可追溯编号（SEC-07）
+                </label>
+              ) : null}
               <div className={styles.actions}>
                 <button
                   className={styles.primaryButton}

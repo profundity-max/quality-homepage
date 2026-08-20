@@ -61,6 +61,34 @@ describe("knowledge editing service", () => {
     expect(saved.title).toBe("修改后的标题");
   });
 
+  test("case articles require desensitization confirmation before publish (SEC-07)", async () => {
+    const service = createKnowledgeEditingService(database);
+    const created = await service.createDraft(
+      editorId,
+      draftInput({ title: "案例文章", isCaseArticle: true }),
+    );
+    expect(created.isCaseArticle).toBe(true);
+
+    await expect(
+      service.publish(
+        editorId,
+        created.stableId,
+        draftInput({ title: "案例文章", isCaseArticle: true }),
+      ),
+    ).rejects.toThrow(/已移除客户|脱敏/);
+
+    const published = await service.publish(
+      editorId,
+      created.stableId,
+      draftInput({
+        title: "案例文章",
+        isCaseArticle: true,
+        desensitizedConfirmed: true,
+      }),
+    );
+    expect(published.status).toBe("published");
+  });
+
   test("publishes a draft and validates required fields", async () => {
     const service = createKnowledgeEditingService(database);
     const created = await service.createDraft(editorId, draftInput());

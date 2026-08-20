@@ -32,6 +32,7 @@ export default async function NewArticlePage() {
     editingBy: null,
     editingAt: null,
     readCount: 0,
+    isCaseArticle: false,
     updatedAt: new Date(),
   };
 

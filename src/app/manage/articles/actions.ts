@@ -83,6 +83,9 @@ function readArticleInput(formData: FormData): SaveDraftInput {
       .filter(Boolean),
     contentOwnerId: ownerId === "" ? null : ownerId,
     nextReviewAt: reviewRaw === "" ? null : new Date(reviewRaw),
+    isCaseArticle: readString(formData, "isCaseArticle") === "1",
+    desensitizedConfirmed:
+      readString(formData, "desensitizedConfirmed") === "on",
   };
 }
 
