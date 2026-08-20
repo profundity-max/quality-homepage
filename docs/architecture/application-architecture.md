@@ -29,19 +29,19 @@ Docker Compose 管理 `proxy`、`web` 和 `postgres`。模板功能进入实施�
 
 ## 2. 技术基线
 
-| 领域 | 选择 | 约束 |
-| --- | --- | --- |
-| 运行时 | Node.js 24 LTS | 只使用受支持的 LTS，不跟随 Current 奇数版本 |
-| Web | Next.js 16 App Router、React 19、TypeScript 5.9 | 使用 Node.js server/Docker 部署，不使用静态导出 |
-| 样式 | CSS Modules + `src/styles/tokens.css` | 以 Editorial Space 令牌为唯一视觉基线，不引入通用后台主题 |
-| 数据 | PostgreSQL 17 | 固定 major，跟随当前安全 minor；启用 `pg_trgm` 支持别名与中英文模糊匹配 |
-| 数据访问 | Drizzle ORM + 提交到 Git 的 SQL migration | 生产变更只运行 review 过的 migration，不使用 `push` |
-| 身份 | 本地账号、Argon2id、数据库中的不透明会话 | 无自行注册、第三方登录或明文密码 |
-| Markdown | Milkdown/ProseMirror 编辑；统一 Markdown 渲染模块 | 编辑与阅读共享语法和样式；危险 HTML 清理，Mermaid 安全模式 |
-| 图标 | 本地打包的 Lucide 图标 | 统一细线风格，不使用 Emoji 充当导航图标 |
-| 单元/模块测试 | Vitest、Testing Library | 测试通过模块接口，不跨过接口断言内部状态 |
-| 浏览器测试 | Playwright | 覆盖登录、搜索、阅读、编辑发布和移动端关键路径 |
-| 部署 | Docker Compose + Nginx 反向代理 | 首版 HTTP，配置层保留内部 HTTPS；运行时不依赖公网 |
+| 领域       | 选择                                            | 约束                                              |
+| -------- | --------------------------------------------- | ----------------------------------------------- |
+| 运行时      | Node.js 24 LTS                                | 只使用受支持的 LTS，不跟随 Current 奇数版本                    |
+| Web      | Next.js 16 App Router、React 19、TypeScript 5.9 | 使用 Node.js server/Docker 部署，不使用静态导出             |
+| 样式       | CSS Modules + `src/styles/tokens.css`         | 以 Editorial Space 令牌为唯一视觉基线，不引入通用后台主题           |
+| 数据       | PostgreSQL 17                                 | 固定 major，跟随当前安全 minor；启用 `pg_trgm` 支持别名与中英文模糊匹配 |
+| 数据访问     | Drizzle ORM + 提交到 Git 的 SQL migration         | 生产变更只运行 review 过的 migration，不使用 `push`          |
+| 身份       | 本地账号、Argon2id、数据库中的不透明会话                      | 无自行注册、第三方登录或明文密码                                |
+| Markdown | Milkdown/ProseMirror 编辑；统一 Markdown 渲染模块      | 编辑与阅读共享语法和样式；危险 HTML 清理，Mermaid 安全模式            |
+| 图标       | 本地打包的 Lucide 图标                               | 统一细线风格，不使用 Emoji 充当导航图标                         |
+| 单元/模块测试  | Vitest、Testing Library                        | 测试通过模块接口，不跨过接口断言内部状态                            |
+| 浏览器测试    | Playwright                                    | 覆盖登录、搜索、阅读、编辑发布和移动端关键路径                         |
+| 部署       | Docker Compose + Nginx 反向代理                   | 首版 HTTP，配置层保留内部 HTTPS；运行时不依赖公网                  |
 
 Docker Desktop 是否满足公司许可与 IT 政策须在 Mac Studio 部署前确认；架构只依赖 Docker Compose 兼容运行时，不依赖 Docker Desktop 专属能力。
 
@@ -79,19 +79,19 @@ ops/                             # Compose、Nginx、备份、恢复和健康检
 
 ## 4. 模块地图
 
-| 模块 | 小接口提供的能力 | 隐藏的实现复杂度 |
-| --- | --- | --- |
-| `identity` | 登录、会话、改密、账号与角色管理 | Argon2id、失败锁定、强制退出、最后管理员保护、Cookie |
-| `taxonomy` | 读取和维护栏目、主题、标签与知识别名 | 稳定标识、排序、空主题可见性、归档迁移规则 |
-| `knowledge` | 创建草稿、保存、发布、复核、恢复、归档与读取知识文章 | Markdown 版本、并发占用、负责人、历史与发布快照 |
-| `onboarding` | 获取和维护六阶段学习路线 | 有序步骤、文章与有效模板引用、无进度记录约束 |
-| `templates` | 隔离上传、发布有效模板、下载与版本追溯 | 文件扫描、校验值、历史版本、QMS 提示、下载统计 |
-| `books` | 发布和读取推荐书目 | 本地封面、分类、主题关联和灰度占位 |
-| `search` | 快速搜索、完整筛选和搜索记录 | PostgreSQL 检索、别名、分组、排序和知识缺口 |
-| `engagement` | 收藏、内容反馈、阅读与触达记录 | 30 分钟去重、90 天身份明细、匿名聚合和权限投影 |
-| `governance` | 复核队列、待重新分配、回收站和导入导出 | 跨内容状态、引用保护、Markdown 包和预检冲突 |
-| `audit` | 追加审计事件和管理员查询 | 不可通过后台修改、操作者与原因、保留策略 |
-| `operations` | 健康、备份状态、告警和恢复演练结果 | 调度、加密、保留轮转和 Compose 运行状态 |
+| 模块           | 小接口提供的能力                   | 隐藏的实现复杂度                          |
+| ------------ | -------------------------- | --------------------------------- |
+| `identity`   | 登录、会话、改密、账号与角色管理           | Argon2id、失败锁定、强制退出、最后管理员保护、Cookie |
+| `taxonomy`   | 读取和维护栏目、主题、标签与知识别名         | 稳定标识、排序、空主题可见性、归档迁移规则             |
+| `knowledge`  | 创建草稿、保存、发布、复核、恢复、归档与读取知识文章 | Markdown 版本、并发占用、负责人、历史与发布快照      |
+| `onboarding` | 获取和维护六阶段学习路线               | 有序步骤、文章与有效模板引用、无进度记录约束            |
+| `templates`  | 隔离上传、发布有效模板、下载与版本追溯        | 文件扫描、校验值、历史版本、QMS 提示、下载统计         |
+| `books`      | 发布和读取推荐书目                  | 本地封面、分类、主题关联和灰度占位                 |
+| `search`     | 快速搜索、完整筛选和搜索记录             | PostgreSQL 检索、别名、分组、排序和知识缺口       |
+| `engagement` | 收藏、内容反馈、阅读与触达记录            | 30 分钟去重、90 天身份明细、匿名聚合和权限投影        |
+| `governance` | 复核队列、待重新分配、回收站和导入导出        | 跨内容状态、引用保护、Markdown 包和预检冲突        |
+| `audit`      | 追加审计事件和管理员查询               | 不可通过后台修改、操作者与原因、保留策略              |
+| `operations` | 健康、备份状态、告警和恢复演练结果          | 调度、加密、保留轮转和 Compose 运行状态          |
 
 模块按完整行为而不是数据库表拆分。例：发布知识文章时，`knowledge` 在一个事务内生成版本、更新当前发布指针并调用 `audit`；页面不分别调用三个浅模块拼装发布流程。
 
@@ -198,3 +198,4 @@ interface FileVault {
 - [OWASP 密码存储指南](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html)给出 Argon2id 的最低内存、迭代和并行参数。
 - [MDN Cookie 安全指南](https://developer.mozilla.org/en-US/docs/Web/Security/Practical_implementation_guides/Cookies)说明 `HttpOnly`、`Secure` 和 `SameSite` 的使用边界。
 - [Docker Desktop for Mac 说明](https://docs.docker.com/desktop/setup/install/mac-install/)包含 macOS 支持与公司使用许可条件；部署前必须由公司确认适用许可。
+
