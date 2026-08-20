@@ -4,6 +4,8 @@ const compose = resolveComposeCommand();
 const production = JSON.parse(
   await capture(compose.command, [
     ...compose.args,
+    "--env-file",
+    "/dev/null",
     "-f",
     "compose.yaml",
     "config",
@@ -14,6 +16,8 @@ const production = JSON.parse(
 const e2e = JSON.parse(
   await capture(compose.command, [
     ...compose.args,
+    "--env-file",
+    "/dev/null",
     "-f",
     "compose.yaml",
     "-f",

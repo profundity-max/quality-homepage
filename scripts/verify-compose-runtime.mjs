@@ -3,6 +3,8 @@ import { spawn, spawnSync } from "node:child_process";
 const compose = resolveComposeCommand();
 const baseArgs = [
   ...compose.args,
+  "--env-file",
+  "/dev/null",
   "-f",
   "compose.yaml",
   "-f",

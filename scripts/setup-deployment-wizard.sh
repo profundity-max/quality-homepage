@@ -199,18 +199,35 @@ for iface in en0 en1 en2 en3; do
   ip=$(ipconfig getifaddr "$iface" 2>/dev/null || true)
   [[ -n "$ip" ]] && note "  $iface = $ip"
 done
-gateway=$(route -n get default 2>/dev/null | awk '/gateway:/{print $2}' || true)
-[[ -n "$gateway" ]] && note "  默认网关 = $gateway"
 say ""
 step "打开 系统设置 → 网络 → 以太网，确认 IP 为 192.168.60.152。"
 step "若显示为 DHCP 自动获取，请到路由器后台为该网卡 MAC 配置 DHCP 保留（静态地址）。"
-if [[ -n "$gateway" ]]; then
-  open_url "http://$gateway"
-  note "若打不开，浏览器手动访问路由器地址 $gateway"
-fi
 ask Q_NEXUS_BIND_ADDRESS "确认部署用的局域网 IP（当前默认 192.168.60.152）:"
 Q_NEXUS_BIND_ADDRESS="${Q_NEXUS_BIND_ADDRESS:-192.168.60.152}"
 [[ -n "$Q_NEXUS_BIND_ADDRESS" ]] && write_env Q_NEXUS_BIND_ADDRESS "$Q_NEXUS_BIND_ADDRESS"
+# 找到持有该 IP 的接口，并打开它所在网段的路由器（不是默认网关/WiFi 路由器）
+wired_iface=""
+for iface in en0 en1 en2 en3; do
+  if [[ "$(ipconfig getifaddr "$iface" 2>/dev/null || true)" == "$Q_NEXUS_BIND_ADDRESS" ]]; then
+    wired_iface="$iface"
+    break
+  fi
+done
+if [[ -n "$wired_iface" ]]; then
+  wired_gateway=$(ipconfig getoption "$wired_iface" router 2>/dev/null || true)
+  if [[ -n "$wired_gateway" ]]; then
+    note "  有线接口 $wired_iface 的路由器 = $wired_gateway"
+    open_url "http://$wired_gateway"
+    say "如果页面空白：先试 https://$wired_gateway；"
+    say "或者直接在 macOS 里配置静态 IP：系统设置 → 网络 → 以太网 → 详细信息 →"
+    say "TCP/IP → 配置 IPv4 选『手动』，IP 填 $Q_NEXUS_BIND_ADDRESS、"
+    say "子网掩码 255.255.255.0、路由器填 $wired_gateway（同样能达到固定 IP 目的）。"
+  else
+    warn "未能读取有线网卡路由器地址；可在系统设置里把以太网配置为静态 IP。"
+  fi
+else
+  warn "未找到持有 $Q_NEXUS_BIND_ADDRESS 的接口；请确认该 IP 属于有线以太网。"
+fi
 pause "确认 IP 已固定后继续"
 
 # ── Stage 2 · .env 密钥与绑定 ────────────────────────────────────────────
