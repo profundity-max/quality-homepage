@@ -1,0 +1,124 @@
+.layout {
+  padding: clamp(32px, 6vw, 96px) clamp(20px, 8vw, 128px) 120px;
+  max-width: 1080px;
+  margin: 0 auto;
+}
+
+.header {
+  margin-bottom: 24px;
+}
+
+.eyebrow {
+  color: var(--color-text-secondary);
+  letter-spacing: 0.12em;
+}
+
+.header h1 {
+  margin: 8px 0 12px;
+  font-size: clamp(2rem, 4.5vw, 3.25rem);
+  font-weight: 500;
+  letter-spacing: -0.04em;
+}
+
+.header p {
+  color: var(--color-text-secondary);
+}
+
+.notice {
+  padding: 10px 14px;
+  border: 1px solid var(--color-accent);
+  border-radius: 10px;
+  color: var(--color-link);
+}
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.tabs a {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 16px;
+  border: 1px solid var(--color-divider);
+  border-radius: 999px;
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.tabs a[aria-current="page"] {
+  border-color: var(--color-accent);
+  color: var(--color-link);
+}
+
+.empty {
+  color: var(--color-text-secondary);
+}
+
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 14px;
+}
+
+.card {
+  padding: 16px 20px;
+  border: 1px solid var(--color-divider);
+  border-radius: 14px;
+  background: var(--color-surface);
+}
+
+.cardHeader {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.title {
+  font-weight: 600;
+}
+
+.meta {
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin-top: 12px;
+}
+
+.actions button {
+  min-height: 40px;
+  padding: 0 16px;
+  border: 1px solid var(--color-divider);
+  border-radius: 8px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.actions button:hover:not(:disabled) {
+  border-color: var(--color-accent);
+}
+
+.actions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.hint {
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+}

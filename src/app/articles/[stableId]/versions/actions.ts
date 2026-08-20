@@ -35,6 +35,27 @@ export async function restoreVersionAction(formData: FormData): Promise<void> {
   );
 }
 
+export async function archiveArticleAction(formData: FormData): Promise<void> {
+  const stableId = readString(formData, "stableId");
+  const reason = readString(formData, "reason");
+  const session = await requirePortalSession(`/articles/${stableId}/versions`);
+  let errorMessage: string | null = null;
+  try {
+    await createKnowledgeEditingService(getDatabase()).archiveArticle(
+      session.member.id,
+      stableId,
+      reason,
+    );
+  } catch (error) {
+    errorMessage =
+      error instanceof Error && error.message ? error.message : "归档失败。";
+  }
+  revalidatePath(`${versionsPath}/${stableId}/versions`);
+  redirect(
+    `${versionsPath}/${stableId}/versions?${errorMessage ? "error" : "notice"}=${encodeURIComponent(errorMessage ?? "文章已归档，可在回收站恢复。")}`,
+  );
+}
+
 function readString(formData: FormData, name: string): string {
   const value = formData.get(name);
   return typeof value === "string" ? value : "";

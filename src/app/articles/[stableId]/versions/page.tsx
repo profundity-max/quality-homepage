@@ -5,7 +5,7 @@ import { createKnowledgeEditingService } from "@/modules/knowledge-editing";
 
 import { requirePortalSession } from "../../../authorization";
 import { PortalShell } from "../../../portal-shell";
-import { restoreVersionAction } from "./actions";
+import { archiveArticleAction, restoreVersionAction } from "./actions";
 import styles from "./versions.module.css";
 
 function formatDateTime(value: Date): string {
@@ -101,6 +101,24 @@ export default async function ArticleVersionsPage({
             ))}
           </ol>
         )}
+
+        {article.status !== "archived" ? (
+          <section className={styles.archiveSection} aria-label="归档文章">
+            <h2>归档文章</h2>
+            <p>归档后文章从阅读侧隐藏，可在回收站恢复（DEL-01/02）。</p>
+            <form action={archiveArticleAction} className={styles.archiveForm}>
+              <input type="hidden" name="stableId" value={stableId} />
+              <label htmlFor="archive-reason">归档原因（必填）</label>
+              <input
+                id="archive-reason"
+                name="reason"
+                placeholder="例如：内容迁移、重复或已废弃"
+                required
+              />
+              <button type="submit">归档文章</button>
+            </form>
+          </section>
+        ) : null}
       </main>
     </PortalShell>
   );

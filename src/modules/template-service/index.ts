@@ -126,6 +126,12 @@ export type TemplateService = {
     requestingUserId: string,
     templateStableId: string,
   ): Promise<{ stableId: string; status: string }>;
+  /** DEL-01：日常下线使用归档，不永久删除；归档需填写原因（AUDIT-02）。 */
+  archiveTemplate(
+    requestingUserId: string,
+    templateStableId: string,
+    reason: string,
+  ): Promise<void>;
   /** 记录下载并返回当前有效版本文件（FILE-03/04，TPL-09）。 */
   getActiveVersionForDownload(
     templateStableId: string,
@@ -734,6 +740,35 @@ export function createTemplateService(
         })
         .returning({ stableId: templates.stableId, status: templates.status });
       return rows[0]!;
+    },
+
+    async archiveTemplate(requestingUserId, templateStableId, reason) {
+      await assertEditor(client, requestingUserId);
+      const reasonText = reason.trim();
+      if (reasonText.length === 0) throw new Error("归档模板必须填写原因。");
+      const template = (
+        await client
+          .select({ id: templates.id })
+          .from(templates)
+          .where(eq(templates.stableId, templateStableId))
+          .limit(1)
+      )[0];
+      if (!template) throw new Error("Template not found.");
+      await client
+        .update(templates)
+        .set({
+          status: "archived",
+          archivedAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(templates.id, template.id));
+      await createContentAuditService(database).record({
+        actorUserId: requestingUserId,
+        eventType: "template.archive",
+        targetType: "template",
+        targetId: template.id,
+        reason: reasonText,
+      });
     },
   };
 }

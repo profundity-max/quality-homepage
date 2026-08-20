@@ -83,6 +83,14 @@ export async function archiveCategoryAction(formData: FormData): Promise<void> {
   );
 }
 
+export async function archiveTemplateAction(formData: FormData): Promise<void> {
+  const stableId = readString(formData, "stableId");
+  const reason = readString(formData, "reason");
+  await runTemplateAction("模板已归档。", (requestingUserId) =>
+    templateService().archiveTemplate(requestingUserId, stableId, reason),
+  );
+}
+
 export async function uploadTemplateAction(formData: FormData): Promise<void> {
   const file = readFile(formData, "file");
   if (!file) {

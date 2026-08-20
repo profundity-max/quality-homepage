@@ -15,6 +15,7 @@ import { PortalShell } from "../../portal-shell";
 import { DirectionButtons } from "../direction-buttons";
 import {
   archiveCategoryAction,
+  archiveTemplateAction,
   createCategoryAction,
   moveCategoryAction,
   publishVersionAction,
@@ -309,6 +310,22 @@ function TemplateCategorySection({
             </label>
             <button type="submit">上传新版本</button>
           </form>
+
+          {template.status !== "archived" ? (
+            <form action={archiveTemplateAction} className={styles.createForm}>
+              <input type="hidden" name="stableId" value={template.stableId} />
+              <label>
+                归档原因
+                <input
+                  name="reason"
+                  required
+                  aria-label={`归档模板 ${template.name} 的原因`}
+                  placeholder="例如：模板下线或迁移"
+                />
+              </label>
+              <button type="submit">归档模板</button>
+            </form>
+          ) : null}
         </article>
       ))}
     </section>
