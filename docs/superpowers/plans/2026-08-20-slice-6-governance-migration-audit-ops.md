@@ -118,7 +118,7 @@ tests/e2e/audit-backup.spec.ts
 **Files:** `scripts/seed-e2e.ts` additions (archived article, importable fixture, audit events), `tests/e2e/recycle-bin.spec.ts`, `tests/e2e/migration-export.spec.ts`, `tests/e2e/audit-backup.spec.ts`, CONTEXT/ADR if needed.
 
 - [x] Step 1: E2E: archive → recycle bin → restore; import single file → draft appears; export single article → readable package; audit page role gates; backup page status + manual backup.
-- [ ] Step 2: Full gate (`format:check`, `lint`, `typecheck`, `test:local`, `test:postgres:container`, `build`, e2e); code review (two axes); close tickets with evidence; roadmap marked complete.
+- [x] Step 2: Full gate (`format:check`, `lint`, `typecheck`, `test:local`, `test:postgres:container`, `build`, e2e); code review (two axes); close tickets with evidence; roadmap marked complete.
 
 ## Self-Review Targets
 
