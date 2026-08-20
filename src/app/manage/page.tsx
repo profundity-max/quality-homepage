@@ -69,6 +69,7 @@ export default async function AccountManagementPage({
               <Link href="/manage/feedback">内容反馈处理</Link>
               <Link href="/manage/stats">内容统计</Link>
               <Link href="/manage/recycle-bin">回收站</Link>
+              <Link href="/manage/import">内容导入</Link>
             </div>
           </section>
         ) : null}
