@@ -19,7 +19,16 @@
 0 3 * * 0 cd /path/to/quality-homepage && BACKUP_PASSPHRASE=... BACKUP_TARGET_DIR=... Q_NEXUS_DATA_DIR=... npx tsx scripts/backup.ts weekly <管理员用户ID> >> logs/backup.log 2>&1
 ```
 
-数据库转储通过 `PG_DUMP_CMD`（如 `pg_dump "postgres://…"`）或 `COMPOSE_PROJECT`（自动 `docker compose exec postgres pg_dump`）完成。保留策略：7 份每日 + 8 份每周，由脚本自动执行（BKP-02）。备份为 AES-256-GCM 加密文件，校验和写入数据库（BKP-04/05）。
+Compose 部署形态下，备份在栈内执行（`backup` 操作服务，内部网络连接 PostgreSQL、只读挂载数据卷、挂载宿主机备份目录）：
+
+```bash
+# 手动备份（替换 <管理员用户ID>）
+docker compose --profile operations run --rm backup manual <管理员用户ID>
+# 恢复演练 dry-run
+docker compose --profile operations run --rm --entrypoint "npx tsx scripts/restore.ts" backup <备份ID> --apply /tmp/restore-check
+```
+
+宿主机（非 Compose）形态可用 `PG_DUMP_CMD`（如 `pg_dump "postgres://…"`）或 `COMPOSE_PROJECT`（自动 `docker compose exec db pg_dump`）。保留策略：7 份每日 + 8 份每周，由脚本自动执行（BKP-02）。备份为 AES-256-GCM 加密文件，校验和写入数据库（BKP-04/05）。
 
 备份目标：公司服务器或移动硬盘（BKP-03）。配置为 `BACKUP_TARGET_DIR` 指向挂载的目标目录即可；正式上线前必须完成配置。
 

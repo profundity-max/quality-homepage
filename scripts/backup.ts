@@ -25,10 +25,9 @@ if (!adminUserId || !passphrase) {
   process.exit(1);
 }
 
-async function runCommand(command: string): Promise<Buffer> {
+async function runCommand(argv: string[]): Promise<Buffer> {
   return new Promise((resolveCommand, reject) => {
-    const parts = command.split(/\s+/);
-    const child = spawn(parts[0]!, parts.slice(1), {
+    const child = spawn(argv[0]!, argv.slice(1), {
       stdio: ["ignore", "pipe", "pipe"],
     });
     const chunks: Buffer[] = [];
@@ -37,22 +36,32 @@ async function runCommand(command: string): Promise<Buffer> {
     child.on("error", reject);
     child.on("close", (code) => {
       if (code === 0) resolveCommand(Buffer.concat(chunks));
-      else reject(new Error(`command failed: ${command}`));
+      else reject(new Error(`command failed: ${argv.join(" ")}`));
     });
   });
 }
 
 async function dumpDatabase(): Promise<Buffer> {
   if (process.env.PG_DUMP_CMD) {
-    return runCommand(process.env.PG_DUMP_CMD);
+    return runCommand(["bash", "-lc", process.env.PG_DUMP_CMD]);
   }
   if (databaseUrl && !process.env.COMPOSE_PROJECT) {
-    return runCommand(`pg_dump "${databaseUrl}"`);
+    return runCommand(["pg_dump", "--dbname", databaseUrl]);
   }
   if (process.env.COMPOSE_PROJECT) {
-    return runCommand(
-      `docker compose -p ${process.env.COMPOSE_PROJECT} exec -T postgres pg_dump -U q_nexus q_nexus`,
-    );
+    return runCommand([
+      "docker",
+      "compose",
+      "-p",
+      process.env.COMPOSE_PROJECT,
+      "exec",
+      "-T",
+      "db",
+      "pg_dump",
+      "-U",
+      "q_nexus",
+      "q_nexus",
+    ]);
   }
   throw new Error(
     "数据库转储需要 PG_DUMP_CMD、DATABASE_URL(pg_dump) 或 COMPOSE_PROJECT。",

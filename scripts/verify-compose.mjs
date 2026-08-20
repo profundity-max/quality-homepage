@@ -79,7 +79,12 @@ function commandSucceeds(command, args) {
 
 async function capture(command, args) {
   const child = spawn(command, args, {
-    env: { ...process.env, Q_NEXUS_DB_PASSWORD: "compose-verification-only" },
+    env: {
+      ...process.env,
+      Q_NEXUS_DB_PASSWORD: "compose-verification-only",
+      BACKUP_PASSPHRASE: "compose-verification-only",
+      BACKUP_ADMIN_USER_ID: "00000000-0000-4000-8000-000000000000",
+    },
     stdio: ["ignore", "pipe", "inherit"],
   });
   let output = "";

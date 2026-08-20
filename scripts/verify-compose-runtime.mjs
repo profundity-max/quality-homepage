@@ -11,6 +11,8 @@ const baseArgs = [
 const environment = {
   ...process.env,
   Q_NEXUS_DB_PASSWORD: "compose-runtime-verification",
+  BACKUP_PASSPHRASE: "compose-runtime-verification",
+  BACKUP_ADMIN_USER_ID: "00000000-0000-4000-8000-000000000000",
 };
 
 try {

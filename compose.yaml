@@ -32,7 +32,10 @@ services:
     environment:
       DATABASE_URL: postgres://q_nexus:${Q_NEXUS_DB_PASSWORD:?Set Q_NEXUS_DB_PASSWORD}@db:5432/q_nexus
       Q_NEXUS_HTTPS: "${Q_NEXUS_HTTPS:-0}"
+      Q_NEXUS_DATA_DIR: /app/data
     expose: ["3000"]
+    volumes:
+      - q_nexus_data:/app/data
     depends_on:
       db:
         condition: service_healthy
@@ -65,6 +68,28 @@ services:
     tty: true
     networks: [application]
 
+  backup:
+    profiles: ["operations"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: operator
+    entrypoint: ["npx", "tsx", "scripts/backup.ts"]
+    environment:
+      DATABASE_URL: postgres://q_nexus:${Q_NEXUS_DB_PASSWORD:?Set Q_NEXUS_DB_PASSWORD}@db:5432/q_nexus
+      BACKUP_PASSPHRASE: "${BACKUP_PASSPHRASE:?Set BACKUP_PASSPHRASE}"
+      BACKUP_TARGET_DIR: /backups
+      BACKUP_ADMIN_USER_ID: "${BACKUP_ADMIN_USER_ID:?Set BACKUP_ADMIN_USER_ID}"
+      Q_NEXUS_DATA_DIR: /app/data
+    volumes:
+      - q_nexus_data:/app/data:ro
+      - ${BACKUP_TARGET_DIR:-./backups}:/backups
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+    networks: [application]
+
   db:
     image: postgres:17-alpine
     restart: unless-stopped
@@ -89,3 +114,4 @@ networks:
 
 volumes:
   q_nexus_postgres: {}
+  q_nexus_data: {}
