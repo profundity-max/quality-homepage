@@ -218,10 +218,10 @@ if [[ -n "$wired_iface" ]]; then
   if [[ -n "$wired_gateway" ]]; then
     note "  有线接口 $wired_iface 的路由器 = $wired_gateway"
     open_url "http://$wired_gateway"
-    say "如果页面空白：先试 https://$wired_gateway；"
+    say "如果页面空白：先试 https://${wired_gateway}；"
     say "或者直接在 macOS 里配置静态 IP：系统设置 → 网络 → 以太网 → 详细信息 →"
-    say "TCP/IP → 配置 IPv4 选『手动』，IP 填 $Q_NEXUS_BIND_ADDRESS、"
-    say "子网掩码 255.255.255.0、路由器填 $wired_gateway（同样能达到固定 IP 目的）。"
+    say "TCP/IP → 配置 IPv4 选『手动』，IP 填 ${Q_NEXUS_BIND_ADDRESS}、"
+    say "子网掩码 255.255.255.0、路由器填 ${wired_gateway}（同样能达到固定 IP 目的）。"
   else
     warn "未能读取有线网卡路由器地址；可在系统设置里把以太网配置为静态 IP。"
   fi
