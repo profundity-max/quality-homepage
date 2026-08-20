@@ -37,6 +37,31 @@ export default async function AccountManagementPage({
   }
   const requestedPath = `/manage${query.size > 0 ? `?${query}` : ""}`;
   const session = await requirePortalSession(requestedPath);
+  if (session.member.role === "editor") {
+    return (
+      <PortalShell currentPath="/manage">
+        <main id="main-content" tabIndex={-1} className={styles.layout}>
+          <header className={styles.header}>
+            <div>
+              <p className={styles.eyebrow}>品集｜Q Nexus · 门户管理</p>
+              <h1>内容管理</h1>
+              <p>维护模板与书单、处理反馈并查看内容统计。</p>
+            </div>
+          </header>
+          <section className={styles.panel} aria-label="内容管理入口">
+            <h2>内容管理</h2>
+            <div className={styles.actions}>
+              <Link href="/manage/templates">模板管理</Link>
+              <Link href="/manage/books">书单管理</Link>
+              <Link href="/manage/feedback">内容反馈处理</Link>
+              <Link href="/manage/stats">内容统计</Link>
+              <Link href="/manage/import">内容导入</Link>
+            </div>
+          </section>
+        </main>
+      </PortalShell>
+    );
+  }
   const members = await getAccountAdministrationModule()
     .listMembers(session.member.id)
     .catch(() => null);

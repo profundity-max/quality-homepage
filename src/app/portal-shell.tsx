@@ -3,7 +3,9 @@ import Link from "next/link";
 import { logoutAction } from "./actions";
 import styles from "./portal-shell.module.css";
 import { StickyHeader } from "./sticky-header";
-import { getSelectedTheme, ThemeControl } from "./theme";
+import { getCurrentSession } from "./session";
+import { getSelectedTheme } from "./theme";
+import { ThemeToggle } from "./theme-toggle";
 
 const navigation = [
   { label: "首页", href: "/" },
@@ -21,7 +23,11 @@ export async function PortalShell({
   currentPath: string;
   children: React.ReactNode;
 }) {
+  const session = await getCurrentSession();
   const currentTheme = await getSelectedTheme();
+  const canManage =
+    session?.member.role === "editor" ||
+    session?.member.role === "administrator";
   return (
     <>
       <a className={styles.skipLink} href="#main-content">
@@ -38,13 +44,18 @@ export async function PortalShell({
           <NavigationLinks currentPath={currentPath} />
         </nav>
         <div className={styles.tools}>
+          {canManage ? (
+            <Link className={styles.searchLink} href="/manage">
+              管理
+            </Link>
+          ) : null}
           <Link className={styles.searchLink} href="/search">
             搜索
           </Link>
           <Link className={styles.searchLink} href="/favorites">
             收藏
           </Link>
-          <ThemeControl current={currentTheme} />
+          <ThemeToggle current={currentTheme} />
           <form action={logoutAction}>
             <button className={styles.textButton} type="submit">
               退出登录
@@ -58,13 +69,18 @@ export async function PortalShell({
               <NavigationLinks currentPath={currentPath} />
             </nav>
             <div className={styles.mobileTools}>
+              {canManage ? (
+                <Link className={styles.searchLink} href="/manage">
+                  管理
+                </Link>
+              ) : null}
               <Link className={styles.searchLink} href="/search">
                 搜索
               </Link>
               <Link className={styles.searchLink} href="/favorites">
                 收藏
               </Link>
-              <ThemeControl current={currentTheme} />
+              <ThemeToggle current={currentTheme} />
               <form action={logoutAction}>
                 <button className={styles.textButton} type="submit">
                   退出登录

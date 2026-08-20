@@ -209,6 +209,7 @@ test("identity lifecycle protects lockout, sessions, revocation, and disabled ac
   await managedPage.getByRole("button", { name: "更新密码" }).click();
   await expect(managedPage).toHaveURL(/\/$/);
   await managedPage.goto("/manage");
+  // 阅读者访问 /manage 被重定向回首页
   await expect(managedPage).toHaveURL(/\/$/);
 
   await page.goto("/manage");
@@ -221,7 +222,11 @@ test("identity lifecycle protects lockout, sessions, revocation, and disabled ac
   await managedCard.getByRole("button", { name: "更新角色" }).click();
   await expect(page.getByText("账号角色已更新。")).toBeVisible();
   await managedPage.goto("/manage");
-  await expect(managedPage).toHaveURL(/\/$/);
+  // 编辑者访问 /manage 进入内容管理落地页（不再弹回首页）
+  await expect(managedPage).toHaveURL(/\/manage$/);
+  await expect(
+    managedPage.getByRole("heading", { level: 1, name: "内容管理" }),
+  ).toBeVisible();
 
   await page.goto("/manage");
   await managedCard
@@ -384,10 +389,7 @@ test("identity lifecycle protects lockout, sessions, revocation, and disabled ac
   ).toBeVisible();
 
   const themeDrawer = await openMobileDrawer(mobilePage);
-  await themeDrawer
-    .getByRole("combobox", { name: "主题" })
-    .selectOption("dark");
-  await themeDrawer.getByRole("button", { name: "应用主题" }).click();
+  await themeDrawer.getByRole("button", { name: /切换/ }).click();
   await expect(mobilePage.locator("html")).toHaveAttribute(
     "data-theme",
     "dark",

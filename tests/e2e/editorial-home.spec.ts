@@ -86,23 +86,16 @@ test("Editorial Space works across desktop, theme, keyboard, and mobile", async 
     .toBeLessThan(expandedHeaderHeight);
   await page.evaluate(() => scrollTo(0, 0));
 
-  const themeSelector = page.getByRole("combobox", { name: "主题" });
-  await themeSelector.selectOption("dark");
-  await page.getByRole("button", { name: "应用主题" }).click();
+  await page.getByRole("button", { name: /切换/ }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await page.reload();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
-  await expect(themeSelector).toHaveValue("dark");
   expect(
     (await page.context().cookies()).find(
       ({ name }) => name === "q_nexus_theme",
     )?.value,
   ).toBe("dark");
-  await expect(themeSelector.getByRole("option")).toHaveText([
-    "浅色",
-    "深色",
-    "跟随系统",
-  ]);
+  await expect(page.getByRole("button", { name: "浅色" })).toBeVisible();
 
   await page.keyboard.press("Home");
   await page.keyboard.press("Tab");

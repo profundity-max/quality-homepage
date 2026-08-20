@@ -4,7 +4,8 @@ import { LoginForm } from "./login-form";
 import styles from "./login.module.css";
 import { passwordChangePath, resolveSafeReturnPath } from "../return-path";
 import { getCurrentSession } from "../session";
-import { getSelectedTheme, ThemeControl } from "../theme";
+import { getSelectedTheme } from "../theme";
+import { ThemeToggle } from "../theme-toggle";
 
 export default async function LoginPage({
   searchParams,
@@ -19,11 +20,10 @@ export default async function LoginPage({
     );
   }
   const theme = await getSelectedTheme();
-
   return (
     <>
       <div className={styles.theme}>
-        <ThemeControl current={theme} />
+        <ThemeToggle current={theme} />
       </div>
       <main className={styles.layout}>
         <section
