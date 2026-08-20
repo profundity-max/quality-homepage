@@ -62,6 +62,7 @@ describe("content audit service", () => {
       targetId: "00000000-0000-4000-8000-0000000000a1",
       reason: "首次发布",
       metadata: { stableId: "anova-intro" },
+      occurredAt: new Date("2026-08-20T02:00:00.000Z"),
     });
     await service().record({
       actorUserId: EDITOR_ID,
@@ -69,6 +70,7 @@ describe("content audit service", () => {
       targetType: "article",
       targetId: "00000000-0000-4000-8000-0000000000a1",
       reason: "发布内容有误，回退到 v1",
+      occurredAt: new Date("2026-08-20T02:00:01.000Z"),
     });
 
     const events = await service().listAuditEvents(ADMIN_ID, { limit: 10 });
