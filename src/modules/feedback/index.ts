@@ -11,6 +11,7 @@ import {
   type FeedbackStatus,
   type FeedbackType,
 } from "@/db/schema";
+import { createContentAuditService } from "@/modules/content-audit";
 
 export type { FeedbackStatus, FeedbackType };
 
@@ -180,6 +181,14 @@ export function createFeedbackService(database: PGlite | Sql): FeedbackService {
           resolutionNote: note?.trim() || null,
         })
         .where(eq(contentFeedback.id, feedbackId));
+      await createContentAuditService(database).record({
+        actorUserId: handledBy,
+        eventType: "feedback.resolve",
+        targetType: "feedback",
+        targetId: feedbackId,
+        reason: note?.trim() || undefined,
+        metadata: { status },
+      });
     },
   };
 }

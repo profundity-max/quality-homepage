@@ -10,6 +10,7 @@ import {
   templates,
   users,
 } from "@/db/schema";
+import { createContentAuditService } from "@/modules/content-audit";
 import type { FileStorage } from "@/modules/file-storage";
 
 export type ScanResult = { safe: boolean; reason?: string };
@@ -442,7 +443,20 @@ export function createTemplateService(
           createdAt: now,
         })
         .returning();
-      return toView(rows[0]!);
+      const view = await toView(rows[0]!);
+      await createContentAuditService(database).record({
+        actorUserId: requestingUserId,
+        eventType: "template.upload",
+        targetType: "template",
+        targetId: template.id,
+        metadata: {
+          versionId: view.id,
+          versionLabel: view.versionLabel,
+          fileName: view.fileName,
+          quarantineState: "pending",
+        },
+      });
+      return view;
     },
 
     async scanTemplateVersion(requestingUserId, versionId) {
@@ -531,6 +545,14 @@ export function createTemplateService(
           updatedAt: new Date(),
         })
         .where(eq(templates.id, version.templateId));
+
+      await createContentAuditService(database).record({
+        actorUserId: requestingUserId,
+        eventType: "template.publish",
+        targetType: "template",
+        targetId: version.templateId,
+        metadata: { versionId, versionLabel: version.versionLabel },
+      });
 
       const rows = await client
         .select()

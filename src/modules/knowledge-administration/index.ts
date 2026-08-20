@@ -6,6 +6,24 @@ import type { Sql } from "postgres";
 import { createDatabaseClient } from "@/db/client";
 import { articles, sections, topics } from "@/db/schema";
 import { users } from "@/db/schema";
+import { createContentAuditService } from "@/modules/content-audit";
+
+async function recordAdminAudit(
+  database: PGlite | Sql,
+  requestingUserId: string,
+  eventType: string,
+  targetType: "section" | "topic",
+  targetId: string,
+  metadata?: Record<string, unknown>,
+) {
+  await createContentAuditService(database).record({
+    actorUserId: requestingUserId,
+    eventType,
+    targetType,
+    targetId,
+    metadata,
+  });
+}
 
 export type ManagedTopic = {
   id: string;
@@ -269,6 +287,16 @@ export function createKnowledgeAdministrationService(
         .returning({ stableId: sections.stableId, name: sections.name });
       const row = rows[0];
       if (!row) throw new Error("Section not found.");
+      await recordAdminAudit(
+        database,
+        requestingUserId,
+        "section.rename",
+        "section",
+        row.stableId,
+        {
+          newName: trimmed,
+        },
+      );
       return row;
     },
 
@@ -283,6 +311,16 @@ export function createKnowledgeAdministrationService(
         .returning({ stableId: topics.stableId, name: topics.name });
       const row = rows[0];
       if (!row) throw new Error("Topic not found.");
+      await recordAdminAudit(
+        database,
+        requestingUserId,
+        "topic.rename",
+        "topic",
+        row.stableId,
+        {
+          newName: trimmed,
+        },
+      );
       return row;
     },
 
@@ -323,6 +361,13 @@ export function createKnowledgeAdministrationService(
         });
       const row = rows[0];
       if (!row) throw new Error("Section not found.");
+      await recordAdminAudit(
+        database,
+        requestingUserId,
+        "section.archive",
+        "section",
+        row.stableId,
+      );
       return row;
     },
 
@@ -359,6 +404,13 @@ export function createKnowledgeAdministrationService(
         });
       const row = rows[0];
       if (!row) throw new Error("Topic not found.");
+      await recordAdminAudit(
+        database,
+        requestingUserId,
+        "topic.archive",
+        "topic",
+        row.stableId,
+      );
       return row;
     },
 
@@ -370,14 +422,26 @@ export function createKnowledgeAdministrationService(
       if (!section) throw new Error("Parent section not found.");
 
       const stableId = await uniqueStableId("topic", trimmed);
+      const id = randomUUID();
       await client.insert(topics).values({
-        id: randomUUID(),
+        id,
         stableId,
         sectionId: section.id,
         name: trimmed,
         sortOrder: 0,
         createdAt: new Date(),
       });
+      await recordAdminAudit(
+        database,
+        requestingUserId,
+        "topic.create",
+        "topic",
+        id,
+        {
+          stableId,
+          sectionStableId: parentSectionStableId,
+        },
+      );
       return { stableId, name: trimmed };
     },
 
@@ -389,14 +453,26 @@ export function createKnowledgeAdministrationService(
       if (!parent) throw new Error("Parent section not found.");
 
       const stableId = await uniqueStableId("section", trimmed);
+      const id = randomUUID();
       await client.insert(sections).values({
-        id: randomUUID(),
+        id,
         stableId,
         name: trimmed,
         parentId: parent.id,
         sortOrder: 0,
         createdAt: new Date(),
       });
+      await recordAdminAudit(
+        database,
+        requestingUserId,
+        "section.create",
+        "section",
+        id,
+        {
+          stableId,
+          parentSectionStableId,
+        },
+      );
       return { stableId, name: trimmed };
     },
 
@@ -410,6 +486,16 @@ export function createKnowledgeAdministrationService(
         stableId,
         direction,
       );
+      await recordAdminAudit(
+        database,
+        requestingUserId,
+        "topic.move",
+        "topic",
+        stableId,
+        {
+          direction,
+        },
+      );
     },
 
     async moveSection(requestingUserId, stableId, direction) {
@@ -421,6 +507,16 @@ export function createKnowledgeAdministrationService(
         sections.sortOrder,
         stableId,
         direction,
+      );
+      await recordAdminAudit(
+        database,
+        requestingUserId,
+        "section.move",
+        "section",
+        stableId,
+        {
+          direction,
+        },
       );
     },
   };

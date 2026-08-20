@@ -1,4 +1,5 @@
 import {
+  bigint,
   boolean,
   char,
   date,
@@ -139,6 +140,8 @@ export const articles = pgTable(
     editingBy: uuid("editing_by").references(() => users.id),
     editingAt: timestamp("editing_at", { withTimezone: true }),
     readCount: integer("read_count").notNull().default(0),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+    isCaseArticle: boolean("is_case_article").notNull().default(false),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
   },
@@ -278,6 +281,7 @@ export const templates = pgTable(
       .default("draft"),
     lastReviewedAt: timestamp("last_reviewed_at", { withTimezone: true }),
     nextReviewAt: timestamp("next_review_at", { withTimezone: true }),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
   },
@@ -505,6 +509,48 @@ export const templateDownloadEvents = pgTable(
   ],
 );
 
+export type BackupKind = "daily" | "weekly" | "manual";
+export type BackupStatus = "running" | "success" | "failed";
+
+export const contentAuditEvents = pgTable(
+  "content_audit_events",
+  {
+    id: uuid("id").primaryKey(),
+    actorUserId: uuid("actor_user_id").references(() => users.id),
+    eventType: text("event_type").notNull(),
+    targetType: text("target_type").notNull(),
+    targetId: text("target_id"),
+    reason: text("reason"),
+    metadata: jsonb("metadata").notNull().default({}),
+    occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull(),
+  },
+  (table) => [
+    index("content_audit_events_occurred_at_idx").on(table.occurredAt),
+    index("content_audit_events_event_type_idx").on(table.eventType),
+    index("content_audit_events_target_idx").on(
+      table.targetType,
+      table.targetId,
+    ),
+  ],
+);
+
+export const backups = pgTable(
+  "backups",
+  {
+    id: uuid("id").primaryKey(),
+    kind: text("kind").$type<BackupKind>().notNull(),
+    status: text("status").$type<BackupStatus>().notNull(),
+    target: text("target").notNull(),
+    encrypted: boolean("encrypted").notNull().default(true),
+    byteSize: bigint("byte_size", { mode: "number" }).notNull().default(0),
+    checksum: text("checksum").notNull().default(""),
+    error: text("error"),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
+    finishedAt: timestamp("finished_at", { withTimezone: true }),
+  },
+  (table) => [index("backups_started_at_idx").on(table.startedAt)],
+);
+
 export const engagementSchema = {
   articleFavorites,
   contentFeedback,
@@ -514,6 +560,8 @@ export const engagementSchema = {
   articleDailyReach,
   templateDownloadEvents,
 };
+
+export const governanceSchema = { contentAuditEvents, backups };
 
 export const knowledgeSchema = {
   sections,

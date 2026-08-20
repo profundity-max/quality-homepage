@@ -5,6 +5,7 @@ import type { Sql } from "postgres";
 
 import { createDatabaseClient } from "@/db/client";
 import { articleVersions, articles, users } from "@/db/schema";
+import { createContentAuditService } from "@/modules/content-audit";
 
 export type SaveDraftInput = {
   title: string;
@@ -78,6 +79,7 @@ export type KnowledgeEditingService = {
   archiveArticle(
     editorUserId: string,
     stableId: string,
+    reason: string,
   ): Promise<EditingArticle>;
   confirmStillValid(
     editorUserId: string,
@@ -112,6 +114,24 @@ export type KnowledgeEditingService = {
 
 // GOV-03：确认仍然有效后，下一次复核默认推后 180 天
 const defaultReviewCycleMilliseconds = 180 * 24 * 60 * 60 * 1000;
+
+async function recordAudit(
+  database: PGlite | Sql,
+  actorUserId: string,
+  eventType: string,
+  targetId: string,
+  reason?: string,
+  metadata?: Record<string, unknown>,
+) {
+  await createContentAuditService(database).record({
+    actorUserId,
+    eventType,
+    targetType: "article",
+    targetId,
+    reason,
+    metadata,
+  });
+}
 
 const articleColumns = {
   id: articles.id,
@@ -294,11 +314,23 @@ export function createKnowledgeEditingService(
         });
       }
 
-      return writeArticle(stableId, input, {
+      const result = await writeArticle(stableId, input, {
         status: "published",
         publishedAt: current.publishedAt ?? new Date(),
         lastReviewedAt: null,
       });
+      await recordAudit(
+        database,
+        editorUserId,
+        "article.publish",
+        current.id,
+        undefined,
+        {
+          stableId,
+          isFirstPublish: current.publishedAt === null,
+        },
+      );
+      return result;
     },
 
     async beginEdit(editorUserId, stableId) {
@@ -380,6 +412,15 @@ export function createKnowledgeEditingService(
         createdAt: new Date(),
       });
 
+      await recordAudit(
+        database,
+        editorUserId,
+        "article.restore",
+        current.id,
+        reasonText,
+        { version },
+      );
+
       const rows = await client
         .update(articles)
         .set({
@@ -406,10 +447,11 @@ export function createKnowledgeEditingService(
 
       const newStableId = `article-${randomUUID().slice(0, 8)}`;
       const now = new Date();
+      const newArticleId = randomUUID();
       const rows = await client
         .insert(articles)
         .values({
-          id: randomUUID(),
+          id: newArticleId,
           stableId: newStableId,
           title: source.title,
           summary: source.summary,
@@ -423,18 +465,47 @@ export function createKnowledgeEditingService(
           createdAt: now,
         })
         .returning(articleColumns);
-      return rows[0]!;
+      const row = rows[0]!;
+      await recordAudit(
+        database,
+        editorUserId,
+        "article.duplicate",
+        source.id,
+        undefined,
+        {
+          newStableId,
+          newArticleId,
+        },
+      );
+      return row;
     },
 
-    async archiveArticle(editorUserId, stableId) {
+    async archiveArticle(editorUserId, stableId, reason) {
       await assertEditor(client, editorUserId);
+      const reasonText = reason.trim();
+      if (reasonText.length === 0) {
+        throw new Error("归档文章必须填写原因。");
+      }
+      const current = await findArticle(stableId);
+      if (!current) throw new Error("Article not found.");
       const rows = await client
         .update(articles)
-        .set({ status: "archived", updatedAt: new Date() })
+        .set({
+          status: "archived",
+          archivedAt: new Date(),
+          updatedAt: new Date(),
+        })
         .where(eq(articles.stableId, stableId))
         .returning(articleColumns);
       const row = rows[0];
       if (!row) throw new Error("Article not found.");
+      await recordAudit(
+        database,
+        editorUserId,
+        "article.archive",
+        current.id,
+        reasonText,
+      );
       return row;
     },
 
@@ -515,6 +586,10 @@ export function createKnowledgeEditingService(
       const nextReview = new Date(
         now.getTime() + defaultReviewCycleMilliseconds,
       );
+      const article = await findArticle(stableId);
+      if (!article || article.status !== "published") {
+        throw new Error("Published article not found.");
+      }
       const rows = await client
         .update(articles)
         .set({
@@ -522,15 +597,19 @@ export function createKnowledgeEditingService(
           nextReviewAt: nextReview,
           updatedAt: now,
         })
-        .where(
-          and(
-            eq(articles.stableId, stableId),
-            eq(articles.status, "published"),
-          ),
-        )
+        .where(eq(articles.stableId, stableId))
         .returning(articleColumns);
       const row = rows[0];
-      if (!row) throw new Error("Published article not found.");
+      await recordAudit(
+        database,
+        editorUserId,
+        "article.review",
+        article.id,
+        undefined,
+        {
+          nextReviewAt: nextReview.toISOString(),
+        },
+      );
       return row;
     },
   };

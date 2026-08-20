@@ -1,0 +1,125 @@
+import { randomUUID } from "node:crypto";
+import type { PGlite } from "@electric-sql/pglite";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import type { Sql } from "postgres";
+
+import { createDatabaseClient } from "@/db/client";
+import { contentAuditEvents, users } from "@/db/schema";
+
+export type ContentAuditEvent = {
+  id: string;
+  actorUserId: string | null;
+  actorName: string | null;
+  eventType: string;
+  targetType: string;
+  targetId: string | null;
+  reason: string | null;
+  metadata: Record<string, unknown>;
+  occurredAt: Date;
+};
+
+export type ContentAuditService = {
+  record(input: {
+    actorUserId: string;
+    eventType: string;
+    targetType: string;
+    targetId?: string;
+    reason?: string;
+    metadata?: Record<string, unknown>;
+    occurredAt?: Date;
+  }): Promise<void>;
+  listAuditEvents(
+    requestingUserId: string,
+    input?: {
+      eventType?: string;
+      actorUserId?: string;
+      limit?: number;
+    },
+  ): Promise<ContentAuditEvent[]>;
+};
+
+async function assertEditorOrAdmin(
+  client: ReturnType<typeof createDatabaseClient>,
+  requestingUserId: string,
+): Promise<void> {
+  const rows = await client
+    .select({ id: users.id })
+    .from(users)
+    .where(
+      and(
+        eq(users.id, requestingUserId),
+        sql`${users.role} in ('editor', 'administrator')`,
+        isNull(users.disabledAt),
+      ),
+    );
+  if (rows.length === 0) throw new Error("Editor privileges required.");
+}
+
+export function createContentAuditService(
+  database: PGlite | Sql,
+): ContentAuditService {
+  const client = createDatabaseClient(database);
+
+  return {
+    async record({
+      actorUserId,
+      eventType,
+      targetType,
+      targetId,
+      reason,
+      metadata = {},
+      occurredAt = new Date(),
+    }) {
+      await client.insert(contentAuditEvents).values({
+        id: randomUUID(),
+        actorUserId,
+        eventType,
+        targetType,
+        targetId: targetId ?? null,
+        reason: reason?.trim() || null,
+        metadata,
+        occurredAt,
+      });
+    },
+
+    async listAuditEvents(
+      requestingUserId,
+      { eventType, actorUserId, limit = 100 } = {},
+    ) {
+      await assertEditorOrAdmin(client, requestingUserId);
+      const rows = await client
+        .select({
+          id: contentAuditEvents.id,
+          actorUserId: contentAuditEvents.actorUserId,
+          actorName: sql<string | null>`coalesce(
+            ${users.displayName}, ${users.username}
+          )`,
+          eventType: contentAuditEvents.eventType,
+          targetType: contentAuditEvents.targetType,
+          targetId: contentAuditEvents.targetId,
+          reason: contentAuditEvents.reason,
+          metadata: contentAuditEvents.metadata,
+          occurredAt: contentAuditEvents.occurredAt,
+        })
+        .from(contentAuditEvents)
+        .leftJoin(users, eq(contentAuditEvents.actorUserId, users.id))
+        .where(
+          and(
+            eventType ? eq(contentAuditEvents.eventType, eventType) : undefined,
+            actorUserId
+              ? eq(contentAuditEvents.actorUserId, actorUserId)
+              : undefined,
+          ),
+        )
+        .orderBy(
+          desc(contentAuditEvents.occurredAt),
+          desc(contentAuditEvents.id),
+        )
+        .limit(limit);
+      return rows.map((row) => ({
+        ...row,
+        metadata: (row.metadata ?? {}) as Record<string, unknown>,
+      }));
+    },
+  };
+}

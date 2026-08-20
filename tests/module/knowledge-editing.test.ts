@@ -171,7 +171,11 @@ describe("knowledge editing service", () => {
     const created = await service.createDraft(editorId, draftInput());
     await service.publish(editorId, created.stableId, draftInput());
 
-    const archived = await service.archiveArticle(editorId, created.stableId);
+    const archived = await service.archiveArticle(
+      editorId,
+      created.stableId,
+      "内容迁移到新主题",
+    );
     expect(archived.status).toBe("archived");
 
     // 阅读侧不可见

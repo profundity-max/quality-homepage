@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { getDatabase } from "@/db/database";
+import { createContentAuditService } from "@/modules/content-audit";
 import { createContentStatsService } from "@/modules/content-stats";
 import { createTemplateService } from "@/modules/template-service";
 import { createDiskFileStorage } from "@/modules/file-storage";
@@ -37,6 +38,13 @@ export async function GET(
   await createContentStatsService(getDatabase()).recordTemplateDownload({
     templateVersionId: active.versionId,
     userId: session.member.id,
+  });
+  await createContentAuditService(getDatabase()).record({
+    actorUserId: session.member.id,
+    eventType: "template.download",
+    targetType: "template",
+    targetId: stableId,
+    metadata: { versionId: active.versionId },
   });
 
   // FILE-03：强制附件下载，安全处理文件名（去路径/控制字符）
