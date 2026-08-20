@@ -43,6 +43,11 @@
 
 验收重点：PORT、DEL、AUDIT、SEC、OPS、BKP、AVL 全部需求及完整上线验收清单。
 
+> 状态：已完成（2026-08-20，实施计划见
+> `docs/superpowers/plans/2026-08-20-slice-6-governance-migration-audit-ops.md`；
+> 验收证据见 GitHub Issue #57；上线前人工项见
+> `docs/operations/launch-checklist.md`，运维流程见 `docs/operations/ops-runbook.md`。）
+
 ## 每个切片的共同完成定义
 
 - 对应需求编号有自动测试或明确的人工验收记录。
