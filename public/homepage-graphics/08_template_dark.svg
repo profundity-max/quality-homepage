@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1448" height="1086" viewBox="0 0 1448 1086">
+
+<defs>
+  <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#181B21"/>
+    <stop offset="1" stop-color="#11141A"/>
+  </linearGradient>
+  <radialGradient id="glow">
+    <stop offset="0" stop-color="#5C9BFF" stop-opacity=".24"/>
+    <stop offset="1" stop-color="#5C9BFF" stop-opacity="0"/>
+  </radialGradient>
+</defs>
+<rect width="1448" height="1086" fill="url(#bg)"/>
+
+<g fill="none" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke">
+  <!-- floor grid and blue arc -->
+  <g stroke="#313840" stroke-width="1.0" opacity="0.32">
+    <path d="M243 720 L1035 802"/><path d="M250 771 L1024 851"/><path d="M282 664 L1106 747"/>
+    <path d="M324 606 L1178 690"/><path d="M390 862 L548 606"/><path d="M535 874 L690 619"/>
+    <path d="M681 888 L833 633"/><path d="M827 900 L974 649"/><path d="M970 912 L1114 665"/>
+  </g>
+  <path d="M225 687 C389 622 543 619 714 643 C877 666 1010 673 1189 725" stroke="#69AFFF" stroke-width="1.55" opacity=".60"/>
+
+  <!-- back cards -->
+  <path d="M 471 170 L 1083 228 Q 1107 230 1107 252 L 1107 659 Q 1105 683 1083 683 L 471 613 Q 447 611 447 589 L 447 194 Q 449 170 471 170 Z" stroke="#575F69" stroke-width="1.6" opacity=".62"/>
+  <path d="M 428 216 L 1040 274 Q 1064 276 1064 298 L 1064 705 Q 1062 729 1040 729 L 428 659 Q 404 657 404 635 L 404 240 Q 406 216 428 216 Z" stroke="#575F69" stroke-width="1.6" opacity=".70"/>
+  <path d="M 386 260 L 998 318 Q 1022 320 1022 342 L 1022 749 Q 1020 773 998 773 L 386 703 Q 362 701 362 679 L 362 284 Q 364 260 386 260 Z" stroke="#575F69" stroke-width="1.6" opacity=".78"/>
+
+  <!-- front card -->
+  <path d="M 344 302 L 956 360 Q 980 362 980 384 L 980 791 Q 978 815 956 815 L 344 745 Q 320 743 320 721 L 320 326 Q 322 302 344 302 Z" stroke="#69AFFF" stroke-width="2.0"/>
+
+  <!-- front wireframe -->
+  <path d="M360 369 L642 395 Q654 397 654 409 L654 659 Q654 672 641 669 L360 644 Q348 642 348 630 L348 382 Q348 368 360 369 Z"
+        stroke="#3D444D" stroke-width="1.25" opacity=".75"/>
+  <path d="M351 374 L652 663 M651 398 L350 641" stroke="#3D444D" stroke-width=".95" opacity=".55"/>
+  <path d="M698 450 L939 471 M698 489 L939 510 M698 528 L905 546 M698 568 L864 581"
+        stroke="#3D444D" stroke-width="1.35" opacity=".77"/>
+  <path d="M701 614 L917 633 Q929 634 929 646 L929 721 Q929 734 916 732 L700 713 Q688 712 688 700 L688 625 Q688 613 701 614 Z"
+        stroke="#3D444D" stroke-width="1.25" opacity=".72"/>
+</g></svg>

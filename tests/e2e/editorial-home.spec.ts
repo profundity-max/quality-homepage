@@ -53,12 +53,48 @@ test("Editorial Space works across desktop, theme, keyboard, and mobile", async 
     "最近更新",
     "推荐书单",
   ]);
+  await expect(page.getByTestId("home-editorial-section")).toHaveCount(5);
+  const graphicAssets = {
+    onboarding: ["01_newcomer_light.svg", "02_newcomer_dark.svg"],
+    templates: ["07_template_light.svg", "08_template_dark.svg"],
+    quality: ["03_quality_light.svg", "04_quality_dark.svg"],
+    thermal: ["05_thermal_light.svg", "06_thermal_dark.svg"],
+    books: ["09_reading_light.svg", "10_reading_dark.svg"],
+  } as const;
+  for (const [graphic, [lightAsset, darkAsset]] of Object.entries(
+    graphicAssets,
+  )) {
+    const illustration = page.getByTestId(`home-graphic-${graphic}`);
+    await expect(illustration).toHaveAttribute("aria-hidden", "true");
+    await expect(illustration).toHaveAttribute("focusable", "false");
+    await expect(
+      illustration.locator('[data-theme-asset="light"]'),
+    ).toHaveAttribute("href", `/homepage-graphics/${lightAsset}`);
+    await expect(
+      illustration.locator('[data-theme-asset="dark"]'),
+    ).toHaveAttribute("href", `/homepage-graphics/${darkAsset}`);
+    await expect(illustration.locator('[data-theme-asset="light"]')).toHaveCSS(
+      "display",
+      "block",
+    );
+    await expect(illustration.locator('[data-theme-asset="dark"]')).toHaveCSS(
+      "display",
+      "none",
+    );
+  }
   await expect(
     page.getByRole("heading", { name: "新人专区" }).locator(".."),
   ).toHaveAttribute("href", "/onboarding");
   await expect(
     page.getByRole("heading", { name: "模板中心" }).locator(".."),
   ).toHaveAttribute("href", "/templates");
+  await page.setViewportSize({ width: 820, height: 900 });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
+  await page.setViewportSize({ width: 1280, height: 720 });
 
   const heroRatio = await page
     .getByTestId("home-hero")
@@ -88,6 +124,17 @@ test("Editorial Space works across desktop, theme, keyboard, and mobile", async 
 
   await page.getByRole("button", { name: /切换/ }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  for (const graphic of Object.keys(graphicAssets)) {
+    const illustration = page.getByTestId(`home-graphic-${graphic}`);
+    await expect(illustration.locator('[data-theme-asset="light"]')).toHaveCSS(
+      "display",
+      "none",
+    );
+    await expect(illustration.locator('[data-theme-asset="dark"]')).toHaveCSS(
+      "display",
+      "block",
+    );
+  }
   await page.reload();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   expect(

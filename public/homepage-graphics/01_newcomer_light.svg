@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1448" height="1086" viewBox="0 0 1448 1086">
+
+<defs>
+  <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#FBFCFD"/>
+    <stop offset="1" stop-color="#F6F8FA"/>
+  </linearGradient>
+  <radialGradient id="glow">
+    <stop offset="0" stop-color="#7BB8FF" stop-opacity=".18"/>
+    <stop offset="1" stop-color="#7BB8FF" stop-opacity="0"/>
+  </radialGradient>
+</defs>
+<rect width="1448" height="1086" fill="url(#bg)"/>
+
+<!-- subtle ground grid -->
+<g fill="none" stroke="#CDD4DC" stroke-width="1.15" stroke-linecap="round" opacity="0.38" vector-effect="non-scaling-stroke">
+  <path d="M260 761 L1048 761 L1264 665" stroke-dasharray="5 10"/>
+  <path d="M331 841 L1110 841 L1308 752" stroke-dasharray="5 10"/>
+  <path d="M413 920 L1170 920 L1352 838" stroke-dasharray="5 10"/>
+  <path d="M321 651 L920 651 L1138 554" stroke-dasharray="5 10"/>
+  <path d="M436 548 L1017 548 L1221 457" stroke-dasharray="5 10"/>
+  <path d="M576 457 L1106 457 L1284 378" stroke-dasharray="5 10"/>
+</g>
+
+<!-- portal frames -->
+<g fill="none" stroke="#9EA8B4" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" opacity="0.78" vector-effect="non-scaling-stroke">
+  <path d="M341 759 V492 Q341 475 358 479 L478 506 Q492 510 492 527 V817"/>
+  <path d="M539 661 V402 Q539 384 557 389 L667 416 Q680 420 680 437 V721"/>
+  <path d="M707 567 V322 Q707 304 725 309 L827 335 Q840 339 840 355 V629"/>
+  <path d="M861 471 V250 Q861 232 878 237 L974 262 Q990 266 990 283 V540"/>
+</g>
+<path d="M1021 398 V191 Q1021 173 1038 178 L1130 202 Q1147 206 1147 224 V459"
+      fill="none" stroke="#53A4FF" stroke-width="2.15" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+
+<!-- flow path -->
+<path d="M97 827
+ C179 793 235 735 297 706
+ C359 678 416 673 476 655
+ C541 636 573 581 620 547
+ C668 511 727 498 786 491
+ C845 484 860 493 886 459
+ C916 419 968 374 1024 343
+ C1089 308 1177 293 1265 249"
+ fill="none" stroke="#53A4FF" stroke-width="2.5" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
+
+<!-- endpoint and arrow -->
+<ellipse cx="1286" cy="239" rx="50" ry="50" fill="url(#glow)"/>
+<path d="M1265 249 L1283 239 L1277 258" fill="none" stroke="#53A4FF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+</svg>

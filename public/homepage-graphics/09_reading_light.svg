@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1086" height="1448" viewBox="0 0 1086 1448">
+<defs>
+  <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#FBFCFD"/>
+    <stop offset="1" stop-color="#F6F8FA"/>
+  </linearGradient>
+</defs>
+<rect width="1086" height="1448" fill="url(#bg)"/>
+<g fill="none" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke">
+  <!-- flowing line behind books -->
+  <path d="M68 885
+           C165 830, 238 780, 320 742
+           C398 706, 476 690, 560 700
+           C645 710, 720 755, 808 793
+           C878 823, 948 828, 1018 802"
+        stroke="#AAD2FF" stroke-width="2.1" opacity="0.9"/>
+  <path d="M20 935 C38 928, 52 918, 70 902" stroke="#AAD2FF" stroke-width="1.9" stroke-dasharray="6 10" opacity="0.9"/>
+  <path d="M1018 802 C1038 792, 1052 777, 1066 760" stroke="#AAD2FF" stroke-width="1.9" stroke-dasharray="6 10" opacity="0.9"/>
+
+  <!-- book 1 leaning -->
+  <path d="M251 1047
+           L196 1038
+           Q183 1036 186 1022
+           L255 577
+           Q258 561 273 564
+           L347 574
+           Q360 576 358 590
+           L290 1032
+           Q288 1049 271 1048
+           Z"
+        stroke="#979FA8" stroke-width="2.1" opacity="0.93"/>
+  <path d="M272 883 L295 673" stroke="#D1D7DF" stroke-width="1.6" opacity="0.75"/>
+  <path d="M302 662 L336 666 M300 680 L334 684 M244 1004 L280 1008" stroke="#D1D7DF" stroke-width="1.6" opacity="0.85"/>
+
+  <!-- book 2 -->
+  <rect x="371" y="524" width="87" height="523" rx="12" stroke="#979FA8" stroke-width="2.1" opacity="0.93"/>
+  <path d="M395 615 H428 M395 632 H428 M396 995 H430" stroke="#D1D7DF" stroke-width="1.7" opacity="0.86"/>
+  <circle cx="415" cy="754" r="12" stroke="#4DA5FF" stroke-width="2.2" opacity="0.75"/>
+
+  <!-- book 3 -->
+  <rect x="474" y="598" width="86" height="449" rx="13" stroke="#979FA8" stroke-width="2.1" opacity="0.93"/>
+  <path d="M498 647 H532 M498 665 H532" stroke="#D1D7DF" stroke-width="1.7" opacity="0.85"/>
+  <path d="M517 770 L517 970" stroke="#D1D7DF" stroke-width="1.5" opacity="0.68"/>
+
+  <!-- book 4 highlighted -->
+  <rect x="574" y="437" width="102" height="610" rx="13" stroke="#4DA5FF" stroke-width="2.4" opacity="0.98"/>
+  <circle cx="625" cy="534" r="12" stroke="#4DA5FF" stroke-width="2.3"/>
+  <path d="M625 649 L625 971" stroke="#4DA5FF" stroke-width="2.3" opacity="0.92"/>
+
+  <!-- book 5 -->
+  <rect x="689" y="490" width="93" height="557" rx="13" stroke="#979FA8" stroke-width="2.1" opacity="0.93"/>
+  <path d="M714 589 H752 M714 608 H752 M729 650 L729 970" stroke="#D1D7DF" stroke-width="1.6" opacity="0.82"/>
+
+  <!-- book 6 -->
+  <rect x="795" y="621" width="78" height="426" rx="12" stroke="#979FA8" stroke-width="2.1" opacity="0.93"/>
+  <path d="M816 676 H846 M815 995 H845" stroke="#D1D7DF" stroke-width="1.6" opacity="0.85"/>
+  <circle cx="834" cy="777" r="12" stroke="#4DA5FF" stroke-width="2.1" opacity="0.78"/>
+</g>
+</svg>

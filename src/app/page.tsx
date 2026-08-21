@@ -8,6 +8,7 @@ import { createOnboardingService } from "@/modules/onboarding";
 import { createDiskFileStorage } from "@/modules/file-storage";
 import { resolveDataDirectory } from "@/modules/file-storage/configuration";
 import { createPersonalizedHome } from "@/modules/personalized-home";
+import { EditorialSection } from "@/ui/editorial-section";
 import { QuickSearch } from "@/ui/search/quick-search";
 
 import { requirePortalSession } from "./authorization";
@@ -54,7 +55,6 @@ export default async function HomePage() {
     (total, category) => total + category.books.length,
     0,
   );
-
   const quality = tree.find(
     (section) => section.stableId === "quality-knowledge",
   );
@@ -78,56 +78,54 @@ export default async function HomePage() {
           </aside>
         </section>
 
-        <div className={styles.sections}>
-          <section className={styles.section}>
-            <p className={styles.index}>01</p>
-            <Link href="/onboarding" className={styles.sectionLink}>
-              <h2>新人专区</h2>
-              <p className={styles.sectionStatus}>
-                {onboardingStages.length > 0
-                  ? `${onboardingStages.length} 个阶段 · 点击进入`
-                  : "暂无内容"}
-              </p>
-            </Link>
-          </section>
-          <section className={styles.section}>
-            <p className={styles.index}>02</p>
-            <Link href="/templates" className={styles.sectionLink}>
-              <h2>模板中心</h2>
-              <p className={styles.sectionStatus}>
-                {publishedTemplates > 0
-                  ? `${publishedTemplates} 个模板 · 点击进入`
-                  : "暂无内容"}
-              </p>
-            </Link>
-          </section>
-          <section className={styles.section}>
-            <p className={styles.index}>03</p>
-            <Link href="/quality" className={styles.sectionLink}>
-              <h2>品质知识</h2>
-              {quality ? (
-                <p className={styles.sectionStatus}>
-                  {countTopics(quality)} 个主题 · 点击进入
-                </p>
-              ) : (
-                <p className={styles.sectionStatus}>暂无内容</p>
-              )}
-            </Link>
-          </section>
-          <section className={styles.section}>
-            <p className={styles.index}>04</p>
-            <Link href="/thermal" className={styles.sectionLink}>
-              <h2>散热知识</h2>
-              {thermal ? (
-                <p className={styles.sectionStatus}>
-                  {countTopics(thermal)} 个主题 · 点击进入
-                </p>
-              ) : (
-                <p className={styles.sectionStatus}>暂无内容</p>
-              )}
-            </Link>
-          </section>
-        </div>
+        <EditorialSection
+          index="01"
+          title="新人专区"
+          description="六个阶段，一条清晰的新人成长路线。"
+          status={
+            onboardingStages.length > 0
+              ? `${onboardingStages.length} 个阶段 · 点击进入`
+              : "暂无内容"
+          }
+          href="/onboarding"
+          action="进入新人专区"
+          graphic={{ kind: "onboarding" }}
+        />
+        <EditorialSection
+          index="02"
+          title="模板中心"
+          description="当前有效版本、适用软件和变更说明，一处查找。"
+          status={
+            publishedTemplates > 0
+              ? `${publishedTemplates} 个模板 · 点击进入`
+              : "暂无内容"
+          }
+          href="/templates"
+          action="进入模板中心"
+          graphic={{ kind: "templates" }}
+        />
+        <EditorialSection
+          index="03"
+          title="品质知识"
+          description="从数据可信，到过程受控，再到问题闭环。"
+          status={
+            quality ? `${countTopics(quality)} 个主题 · 点击进入` : "暂无内容"
+          }
+          href="/quality"
+          action="进入品质知识"
+          graphic={{ kind: "quality" }}
+        />
+        <EditorialSection
+          index="04"
+          title="散热知识"
+          description="理解热如何流动，以及超薄均热板如何被制造。"
+          status={
+            thermal ? `${countTopics(thermal)} 个主题 · 点击进入` : "暂无内容"
+          }
+          href="/thermal"
+          action="进入散热知识"
+          graphic={{ kind: "thermal" }}
+        />
 
         <section className={styles.updates} aria-label="最近更新">
           <h2 className={styles.updatesHeading}>最近更新</h2>
@@ -153,19 +151,19 @@ export default async function HomePage() {
           )}
         </section>
 
-        <div className={styles.sections}>
-          <section className={styles.section}>
-            <p className={styles.index}>05</p>
-            <Link href="/books" className={styles.sectionLink}>
-              <h2>推荐书单</h2>
-              <p className={styles.sectionStatus}>
-                {publishedBooks > 0
-                  ? `${publishedBooks} 本书 · 点击进入`
-                  : "暂无内容"}
-              </p>
-            </Link>
-          </section>
-        </div>
+        <EditorialSection
+          index="05"
+          title="推荐书单"
+          description="在不确定中，建立更可靠的判断。"
+          status={
+            publishedBooks > 0
+              ? `${publishedBooks} 本书 · 点击进入`
+              : "暂无内容"
+          }
+          href="/books"
+          action="进入推荐书单"
+          graphic={{ kind: "books" }}
+        />
       </main>
     </PortalShell>
   );
