@@ -1,10 +1,10 @@
 import type { PGlite } from "@electric-sql/pglite";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import type { Sql } from "postgres";
 
 import { createDatabaseClient } from "@/db/client";
-import { articleVersions, articles, users } from "@/db/schema";
+import { articleVersions, articles } from "@/db/schema";
 import { createContentAuditService } from "@/modules/content-audit";
 import { requireRole } from "@/modules/access";
 
@@ -80,11 +80,6 @@ export type KnowledgeEditingService = {
   duplicateArticle(
     editorUserId: string,
     stableId: string,
-  ): Promise<EditingArticle>;
-  archiveArticle(
-    editorUserId: string,
-    stableId: string,
-    reason: string,
   ): Promise<EditingArticle>;
   confirmStillValid(
     editorUserId: string,
@@ -479,35 +474,6 @@ export function createKnowledgeEditingService(
           newStableId,
           newArticleId,
         },
-      );
-      return row;
-    },
-
-    async archiveArticle(editorUserId, stableId, reason) {
-      await assertEditor(client, editorUserId);
-      const reasonText = reason.trim();
-      if (reasonText.length === 0) {
-        throw new Error("归档文章必须填写原因。");
-      }
-      const current = await findArticle(stableId);
-      if (!current) throw new Error("Article not found.");
-      const rows = await client
-        .update(articles)
-        .set({
-          status: "archived",
-          archivedAt: new Date(),
-          updatedAt: new Date(),
-        })
-        .where(eq(articles.stableId, stableId))
-        .returning(articleColumns);
-      const row = rows[0];
-      if (!row) throw new Error("Article not found.");
-      await recordAudit(
-        database,
-        editorUserId,
-        "article.archive",
-        current.id,
-        reasonText,
       );
       return row;
     },

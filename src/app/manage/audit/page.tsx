@@ -24,6 +24,7 @@ const eventTypeNames: Record<string, string> = {
   "topic.create": "创建主题",
   "topic.rename": "主题改名",
   "topic.archive": "主题归档",
+  "template-category.archive": "模板分类归档",
   "topic.move": "主题排序",
   "feedback.resolve": "反馈处理",
   "recycle.restore": "回收站恢复",

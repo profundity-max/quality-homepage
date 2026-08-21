@@ -5,7 +5,6 @@ import type { Sql } from "postgres";
 
 import { createDatabaseClient } from "@/db/client";
 import { articles, sections, topics } from "@/db/schema";
-import { users } from "@/db/schema";
 import { createContentAuditService } from "@/modules/content-audit";
 import { requireRole } from "@/modules/access";
 
@@ -66,15 +65,6 @@ export type KnowledgeAdministrationService = {
     stableId: string,
     newName: string,
   ): Promise<{ stableId: string; name: string }>;
-  /** 归档采用标记而非删除（IA-07 无永久删除入口）。 */
-  archiveSection(
-    requestingUserId: string,
-    stableId: string,
-  ): Promise<{ stableId: string; archivedAt: Date | null }>;
-  archiveTopic(
-    requestingUserId: string,
-    stableId: string,
-  ): Promise<{ stableId: string; archivedAt: Date | null }>;
   createTopic(
     requestingUserId: string,
     parentSectionStableId: string,
@@ -210,16 +200,6 @@ export function createKnowledgeAdministrationService(
       .map((section) => buildNode(section.id));
   }
 
-  async function findTopicByStableId(stableId: string) {
-    return (
-      await client
-        .select()
-        .from(topics)
-        .where(eq(topics.stableId, stableId))
-        .limit(1)
-    )[0];
-  }
-
   async function findSectionByStableId(stableId: string) {
     return (
       await client
@@ -299,96 +279,6 @@ export function createKnowledgeAdministrationService(
         {
           newName: trimmed,
         },
-      );
-      return row;
-    },
-
-    async archiveSection(requestingUserId, stableId) {
-      await assertAdministrator(client, requestingUserId);
-      const section = await findSectionByStableId(stableId);
-      if (!section) throw new Error("Section not found.");
-
-      // IA-09 精神：归档栏目前检查其子树是否含已发布文章，
-      // 有则要求先迁移，避免已发布文章从阅读树消失但仍可被检索。
-      const publishedInSubtree = await client
-        .select({ id: articles.id })
-        .from(articles)
-        .innerJoin(topics, eq(articles.primaryTopicId, topics.id))
-        .innerJoin(sections, eq(topics.sectionId, sections.id))
-        .where(
-          and(
-            eq(articles.status, "published"),
-            // 该栏目或其任意后代栏目下的主题
-            sql`${sections.id} = ${section.id} or ${sections.parentId} = ${section.id}`,
-          ),
-        )
-        .limit(1);
-      if (publishedInSubtree.length > 0) {
-        throw new Error(
-          "Section contains published articles; migrate them before archiving.",
-        );
-      }
-
-      const now = new Date();
-      const rows = await client
-        .update(sections)
-        .set({ archivedAt: now })
-        .where(eq(sections.stableId, stableId))
-        .returning({
-          stableId: sections.stableId,
-          archivedAt: sections.archivedAt,
-        });
-      const row = rows[0];
-      if (!row) throw new Error("Section not found.");
-      await recordAdminAudit(
-        database,
-        requestingUserId,
-        "section.archive",
-        "section",
-        row.stableId,
-      );
-      return row;
-    },
-
-    async archiveTopic(requestingUserId, stableId) {
-      await assertAdministrator(client, requestingUserId);
-      const topic = await findTopicByStableId(stableId);
-      if (!topic) throw new Error("Topic not found.");
-
-      // IA-09：归档含已发布文章的主题前，必须先把文章迁移到其他主题
-      const published = await client
-        .select({ id: articles.id })
-        .from(articles)
-        .where(
-          and(
-            eq(articles.primaryTopicId, topic.id),
-            eq(articles.status, "published"),
-          ),
-        )
-        .limit(1);
-      if (published.length > 0) {
-        throw new Error(
-          "Topic has published articles; migrate them to another topic before archiving.",
-        );
-      }
-
-      const now = new Date();
-      const rows = await client
-        .update(topics)
-        .set({ archivedAt: now })
-        .where(eq(topics.stableId, stableId))
-        .returning({
-          stableId: topics.stableId,
-          archivedAt: topics.archivedAt,
-        });
-      const row = rows[0];
-      if (!row) throw new Error("Topic not found.");
-      await recordAdminAudit(
-        database,
-        requestingUserId,
-        "topic.archive",
-        "topic",
-        row.stableId,
       );
       return row;
     },

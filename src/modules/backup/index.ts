@@ -16,17 +16,12 @@ import {
 } from "node:fs/promises";
 import { join, relative, resolve } from "node:path";
 import type { PGlite } from "@electric-sql/pglite";
-import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import type { Sql } from "postgres";
 
 import { createDatabaseClient } from "@/db/client";
 import { requireRole } from "@/modules/access";
-import {
-  backups,
-  users,
-  type BackupKind,
-  type BackupStatus,
-} from "@/db/schema";
+import { backups, type BackupKind, type BackupStatus } from "@/db/schema";
 import { createContentAuditService } from "@/modules/content-audit";
 import { unzip, zipFiles } from "@/modules/markdown-package";
 

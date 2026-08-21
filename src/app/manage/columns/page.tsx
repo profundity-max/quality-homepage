@@ -101,6 +101,13 @@ function SectionNodeView({
             />
             <form action={archiveSectionAction}>
               <input type="hidden" name="stableId" value={section.stableId} />
+              <input
+                name="reason"
+                required
+                aria-label={`归档栏目 ${section.name} 的原因`}
+                placeholder="归档原因（必填）"
+                className={styles.renameInput}
+              />
               <button className={styles.textButton} type="submit">
                 归档
               </button>
@@ -154,6 +161,13 @@ function TopicRow({ topic, depth }: { topic: ManagedTopic; depth: number }) {
           />
           <form action={archiveTopicAction}>
             <input type="hidden" name="stableId" value={topic.stableId} />
+            <input
+              name="reason"
+              required
+              aria-label={`归档主题 ${topic.name} 的原因`}
+              placeholder="归档原因（必填）"
+              className={styles.renameInput}
+            />
             <button className={styles.textButton} type="submit">
               归档
             </button>

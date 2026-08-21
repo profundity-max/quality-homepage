@@ -64,6 +64,7 @@ test("archiving a topic with published articles is refused (IA-09)", async ({
   const row = renameInput.locator(
     "xpath=ancestor::div[.//button[text()='归档']][1]",
   );
+  await row.getByLabel("归档主题 SPC 的原因").fill("迁移前尝试");
   await row.getByRole("button", { name: "归档" }).click();
   await expect(
     page.getByText("该主题仍有已发布文章，请先迁移到其他主题再归档。"),

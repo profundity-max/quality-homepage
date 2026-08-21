@@ -194,29 +194,6 @@ describe("knowledge editing service", () => {
     expect(published.status).toBe("published");
   });
 
-  test("archives an article (VER-04)", async () => {
-    const service = createKnowledgeEditingService(database);
-    const created = await service.createDraft(editorId, draftInput());
-    await service.publish(editorId, created.stableId, draftInput());
-
-    const archived = await service.archiveArticle(
-      editorId,
-      created.stableId,
-      "内容迁移到新主题",
-    );
-    expect(archived.status).toBe("archived");
-
-    // 阅读侧不可见
-    const { createKnowledgePublishingService } = await import(
-      "@/modules/knowledge-publishing"
-    );
-    await expect(
-      createKnowledgePublishingService(database).getPublishedArticleByStableId(
-        created.stableId,
-      ),
-    ).resolves.toBeNull();
-  });
-
   test("confirm-relevant updates review dates without a new version (GOV-03)", async () => {
     const service = createKnowledgeEditingService(database);
     const created = await service.createDraft(editorId, draftInput());

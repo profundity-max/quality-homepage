@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { createKnowledgeAdministrationService } from "@/modules/knowledge-administration";
 import { getDatabase } from "@/db/database";
+import { createArchivalService } from "@/modules/archival";
 
 import { requirePortalSession } from "../../authorization";
 
@@ -53,20 +54,24 @@ export async function renameTopicAction(formData: FormData): Promise<void> {
 
 export async function archiveSectionAction(formData: FormData): Promise<void> {
   const stableId = readString(formData, "stableId");
+  const reason = readString(formData, "reason");
   await runColumnAction("栏目已归档。", (requestingUserId) =>
-    createKnowledgeAdministrationService(getDatabase()).archiveSection(
+    createArchivalService(getDatabase()).archive(
       requestingUserId,
-      stableId,
+      { type: "section", stableId },
+      reason,
     ),
   );
 }
 
 export async function archiveTopicAction(formData: FormData): Promise<void> {
   const stableId = readString(formData, "stableId");
+  const reason = readString(formData, "reason");
   await runColumnAction("主题已归档。", (requestingUserId) =>
-    createKnowledgeAdministrationService(getDatabase()).archiveTopic(
+    createArchivalService(getDatabase()).archive(
       requestingUserId,
-      stableId,
+      { type: "topic", stableId },
+      reason,
     ),
   );
 }

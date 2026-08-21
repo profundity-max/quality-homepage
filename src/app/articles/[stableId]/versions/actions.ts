@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { getDatabase } from "@/db/database";
+import { createArchivalService } from "@/modules/archival";
 import { createKnowledgeEditingService } from "@/modules/knowledge-editing";
 
 import { requirePortalSession } from "../../../authorization";
@@ -41,9 +42,9 @@ export async function archiveArticleAction(formData: FormData): Promise<void> {
   const session = await requirePortalSession(`/articles/${stableId}/versions`);
   let errorMessage: string | null = null;
   try {
-    await createKnowledgeEditingService(getDatabase()).archiveArticle(
+    await createArchivalService(getDatabase()).archive(
       session.member.id,
-      stableId,
+      { type: "article", stableId },
       reason,
     );
   } catch (error) {

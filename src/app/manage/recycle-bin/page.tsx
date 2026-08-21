@@ -1,10 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { getDatabase } from "@/db/database";
-import {
-  createRecycleBinService,
-  type TrashedItem,
-} from "@/modules/recycle-bin";
+import { createArchivalService, type TrashedItem } from "@/modules/archival";
 
 import { requirePortalSession } from "../../authorization";
 import { PortalShell } from "../../portal-shell";
@@ -16,6 +13,7 @@ const typeNames = {
   template: "模板",
   section: "栏目",
   topic: "主题",
+  "template-category": "模板分类",
 } as const;
 
 function formatDate(value: Date): string {
@@ -39,7 +37,7 @@ export default async function RecycleBinPage({
     ? (params.type as TrashedItem["type"])
     : "article";
 
-  const items = await createRecycleBinService(getDatabase())
+  const items = await createArchivalService(getDatabase())
     .listTrashed(session.member.id, { types: [activeType] })
     .catch(() => null);
   if (!items) redirect("/");

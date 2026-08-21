@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { migrate } from "@/db/migrate";
 import { createDatabaseClient } from "@/db/client";
 import { users } from "@/db/schema";
+import { createArchivalService } from "@/modules/archival";
 import { createDiskFileStorage } from "@/modules/file-storage";
 import {
   createTemplateService,
@@ -91,14 +92,14 @@ describe("template admin service", () => {
     const afterIndex = after.findIndex((c) => c.stableId === created.stableId);
     expect(afterIndex).toBeLessThan(movedIndex);
 
-    const archived = await templateService.archiveTemplateCategory(
+    await createArchivalService(database).archive(
       administratorId,
-      created.stableId,
+      { type: "template-category", stableId: created.stableId },
+      "测试归档",
     );
-    expect(archived.archivedAt).not.toBeNull();
     const archivedVisible = (
       await templateService.listCategoriesForAdmin(administratorId)
-    ).some((c) => c.stableId === created.stableId);
+    ).some((c) => c.stableId === created.stableId && c.archivedAt !== null);
     expect(archivedVisible).toBe(true);
 
     // 阅读侧看不到已归档分类

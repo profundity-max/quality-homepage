@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { PGlite } from "@electric-sql/pglite";
-import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import type { Sql } from "postgres";
 
 import { createDatabaseClient } from "@/db/client";

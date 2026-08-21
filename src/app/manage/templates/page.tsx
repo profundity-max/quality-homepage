@@ -152,6 +152,13 @@ function CategorySection({
                     name="stableId"
                     value={category.stableId}
                   />
+                  <input
+                    name="reason"
+                    required
+                    aria-label={`归档分类 ${category.name} 的原因`}
+                    placeholder="归档原因（必填）"
+                    className={styles.renameInput}
+                  />
                   <button className={styles.textButton} type="submit">
                     归档
                   </button>

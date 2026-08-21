@@ -4,12 +4,7 @@ import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
 import type { Sql } from "postgres";
 
 import { createDatabaseClient } from "@/db/client";
-import {
-  templateCategories,
-  templateVersions,
-  templates,
-  users,
-} from "@/db/schema";
+import { templateCategories, templateVersions, templates } from "@/db/schema";
 import { createContentAuditService } from "@/modules/content-audit";
 import type { FileStorage } from "@/modules/file-storage";
 import { requireRole } from "@/modules/access";
@@ -95,11 +90,6 @@ export type TemplateService = {
     categoryStableId: string,
     direction: "up" | "down",
   ): Promise<void>;
-  /** 管理端：归档分类；阅读侧隐藏（TPL-04）。 */
-  archiveTemplateCategory(
-    requestingUserId: string,
-    categoryStableId: string,
-  ): Promise<ManagedTemplateCategory>;
   /** 管理端：模板列表（含草稿/历史版本，TPL-07/08）。 */
   listTemplatesForAdmin(requestingUserId: string): Promise<AdminTemplate[]>;
   /** 上传模板版本进隔离区（FILE-01）。 */
@@ -127,12 +117,6 @@ export type TemplateService = {
     requestingUserId: string,
     templateStableId: string,
   ): Promise<{ stableId: string; status: string }>;
-  /** DEL-01：日常下线使用归档，不永久删除；归档需填写原因（AUDIT-02）。 */
-  archiveTemplate(
-    requestingUserId: string,
-    templateStableId: string,
-    reason: string,
-  ): Promise<void>;
   /** 记录下载并返回当前有效版本文件（FILE-03/04，TPL-09）。 */
   getActiveVersionForDownload(
     templateStableId: string,
@@ -346,24 +330,6 @@ export function createTemplateService(
         .update(templateCategories)
         .set({ sortOrder: current.sortOrder })
         .where(eq(templateCategories.id, neighbor.id));
-    },
-
-    async archiveTemplateCategory(requestingUserId, categoryStableId) {
-      await assertEditor(client, requestingUserId);
-      const rows = await client
-        .update(templateCategories)
-        .set({ archivedAt: new Date() })
-        .where(eq(templateCategories.stableId, categoryStableId))
-        .returning();
-      if (rows.length === 0) throw new Error("分类不存在。");
-      return {
-        id: rows[0]!.id,
-        stableId: rows[0]!.stableId,
-        name: rows[0]!.name,
-        sortOrder: rows[0]!.sortOrder,
-        archivedAt: rows[0]!.archivedAt,
-        templateCount: 0,
-      };
     },
 
     async listTemplatesForAdmin(requestingUserId) {
@@ -729,35 +695,6 @@ export function createTemplateService(
         })
         .returning({ stableId: templates.stableId, status: templates.status });
       return rows[0]!;
-    },
-
-    async archiveTemplate(requestingUserId, templateStableId, reason) {
-      await assertEditor(client, requestingUserId);
-      const reasonText = reason.trim();
-      if (reasonText.length === 0) throw new Error("归档模板必须填写原因。");
-      const template = (
-        await client
-          .select({ id: templates.id })
-          .from(templates)
-          .where(eq(templates.stableId, templateStableId))
-          .limit(1)
-      )[0];
-      if (!template) throw new Error("Template not found.");
-      await client
-        .update(templates)
-        .set({
-          status: "archived",
-          archivedAt: new Date(),
-          updatedAt: new Date(),
-        })
-        .where(eq(templates.id, template.id));
-      await createContentAuditService(database).record({
-        actorUserId: requestingUserId,
-        eventType: "template.archive",
-        targetType: "template",
-        targetId: template.id,
-        reason: reasonText,
-      });
     },
   };
 }

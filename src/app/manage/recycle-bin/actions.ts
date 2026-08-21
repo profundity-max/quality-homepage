@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 
 import { getDatabase } from "@/db/database";
-import { createRecycleBinService } from "@/modules/recycle-bin";
+import { createArchivalService } from "@/modules/archival";
 
 import { requirePortalSession } from "../../authorization";
 
@@ -19,15 +19,15 @@ export async function restoreItemAction(formData: FormData) {
   const stableId = readType(formData.get("stableId"));
   let notice = "已恢复。";
   try {
-    const service = createRecycleBinService(getDatabase());
-    if (type === "article") {
-      await service.restoreArticle(session.member.id, stableId);
-    } else if (type === "template") {
-      await service.restoreTemplate(session.member.id, stableId);
-    } else if (type === "section") {
-      await service.restoreSection(session.member.id, stableId);
-    } else if (type === "topic") {
-      await service.restoreTopic(session.member.id, stableId);
+    if (
+      ["article", "template", "section", "topic", "template-category"].includes(
+        type,
+      )
+    ) {
+      await createArchivalService(getDatabase()).restore(session.member.id, {
+        type: type as "article",
+        stableId,
+      });
     }
   } catch {
     notice = "恢复失败，请确认内容仍存在。";
@@ -41,11 +41,11 @@ export async function permanentDeleteAction(formData: FormData) {
   const stableId = readType(formData.get("stableId"));
   let notice = "已永久删除。";
   try {
-    const service = createRecycleBinService(getDatabase());
-    if (type === "article") {
-      await service.permanentlyDeleteArticle(session.member.id, stableId);
-    } else if (type === "template") {
-      await service.permanentlyDeleteTemplate(session.member.id, stableId);
+    if (type === "article" || type === "template") {
+      await createArchivalService(getDatabase()).permanentlyDelete(
+        session.member.id,
+        { type, stableId },
+      );
     }
   } catch (error) {
     notice =

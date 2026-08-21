@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { getDatabase } from "@/db/database";
+import { createArchivalService } from "@/modules/archival";
 import { createDiskFileStorage } from "@/modules/file-storage";
 import { resolveDataDirectory } from "@/modules/file-storage/configuration";
 import { createTemplateService } from "@/modules/template-service";
@@ -78,8 +79,13 @@ export async function moveCategoryAction(formData: FormData): Promise<void> {
 
 export async function archiveCategoryAction(formData: FormData): Promise<void> {
   const stableId = readString(formData, "stableId");
+  const reason = readString(formData, "reason");
   await runTemplateAction("分类已归档。", (requestingUserId) =>
-    templateService().archiveTemplateCategory(requestingUserId, stableId),
+    createArchivalService(getDatabase()).archive(
+      requestingUserId,
+      { type: "template-category", stableId },
+      reason,
+    ),
   );
 }
 
@@ -87,7 +93,11 @@ export async function archiveTemplateAction(formData: FormData): Promise<void> {
   const stableId = readString(formData, "stableId");
   const reason = readString(formData, "reason");
   await runTemplateAction("模板已归档。", (requestingUserId) =>
-    templateService().archiveTemplate(requestingUserId, stableId, reason),
+    createArchivalService(getDatabase()).archive(
+      requestingUserId,
+      { type: "template", stableId },
+      reason,
+    ),
   );
 }
 

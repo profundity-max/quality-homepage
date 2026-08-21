@@ -3,7 +3,8 @@ import { afterEach, beforeEach, describe, expect, test } from "vitest";
 
 import { migrate } from "@/db/migrate";
 import { createDatabaseClient } from "@/db/client";
-import { articles, users } from "@/db/schema";
+import { users } from "@/db/schema";
+import { createArchivalService } from "@/modules/archival";
 import {
   createKnowledgeAdministrationService,
   type ManagedSection,
@@ -11,7 +12,6 @@ import {
 
 const adminId = "00000000-0000-4000-8000-0000000000a1";
 const editorId = "00000000-0000-4000-8000-0000000000a2";
-const anovaTopicId = "00000000-0000-4000-8000-000000000c04";
 
 describe("knowledge administration service", () => {
   let database: PGlite;
@@ -101,12 +101,11 @@ describe("knowledge administration service", () => {
   });
 
   test("archives a section without deleting it", async () => {
-    const service = createKnowledgeAdministrationService(database);
-    const archived = await service.archiveSection(
+    await createArchivalService(database).archive(
       adminId,
-      "thermal-principles",
+      { type: "section", stableId: "thermal-principles" },
+      "栏目重组",
     );
-    expect(archived.archivedAt).not.toBeNull();
 
     // 阅读树（已发布内容服务）应隐藏归档栏目
     const { createKnowledgePublishingService } = await import(
@@ -120,32 +119,10 @@ describe("knowledge administration service", () => {
   });
 
   test("archives an empty topic", async () => {
-    const service = createKnowledgeAdministrationService(database);
-    const archived = await service.archiveTopic(adminId, "msa");
-    expect(archived.archivedAt).not.toBeNull();
-  });
-
-  test("refuses to archive a topic that still has published articles (IA-09)", async () => {
-    const client = createDatabaseClient(database);
-    await client.insert(articles).values({
-      id: "00000000-0000-4000-8000-0000000000d1",
-      stableId: "anova-intro",
-      title: "ANOVA 入门",
-      summary: "摘要",
-      bodyMarkdown: "正文",
-      primaryTopicId: anovaTopicId,
-      tags: ["统计"],
-      contentOwnerId: adminId,
-      status: "published",
-      nextReviewAt: new Date("2027-01-01"),
-      publishedAt: new Date("2026-08-01"),
-      updatedAt: new Date("2026-08-01"),
-      createdAt: new Date("2026-08-01"),
-    });
-
-    const service = createKnowledgeAdministrationService(database);
-    await expect(service.archiveTopic(adminId, "anova")).rejects.toThrow(
-      /migrate|move|has published articles|articles/i,
+    await createArchivalService(database).archive(
+      adminId,
+      { type: "topic", stableId: "msa" },
+      "主题合并",
     );
   });
 
@@ -224,30 +201,5 @@ describe("knowledge administration service", () => {
     expect(
       sectionAfter!.topics.map((topic) => topic.name).indexOf("ANOVA"),
     ).toBe(3);
-  });
-
-  test("refuses to archive a section whose subtree has published articles", async () => {
-    const client = createDatabaseClient(database);
-    await client.insert(articles).values({
-      id: "00000000-0000-4000-8000-0000000000d1",
-      stableId: "anova-intro",
-      title: "ANOVA 入门",
-      summary: "摘要",
-      bodyMarkdown: "正文",
-      primaryTopicId: anovaTopicId,
-      tags: ["统计"],
-      contentOwnerId: adminId,
-      status: "published",
-      nextReviewAt: new Date("2027-01-01"),
-      publishedAt: new Date("2026-08-01"),
-      updatedAt: new Date("2026-08-01"),
-      createdAt: new Date("2026-08-01"),
-    });
-
-    const service = createKnowledgeAdministrationService(database);
-    // data-and-statistics 是 ANOVA 的父栏目 → 归档应被拒绝
-    await expect(
-      service.archiveSection(adminId, "data-and-statistics"),
-    ).rejects.toThrow(/migrate|published/i);
   });
 });

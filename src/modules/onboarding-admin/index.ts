@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import type { PGlite } from "@electric-sql/pglite";
-import { and, asc, eq, isNull, sql } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 import type { Sql } from "postgres";
 
 import { createDatabaseClient } from "@/db/client";
@@ -12,7 +12,6 @@ import {
   onboardingSteps,
   templateVersions,
   templates,
-  users,
 } from "@/db/schema";
 
 export type ManagedStage = {

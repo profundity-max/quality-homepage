@@ -92,6 +92,7 @@ test("category lifecycle: create, rename, archive reflect on reader side (TPL-04
   const archiveForm = page
     .getByLabel("重命名分类 临时分类改名")
     .locator("xpath=ancestor::li");
+  await archiveForm.getByLabel("归档分类 临时分类改名 的原因").fill("测试归档");
   await archiveForm.getByRole("button", { name: "归档" }).click();
   await expect(page.getByRole("status")).toContainText("分类已归档");
 
