@@ -61,7 +61,9 @@ export function EditorialSection({
   const layout = [
     styles.section,
     graphicKind === "onboarding" ? styles.feature : "",
-    graphicKind === "thermal" ? styles.reverse : "",
+    graphicKind === "thermal" || graphicKind === "templates"
+      ? styles.reverse
+      : "",
     graphicKind === "books" ? styles.compact : "",
     graphic ? "" : styles.withoutGraphic,
   ]
@@ -91,14 +93,12 @@ export function EditorialSection({
 
 function EditorialGraphic({ graphic }: { graphic: EditorialGraphic }) {
   const assets = graphicAssets[graphic.kind];
-  const isPortrait = graphic.kind === "books";
-  const width = isPortrait ? 1086 : 1448;
-  const height = isPortrait ? 1448 : 1086;
+  const width = 1448;
+  const height = 1086;
 
   return (
     <span className={styles.graphic}>
       <svg
-        className={isPortrait ? styles.portraitGraphic : undefined}
         aria-hidden="true"
         focusable="false"
         data-testid={`home-graphic-${graphic.kind}`}

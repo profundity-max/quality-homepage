@@ -61,13 +61,17 @@
 
 /* 最近更新（HOME-03） */
 .updates {
-  padding: 0 clamp(20px, 8vw, 128px) 120px;
+  width: min(100%, 1440px);
+  margin-inline: auto;
+  padding: clamp(64px, 8vw, 96px) clamp(20px, 8vw, 128px) 120px;
 }
 
 .updatesHeading {
-  margin: 0 0 24px;
-  font-size: 1.25rem;
+  margin: 0 0 48px;
+  font-size: clamp(2.6rem, 5vw, 5rem);
   font-weight: 500;
+  letter-spacing: -0.045em;
+  line-height: 0.98;
 }
 
 .updateList {

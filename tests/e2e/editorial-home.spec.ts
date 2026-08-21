@@ -50,8 +50,8 @@ test("Editorial Space works across desktop, theme, keyboard, and mobile", async 
     "模板中心",
     "品质知识",
     "散热知识",
-    "最近更新",
     "推荐书单",
+    "最近更新",
   ]);
   await expect(page.getByTestId("home-editorial-section")).toHaveCount(5);
   const graphicAssets = {
@@ -61,6 +61,72 @@ test("Editorial Space works across desktop, theme, keyboard, and mobile", async 
     thermal: ["05_thermal_light.svg", "06_thermal_dark.svg"],
     books: ["09_reading_light.svg", "10_reading_dark.svg"],
   } as const;
+  const expectGraphicCanvas = async (expectedBackground: string) => {
+    const contracts = await page
+      .locator('svg[data-testid^="home-graphic-"]')
+      .evaluateAll(async (illustrations) =>
+        Promise.all(
+          illustrations.map(async (illustration) => {
+            const activeAsset = [
+              ...illustration.querySelectorAll("image"),
+            ].find((asset) => getComputedStyle(asset).display !== "none");
+            const href = activeAsset?.getAttribute("href") ?? "";
+            const source = await (await fetch(href)).text();
+            const document = new DOMParser().parseFromString(
+              source,
+              "image/svg+xml",
+            );
+            const normalizeColor = (color: string) => {
+              const probe = window.document.createElement("span");
+              probe.style.color = color;
+              window.document.body.append(probe);
+              const normalized = getComputedStyle(probe).color;
+              probe.remove();
+              return normalized;
+            };
+            const box = illustration.getBoundingClientRect();
+
+            return {
+              backgroundColors: [...document.querySelectorAll("#bg stop")].map(
+                (stop) =>
+                  normalizeColor(
+                    stop.getAttribute("stop-color") ?? "transparent",
+                  ),
+              ),
+              href,
+              ratio: box.width / box.height,
+            };
+          }),
+        ),
+      );
+
+    for (const contract of contracts) {
+      expect(contract.backgroundColors, contract.href).toEqual([
+        expectedBackground,
+        expectedBackground,
+      ]);
+      expect(contract.ratio, contract.href).toBeCloseTo(4 / 3, 2);
+    }
+  };
+  const expectTemplateGraphicOnLeft = async () => {
+    const templateSection = page.locator('[data-graphic="templates"]');
+    const heading = await templateSection.getByRole("heading").boundingBox();
+    const graphic = await templateSection
+      .getByTestId("home-graphic-templates")
+      .boundingBox();
+
+    expect(graphic?.x).toBeLessThan(heading?.x ?? 0);
+  };
+  const expectUpdatesHeadingMatchesEditorialHeading = async () => {
+    const editorialFontSize = await page
+      .getByRole("heading", { name: "推荐书单" })
+      .evaluate((heading) => getComputedStyle(heading).fontSize);
+
+    await expect(page.getByRole("heading", { name: "最近更新" })).toHaveCSS(
+      "font-size",
+      editorialFontSize,
+    );
+  };
   for (const [graphic, [lightAsset, darkAsset]] of Object.entries(
     graphicAssets,
   )) {
@@ -82,6 +148,9 @@ test("Editorial Space works across desktop, theme, keyboard, and mobile", async 
       "none",
     );
   }
+  await expectGraphicCanvas("rgb(245, 245, 247)");
+  await expectTemplateGraphicOnLeft();
+  await expectUpdatesHeadingMatchesEditorialHeading();
   await expect(
     page.getByRole("heading", { name: "新人专区" }).locator(".."),
   ).toHaveAttribute("href", "/onboarding");
@@ -135,6 +204,9 @@ test("Editorial Space works across desktop, theme, keyboard, and mobile", async 
       "block",
     );
   }
+  await expectGraphicCanvas("rgb(28, 28, 30)");
+  await expectTemplateGraphicOnLeft();
+  await expectUpdatesHeadingMatchesEditorialHeading();
   await page.reload();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   expect(
