@@ -23,16 +23,18 @@ test("the production stack serves login and home without public requests", async
   await page.getByLabel("密码").fill("member secure password");
   await page.getByRole("button", { name: "登录" }).click();
   await expect(page.getByRole("heading", { name: "品质成员" })).toBeVisible();
-  await page.getByRole("combobox", { name: "主题" }).selectOption("dark");
   const themeApplied = page.waitForResponse(
     (response) =>
       response.request().method() === "POST" &&
       new URL(response.url()).pathname === "/",
   );
-  await page.getByRole("button", { name: "应用主题" }).click();
+  await page.getByRole("button", { name: "切换到深色模式" }).click();
   await themeApplied;
   await page.reload();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await expect(
+    page.getByRole("button", { name: "切换到浅色模式" }),
+  ).toBeVisible();
   expect(
     (
       await new AxeBuilder({ page })
