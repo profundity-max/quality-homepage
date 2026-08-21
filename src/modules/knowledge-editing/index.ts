@@ -6,6 +6,7 @@ import type { Sql } from "postgres";
 import { createDatabaseClient } from "@/db/client";
 import { articleVersions, articles, users } from "@/db/schema";
 import { createContentAuditService } from "@/modules/content-audit";
+import { requireRole } from "@/modules/access";
 
 export type SaveDraftInput = {
   title: string;
@@ -161,20 +162,9 @@ async function assertEditor(
   client: ReturnType<typeof createDatabaseClient>,
   editorUserId: string,
 ): Promise<void> {
-  const rows = await client
-    .select({ id: users.id })
-    .from(users)
-    .where(
-      and(
-        eq(users.id, editorUserId),
-        sql`${users.role} in ('editor', 'administrator')`,
-        sql`${users.disabledAt} is null`,
-        eq(users.mustChangePassword, false),
-      ),
-    );
-  if (rows.length === 0) {
-    throw new Error("Editor privileges required.");
-  }
+  return requireRole(client, editorUserId, "editor", {
+    passwordChangeDone: true,
+  });
 }
 
 export function createKnowledgeEditingService(

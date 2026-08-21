@@ -6,6 +6,7 @@ import type { Sql } from "postgres";
 
 import { createDatabaseClient } from "@/db/client";
 import { getDatabase } from "@/db/database";
+import { requireRole } from "@/modules/access";
 import {
   articles,
   identityAuditEvents,
@@ -271,19 +272,12 @@ async function assertAdministrator(
   client: Pick<ReturnType<typeof createDatabaseClient>, "select">,
   requestingUserId: UserId,
 ) {
-  const administrators = await client
-    .select({ id: users.id })
-    .from(users)
-    .where(
-      and(
-        eq(users.id, requestingUserId),
-        eq(users.role, "administrator"),
-        isNull(users.disabledAt),
-        eq(users.mustChangePassword, false),
-      ),
-    )
-    .limit(1);
-  if (!administrators[0]) throw new Error("Administrator access is required.");
+  return requireRole(
+    client as ReturnType<typeof createDatabaseClient>,
+    requestingUserId,
+    "administrator",
+    { passwordChangeDone: true, message: "Administrator access is required." },
+  );
 }
 
 async function lockAccountAdministrationWrites(

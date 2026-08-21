@@ -7,6 +7,7 @@ import type { Sql } from "postgres";
 import { createDatabaseClient } from "@/db/client";
 import { imageAssets, users } from "@/db/schema";
 import type { FileStorage, SavedFile } from "@/modules/file-storage";
+import { requireRole } from "@/modules/access";
 
 export type UploadedImage = SavedFile & {
   sha256: string;
@@ -26,19 +27,7 @@ async function assertUploader(
   client: ReturnType<typeof createDatabaseClient>,
   requestingUserId: string,
 ): Promise<void> {
-  const rows = await client
-    .select({ id: users.id })
-    .from(users)
-    .where(
-      and(
-        eq(users.id, requestingUserId),
-        sql`${users.role} in ('editor', 'administrator')`,
-        isNull(users.disabledAt),
-      ),
-    );
-  if (rows.length === 0) {
-    throw new Error("Editor privileges required.");
-  }
+  return requireRole(client, requestingUserId, "editor");
 }
 
 export function createImageService(

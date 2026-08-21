@@ -12,6 +12,7 @@ import {
   type FeedbackType,
 } from "@/db/schema";
 import { createContentAuditService } from "@/modules/content-audit";
+import { requireRole } from "@/modules/access";
 
 export type { FeedbackStatus, FeedbackType };
 
@@ -70,19 +71,7 @@ async function assertEditor(
   client: ReturnType<typeof createDatabaseClient>,
   requestingUserId: string,
 ): Promise<void> {
-  const rows = await client
-    .select({ id: users.id })
-    .from(users)
-    .where(
-      and(
-        eq(users.id, requestingUserId),
-        sql`${users.role} in ('editor', 'administrator')`,
-        isNull(users.disabledAt),
-      ),
-    );
-  if (rows.length === 0) {
-    throw new Error("Editor privileges required.");
-  }
+  return requireRole(client, requestingUserId, "editor");
 }
 
 export function createFeedbackService(database: PGlite | Sql): FeedbackService {

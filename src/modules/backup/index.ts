@@ -20,6 +20,7 @@ import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import type { Sql } from "postgres";
 
 import { createDatabaseClient } from "@/db/client";
+import { requireRole } from "@/modules/access";
 import {
   backups,
   users,
@@ -74,17 +75,7 @@ async function assertAdministrator(
   client: ReturnType<typeof createDatabaseClient>,
   adminId: string,
 ): Promise<void> {
-  const rows = await client
-    .select({ id: users.id })
-    .from(users)
-    .where(
-      and(
-        eq(users.id, adminId),
-        eq(users.role, "administrator"),
-        isNull(users.disabledAt),
-      ),
-    );
-  if (rows.length === 0) throw new Error("Administrator privileges required.");
+  return requireRole(client, adminId, "administrator");
 }
 
 async function collectDataDirectory(directory: string) {

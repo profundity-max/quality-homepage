@@ -5,6 +5,7 @@ import type { Sql } from "postgres";
 
 import { createDatabaseClient } from "@/db/client";
 import { contentAuditEvents, identityAuditEvents, users } from "@/db/schema";
+import { requireRole } from "@/modules/access";
 
 export type ContentAuditEvent = {
   id: string;
@@ -54,17 +55,7 @@ async function assertEditorOrAdmin(
   client: ReturnType<typeof createDatabaseClient>,
   requestingUserId: string,
 ): Promise<void> {
-  const rows = await client
-    .select({ id: users.id })
-    .from(users)
-    .where(
-      and(
-        eq(users.id, requestingUserId),
-        sql`${users.role} in ('editor', 'administrator')`,
-        isNull(users.disabledAt),
-      ),
-    );
-  if (rows.length === 0) throw new Error("Editor privileges required.");
+  return requireRole(client, requestingUserId, "editor");
 }
 
 export function createContentAuditService(

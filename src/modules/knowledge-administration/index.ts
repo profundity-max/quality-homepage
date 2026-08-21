@@ -7,6 +7,7 @@ import { createDatabaseClient } from "@/db/client";
 import { articles, sections, topics } from "@/db/schema";
 import { users } from "@/db/schema";
 import { createContentAuditService } from "@/modules/content-audit";
+import { requireRole } from "@/modules/access";
 
 async function recordAdminAudit(
   database: PGlite | Sql,
@@ -113,39 +114,17 @@ async function assertEditorOrAdministrator(
   client: ReturnType<typeof createDatabaseClient>,
   requestingUserId: string,
 ): Promise<void> {
-  const rows = await client
-    .select({ id: users.id })
-    .from(users)
-    .where(
-      and(
-        eq(users.id, requestingUserId),
-        sql`${users.role} in ('editor', 'administrator')`,
-        isNull(users.disabledAt),
-      ),
-    );
-  if (rows.length === 0) {
-    throw new Error("Editor privileges required.");
-  }
+  return requireRole(client, requestingUserId, "editor");
 }
 
 async function assertAdministrator(
   client: ReturnType<typeof createDatabaseClient>,
   requestingUserId: string,
 ): Promise<void> {
-  const rows = await client
-    .select({ id: users.id })
-    .from(users)
-    .where(
-      and(
-        eq(users.id, requestingUserId),
-        eq(users.role, "administrator"),
-        isNull(users.disabledAt),
-        eq(users.mustChangePassword, false),
-      ),
-    );
-  if (rows.length === 0) {
-    throw new Error("Administrator access is required.");
-  }
+  return requireRole(client, requestingUserId, "administrator", {
+    passwordChangeDone: true,
+    message: "Administrator access is required.",
+  });
 }
 
 export function createKnowledgeAdministrationService(
