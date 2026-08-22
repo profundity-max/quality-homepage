@@ -65,6 +65,15 @@ for (const service of ["proxy", "web", "db"]) {
     `${service} must define a healthcheck.`,
   );
 }
+assert(
+  production.services["datadir-init"],
+  "Production must initialize the data directory ownership before web starts.",
+);
+assert(
+  production.services.web.depends_on["datadir-init"]?.condition ===
+    "service_completed_successfully",
+  "web must wait for datadir-init before starting.",
+);
 process.stdout.write("Compose deployment contract verified.\n");
 
 function resolveComposeCommand() {

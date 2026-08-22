@@ -40,6 +40,8 @@ services:
       db:
         condition: service_healthy
         restart: true
+      datadir-init:
+        condition: service_completed_successfully
     healthcheck:
       test:
         [
@@ -51,6 +53,19 @@ services:
       retries: 18
       start_period: 10s
     networks: [application]
+
+  # 一次性初始化：受控数据卷根目录默认属 root，web 以非 root 用户运行，
+  # 必须在启动前把 /app/data（含 uploads）的属主改为容器用户 1001。
+  datadir-init:
+    image: node:24-alpine
+    user: root
+    volumes:
+      - q_nexus_data:/app/data
+    entrypoint:
+      - /bin/sh
+      - -c
+      - mkdir -p /app/data/uploads && chown -R 1001:1001 /app/data
+    restart: "no"
 
   bootstrap:
     profiles: ["operations"]
