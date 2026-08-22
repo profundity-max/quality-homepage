@@ -66,6 +66,53 @@ test("administrator uploads, scans and publishes a template; member can download
   await download;
 });
 
+test("long template file names stay fully operable (scan/publish not covered by layout)", async ({
+  page,
+}) => {
+  await login(page, "columnadmin", "column admin secure password");
+  await page.goto("/manage/templates");
+
+  const longFileName =
+    "This-is-a-very-long-template-file-name-that-exceeds-the-layout-column-and-used-to-overlap-the-next-section-report-2026.pdf";
+  await page.getByLabel("新建模板名称").fill("e2e 超长文件名模板");
+  await page
+    .getByLabel("新建模板用途分类")
+    .selectOption({ label: "检验与测试" });
+  await page.getByLabel("新建模板版本号").fill("1.0");
+  await page.getByLabel("新建模板文件").setInputFiles({
+    name: longFileName,
+    mimeType: "application/pdf",
+    buffer: Buffer.from("%PDF-fake"),
+  });
+  await page.getByRole("button", { name: "上传模板" }).click();
+  await expect(page.getByRole("status")).toContainText("模板已上传");
+
+  const templateCard = page.getByRole("article", {
+    name: "模板 e2e 超长文件名模板",
+  });
+  await expect(templateCard).toBeVisible();
+  // 回归：超长文件名导致版本行溢出时，扫描按钮仍可普通点击
+  await templateCard.getByRole("button", { name: /扫描版本/ }).click();
+  await expect(page.getByRole("status")).toContainText("扫描通过");
+
+  await page.goto("/manage/templates");
+  const publishedCard = page.getByRole("article", {
+    name: "模板 e2e 超长文件名模板",
+  });
+  await expect(
+    publishedCard.getByRole("button", { name: /发布版本/ }),
+  ).toBeVisible();
+  await publishedCard.getByRole("button", { name: /发布版本/ }).click();
+  await expect(page.getByRole("status")).toContainText("模板版本已发布");
+
+  await page.getByRole("button", { name: "退出登录" }).click();
+  await login(page, "member", "member secure password");
+  await page.goto("/templates");
+  await expect(
+    page.getByRole("link", { name: /e2e 超长文件名模板/ }),
+  ).toBeVisible();
+});
+
 test("category lifecycle: create, rename, archive reflect on reader side (TPL-04)", async ({
   page,
 }) => {

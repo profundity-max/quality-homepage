@@ -261,78 +261,87 @@ function TemplateCategorySection({
             </span>
           </div>
 
-          <h4>版本</h4>
-          <ul>
-            {template.versions.map((version) => (
-              <VersionRow
-                key={version.id}
-                version={version}
-                templateName={template.name}
-              />
-            ))}
-          </ul>
+          <div className={styles.manageColumn}>
+            <h4>版本</h4>
+            <ul>
+              {template.versions.map((version) => (
+                <VersionRow
+                  key={version.id}
+                  version={version}
+                  templateName={template.name}
+                />
+              ))}
+            </ul>
 
-          <h4>上传新版本</h4>
-          <form action={uploadTemplateAction} className={styles.createForm}>
-            <input
-              type="hidden"
-              name="templateStableId"
-              value={template.stableId}
-            />
-            <input
-              type="hidden"
-              name="categoryId"
-              value={template.categoryId}
-            />
-            <label>
-              版本号
+            <h4>上传新版本</h4>
+            <form action={uploadTemplateAction} className={styles.createForm}>
               <input
-                name="versionLabel"
-                required
-                aria-label={`上传新版本号 ${template.name}`}
+                type="hidden"
+                name="templateStableId"
+                value={template.stableId}
               />
-            </label>
-            <label>
-              版本说明
               <input
-                name="changeNote"
-                aria-label={`上传新版本说明 ${template.name}`}
+                type="hidden"
+                name="categoryId"
+                value={template.categoryId}
               />
-            </label>
-            <label>
-              适用软件
-              <input
-                name="software"
-                aria-label={`上传新版本软件 ${template.name}`}
-              />
-            </label>
-            <label>
-              文件
-              <input
-                name="file"
-                type="file"
-                required
-                aria-label={`上传新版本文件 ${template.name}`}
-              />
-            </label>
-            <button type="submit">上传新版本</button>
-          </form>
-
-          {template.status !== "archived" ? (
-            <form action={archiveTemplateAction} className={styles.createForm}>
-              <input type="hidden" name="stableId" value={template.stableId} />
               <label>
-                归档原因
+                版本号
                 <input
-                  name="reason"
+                  name="versionLabel"
                   required
-                  aria-label={`归档模板 ${template.name} 的原因`}
-                  placeholder="例如：模板下线或迁移"
+                  aria-label={`上传新版本号 ${template.name}`}
                 />
               </label>
-              <button type="submit">归档模板</button>
+              <label>
+                版本说明
+                <input
+                  name="changeNote"
+                  aria-label={`上传新版本说明 ${template.name}`}
+                />
+              </label>
+              <label>
+                适用软件
+                <input
+                  name="software"
+                  aria-label={`上传新版本软件 ${template.name}`}
+                />
+              </label>
+              <label>
+                文件
+                <input
+                  name="file"
+                  type="file"
+                  required
+                  aria-label={`上传新版本文件 ${template.name}`}
+                />
+              </label>
+              <button type="submit">上传新版本</button>
             </form>
-          ) : null}
+
+            {template.status !== "archived" ? (
+              <form
+                action={archiveTemplateAction}
+                className={styles.createForm}
+              >
+                <input
+                  type="hidden"
+                  name="stableId"
+                  value={template.stableId}
+                />
+                <label>
+                  归档原因
+                  <input
+                    name="reason"
+                    required
+                    aria-label={`归档模板 ${template.name} 的原因`}
+                    placeholder="例如：模板下线或迁移"
+                  />
+                </label>
+                <button type="submit">归档模板</button>
+              </form>
+            ) : null}
+          </div>
         </article>
       ))}
     </section>

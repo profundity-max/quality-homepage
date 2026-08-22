@@ -129,6 +129,13 @@
   margin: 0;
 }
 
+.manageColumn {
+  display: grid;
+  gap: 16px;
+  align-content: start;
+  min-width: 0;
+}
+
 .actions {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
@@ -173,6 +180,7 @@
 
 .columnRow {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 12px;
   padding: 8px 0;
@@ -181,6 +189,7 @@
 .columnName {
   font-weight: 500;
   min-width: 200px;
+  overflow-wrap: anywhere;
 }
 
 .columnBadge {
@@ -197,6 +206,7 @@
   color: var(--color-text-secondary);
   font-size: 0.8125rem;
   font-weight: 400;
+  overflow-wrap: anywhere;
 }
 
 .renameForm,
