@@ -1,4 +1,5 @@
 import { spawn, spawnSync } from "node:child_process";
+import { readFile } from "node:fs/promises";
 
 const compose = resolveComposeCommand();
 const production = JSON.parse(
@@ -73,6 +74,14 @@ assert(
   production.services.web.depends_on["datadir-init"]?.condition ===
     "service_completed_successfully",
   "web must wait for datadir-init before starting.",
+);
+const nginxConf = await readFile(
+  new URL("../ops/nginx.conf", import.meta.url),
+  "utf8",
+);
+assert(
+  /client_max_body_size\s+5\d0m/.test(nginxConf),
+  "Nginx proxy must allow template uploads up to the 500 MB limit (TPL-06).",
 );
 process.stdout.write("Compose deployment contract verified.\n");
 
