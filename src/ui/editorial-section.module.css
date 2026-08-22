@@ -124,10 +124,6 @@
   overflow: visible;
 }
 
-.graphic .portraitGraphic {
-  width: min(76%, 320px);
-}
-
 .lightAsset,
 .darkAsset {
   display: block;

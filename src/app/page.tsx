@@ -127,6 +127,20 @@ export default async function HomePage() {
           graphic={{ kind: "thermal" }}
         />
 
+        <EditorialSection
+          index="05"
+          title="推荐书单"
+          description="在不确定中，建立更可靠的判断。"
+          status={
+            publishedBooks > 0
+              ? `${publishedBooks} 本书 · 点击进入`
+              : "暂无内容"
+          }
+          href="/books"
+          action="进入推荐书单"
+          graphic={{ kind: "books" }}
+        />
+
         <section className={styles.updates} aria-label="最近更新">
           <h2 className={styles.updatesHeading}>最近更新</h2>
           {recentUpdates.length > 0 ? (
@@ -150,20 +164,6 @@ export default async function HomePage() {
             <p className={styles.updateEmpty}>暂无更新内容。</p>
           )}
         </section>
-
-        <EditorialSection
-          index="05"
-          title="推荐书单"
-          description="在不确定中，建立更可靠的判断。"
-          status={
-            publishedBooks > 0
-              ? `${publishedBooks} 本书 · 点击进入`
-              : "暂无内容"
-          }
-          href="/books"
-          action="进入推荐书单"
-          graphic={{ kind: "books" }}
-        />
       </main>
     </PortalShell>
   );
