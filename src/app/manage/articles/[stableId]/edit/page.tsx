@@ -12,10 +12,13 @@ import { publishAction, saveDraftAction } from "../../actions";
 
 export default async function EditArticlePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ stableId: string }>;
+  searchParams: Promise<{ notice?: string; error?: string }>;
 }) {
   const { stableId } = await params;
+  const query = await searchParams;
   const session = await requirePortalSession(
     `/manage/articles/${stableId}/edit`,
   );
@@ -39,6 +42,9 @@ export default async function EditArticlePage({
 
   const admin = createKnowledgeAdministrationService(getDatabase());
   const topics = await admin.listAllTopics(session.member.id).catch(() => []);
+  const owners = await editing
+    .listAssignableOwners({ editorUserId: session.member.id })
+    .catch(() => []);
   const published = await createKnowledgePublishingService(getDatabase())
     .listAllPublishedArticles(100)
     .catch(() => []);
@@ -46,9 +52,36 @@ export default async function EditArticlePage({
   return (
     <PortalShell currentPath={`/manage/articles/${stableId}/edit`}>
       <main id="main-content" tabIndex={-1}>
+        {query.notice && (
+          <p
+            role="status"
+            style={{
+              margin: "0",
+              padding: "12px clamp(20px, 8vw, 128px)",
+              borderBottom: "1px solid var(--color-divider)",
+              color: "var(--color-link)",
+            }}
+          >
+            {query.notice}
+          </p>
+        )}
+        {query.error && (
+          <p
+            role="alert"
+            style={{
+              margin: "0",
+              padding: "12px clamp(20px, 8vw, 128px)",
+              borderBottom: "1px solid var(--color-divider)",
+              color: "var(--color-warning)",
+            }}
+          >
+            {query.error}
+          </p>
+        )}
         <Editor
           article={article}
           topics={topics}
+          owners={owners}
           publishedArticles={published}
           editingLockedBy={editingLockedBy}
           saveDraftAction={saveDraftAction}

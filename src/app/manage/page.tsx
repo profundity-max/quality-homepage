@@ -51,6 +51,7 @@ export default async function AccountManagementPage({
           <section className={styles.panel} aria-label="内容管理入口">
             <h2>内容管理</h2>
             <div className={styles.actions}>
+              <Link href="/manage/articles">文章管理</Link>
               <Link href="/manage/onboarding">新人路线管理</Link>
               <Link href="/manage/columns">栏目与主题管理</Link>
               <Link href="/manage/templates">模板管理</Link>
@@ -89,6 +90,7 @@ export default async function AccountManagementPage({
           <section className={styles.panel} aria-label="内容管理入口">
             <h2>内容管理</h2>
             <div className={styles.actions}>
+              <Link href="/manage/articles">文章管理</Link>
               <Link href="/manage/columns">栏目与主题管理</Link>
               <Link href="/manage/onboarding">新人路线管理</Link>
               <Link href="/manage/templates">模板管理</Link>

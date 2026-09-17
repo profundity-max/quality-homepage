@@ -81,6 +81,10 @@ function readArticleInput(formData: FormData): SaveDraftInput {
       .split(",")
       .map((tag) => tag.trim())
       .filter(Boolean),
+    aliases: readString(formData, "aliases")
+      .split(",")
+      .map((alias) => alias.trim())
+      .filter(Boolean),
     contentOwnerId: ownerId === "" ? null : ownerId,
     nextReviewAt: reviewRaw === "" ? null : new Date(reviewRaw),
     isCaseArticle: readString(formData, "isCaseArticle") === "1",

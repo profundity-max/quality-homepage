@@ -1,10 +1,16 @@
 import type { PGlite } from "@electric-sql/pglite";
-import { and, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import type { Sql } from "postgres";
 
 import { createDatabaseClient } from "@/db/client";
-import { articleVersions, articles } from "@/db/schema";
+import {
+  articleAliases,
+  articleVersions,
+  articles,
+  topics,
+  users,
+} from "@/db/schema";
 import { createContentAuditService } from "@/modules/content-audit";
 import { requireRole } from "@/modules/access";
 
@@ -16,6 +22,8 @@ export type SaveDraftInput = {
   tags: string[];
   contentOwnerId: string | null;
   nextReviewAt: Date | null;
+  /** 知识别名（IA-06）：中文名、英文名、缩写或同义词，用于检索命中。 */
+  aliases?: string[];
   /** SEC-07：标记为案例文章后，发布必须确认已脱敏。 */
   isCaseArticle?: boolean;
   desensitizedConfirmed?: boolean;
@@ -29,6 +37,7 @@ export type EditingArticle = {
   bodyMarkdown: string;
   primaryTopicId: string;
   tags: string[];
+  aliases: string[];
   contentOwnerId: string | null;
   status: "draft" | "published" | "archived";
   lastReviewedAt: Date | null;
@@ -39,6 +48,19 @@ export type EditingArticle = {
   readCount: number;
   isCaseArticle: boolean;
   updatedAt: Date;
+};
+
+export type AssignableOwner = { id: string; name: string };
+
+export type ManagedArticleSummary = {
+  stableId: string;
+  title: string;
+  status: "draft" | "published" | "archived";
+  topicName: string;
+  topicStableId: string;
+  ownerDisplayName: string | null;
+  updatedAt: Date;
+  nextReviewAt: Date | null;
 };
 
 export type ArticleVersionSummary = {
@@ -105,6 +127,15 @@ export type KnowledgeEditingService = {
     editorUserId: string,
     stableId: string,
   ): Promise<EditingArticle>;
+  /** 可指派的内容负责人（启用中的账号，用于编辑器下拉选择）。 */
+  listAssignableOwners(input: {
+    editorUserId: string;
+  }): Promise<AssignableOwner[]>;
+  /** 编辑器文章管理列表：草稿、已发布与已归档文章（可按状态筛选）。 */
+  listArticlesForEditor(
+    editorUserId: string,
+    input?: { status?: "draft" | "published" | "archived" },
+  ): Promise<ManagedArticleSummary[]>;
   /** 版本历史列表（VER-03）。 */
   listVersions(
     editorUserId: string,
@@ -167,14 +198,45 @@ export function createKnowledgeEditingService(
 ): KnowledgeEditingService {
   const client = createDatabaseClient(database);
 
+  async function aliasesFor(articleId: string): Promise<string[]> {
+    const rows = await client
+      .select({ alias: articleAliases.alias })
+      .from(articleAliases)
+      .where(eq(articleAliases.articleId, articleId))
+      .orderBy(asc(articleAliases.alias));
+    return rows.map((row) => row.alias);
+  }
+
+  async function writeAliases(
+    articleId: string,
+    aliases: string[],
+  ): Promise<void> {
+    const normalized = Array.from(
+      new Set(aliases.map((alias) => alias.trim()).filter(Boolean)),
+    );
+    await client
+      .delete(articleAliases)
+      .where(eq(articleAliases.articleId, articleId));
+    if (normalized.length === 0) return;
+    await client.insert(articleAliases).values(
+      normalized.map((alias) => ({
+        id: randomUUID(),
+        articleId,
+        alias,
+      })),
+    );
+  }
+
   async function findArticle(stableId: string) {
-    return (
+    const row = (
       await client
         .select(articleColumns)
         .from(articles)
         .where(eq(articles.stableId, stableId))
         .limit(1)
     )[0];
+    if (!row) return undefined;
+    return { ...row, aliases: await aliasesFor(row.id) };
   }
 
   async function latestVersion(articleId: string): Promise<number> {
@@ -234,7 +296,8 @@ export function createKnowledgeEditingService(
       .returning(articleColumns);
     const row = rows[0];
     if (!row) throw new Error("Article not found.");
-    return row;
+    await writeAliases(row.id, input.aliases ?? []);
+    return { ...row, aliases: await aliasesFor(row.id) };
   }
 
   return {
@@ -260,7 +323,9 @@ export function createKnowledgeEditingService(
           createdAt: now,
         })
         .returning(articleColumns);
-      return rows[0]!;
+      const row = rows[0]!;
+      await writeAliases(row.id, input.aliases ?? []);
+      return { ...row, aliases: await aliasesFor(row.id) };
     },
 
     async saveDraft(editorUserId, stableId, input, expectedUpdatedAt) {
@@ -364,7 +429,8 @@ export function createKnowledgeEditingService(
         .set({ status: "draft", updatedAt: new Date() })
         .where(eq(articles.stableId, stableId))
         .returning(articleColumns);
-      return rows[0]!;
+      const updated = rows[0]!;
+      return { ...updated, aliases: await aliasesFor(updated.id) };
     },
 
     async restoreVersion(editorUserId, stableId, version, reason) {
@@ -435,7 +501,8 @@ export function createKnowledgeEditingService(
         })
         .where(eq(articles.stableId, stableId))
         .returning(articleColumns);
-      return rows[0]!;
+      const updated = rows[0]!;
+      return { ...updated, aliases: await aliasesFor(updated.id) };
     },
 
     async duplicateArticle(editorUserId, stableId) {
@@ -475,7 +542,7 @@ export function createKnowledgeEditingService(
           newArticleId,
         },
       );
-      return row;
+      return { ...row, aliases: await aliasesFor(row.id) };
     },
 
     async getArticleForEditing(editorUserId, stableId) {
@@ -497,7 +564,8 @@ export function createKnowledgeEditingService(
         .set({ editingBy: editorUserId, editingAt: new Date() })
         .where(eq(articles.stableId, stableId))
         .returning(articleColumns);
-      return rows[0]!;
+      const updated = rows[0]!;
+      return { ...updated, aliases: await aliasesFor(updated.id) };
     },
 
     async releaseEditLock(editorUserId, stableId) {
@@ -512,7 +580,44 @@ export function createKnowledgeEditingService(
         .set({ editingBy: null, editingAt: null })
         .where(eq(articles.stableId, stableId))
         .returning(articleColumns);
-      return rows[0]!;
+      const updated = rows[0]!;
+      return { ...updated, aliases: await aliasesFor(updated.id) };
+    },
+
+    async listAssignableOwners({ editorUserId }) {
+      await assertEditor(client, editorUserId);
+      return client
+        .select({
+          id: users.id,
+          name: sql<string>`coalesce(${users.displayName}, ${users.username})`,
+        })
+        .from(users)
+        .where(sql`${users.disabledAt} is null`)
+        .orderBy(asc(users.username));
+    },
+
+    async listArticlesForEditor(editorUserId, { status } = {}) {
+      await assertEditor(client, editorUserId);
+      const rows = await client
+        .select({
+          stableId: articles.stableId,
+          title: articles.title,
+          status: articles.status,
+          topicName: topics.name,
+          topicStableId: topics.stableId,
+          ownerDisplayName: sql<string | null>`coalesce(
+            ${users.displayName}, ${users.username}
+          )`,
+          updatedAt: articles.updatedAt,
+          nextReviewAt: articles.nextReviewAt,
+        })
+        .from(articles)
+        .innerJoin(topics, eq(articles.primaryTopicId, topics.id))
+        .leftJoin(users, eq(articles.contentOwnerId, users.id))
+        .where(status ? eq(articles.status, status) : undefined)
+        .orderBy(desc(articles.updatedAt))
+        .limit(200);
+      return rows;
     },
 
     async listVersions(editorUserId, stableId) {
@@ -546,7 +651,7 @@ export function createKnowledgeEditingService(
         .returning(articleColumns);
       const row = rows[0];
       if (!row) throw new Error("Article not found.");
-      return row;
+      return { ...row, aliases: await aliasesFor(row.id) };
     },
 
     async confirmStillValid(editorUserId, stableId) {
@@ -579,7 +684,7 @@ export function createKnowledgeEditingService(
           nextReviewAt: nextReview.toISOString(),
         },
       );
-      return row;
+      return { ...row, aliases: await aliasesFor(row.id) };
     },
   };
 }

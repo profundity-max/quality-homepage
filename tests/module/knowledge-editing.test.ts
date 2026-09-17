@@ -310,4 +310,67 @@ describe("knowledge editing service", () => {
     expect(versions[0]!.kind).toBe("publish");
     expect(versions[0]!.createdBy).toBe(editorId);
   });
+
+  test("stores knowledge aliases and replaces them on save (IA-06)", async () => {
+    const service = createKnowledgeEditingService(database);
+    const created = await service.createDraft(
+      editorId,
+      draftInput({ aliases: ["标准差", "Sigma"] }),
+    );
+    expect([...created.aliases].sort()).toEqual(["Sigma", "标准差"]);
+
+    const reloaded = await service.getArticleForEditing(
+      editorId,
+      created.stableId,
+    );
+    expect([...reloaded.aliases].sort()).toEqual(["Sigma", "标准差"]);
+
+    const saved = await service.saveDraft(
+      editorId,
+      created.stableId,
+      draftInput({ aliases: ["σ"] }),
+    );
+    expect(saved.aliases).toEqual(["σ"]);
+  });
+
+  test("lists articles for editors with status filter and assignable owners", async () => {
+    const service = createKnowledgeEditingService(database);
+    const draft = await service.createDraft(
+      editorId,
+      draftInput({ title: "管理列表草稿" }),
+    );
+    const published = await service.createDraft(
+      editorId,
+      draftInput({ title: "管理列表已发布" }),
+    );
+    await service.publish(
+      editorId,
+      published.stableId,
+      draftInput({ title: "管理列表已发布" }),
+    );
+
+    const all = await service.listArticlesForEditor(editorId);
+    expect(all.map((article) => article.title)).toEqual(
+      expect.arrayContaining(["管理列表草稿", "管理列表已发布"]),
+    );
+    expect(all.find((a) => a.stableId === draft.stableId)?.status).toBe(
+      "draft",
+    );
+    expect(all.find((a) => a.stableId === published.stableId)?.topicName).toBe(
+      "ANOVA",
+    );
+
+    const drafts = await service.listArticlesForEditor(editorId, {
+      status: "draft",
+    });
+    expect(drafts.map((article) => article.title)).toContain("管理列表草稿");
+    expect(drafts.map((article) => article.title)).not.toContain(
+      "管理列表已发布",
+    );
+
+    const owners = await service.listAssignableOwners({
+      editorUserId: editorId,
+    });
+    expect(owners.map((owner) => owner.id)).toContain(editorId);
+  });
 });

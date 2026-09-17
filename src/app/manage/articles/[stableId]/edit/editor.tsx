@@ -47,6 +47,7 @@ const menuCommands: { label: string; command: FormatCommand }[] = [
 export function Editor({
   article,
   topics,
+  owners,
   publishedArticles,
   editingLockedBy = null,
   saveDraftAction,
@@ -54,6 +55,7 @@ export function Editor({
 }: {
   article: EditingArticle;
   topics: { id: string; stableId: string; name: string; archived: boolean }[];
+  owners: { id: string; name: string }[];
   publishedArticles: { stableId: string; title: string }[];
   editingLockedBy?: string | null;
   saveDraftAction?: (formData: FormData) => Promise<void>;
@@ -513,11 +515,26 @@ export function Editor({
                 <input name="tags" defaultValue={article.tags.join(", ")} />
               </label>
               <label>
-                内容负责人
+                知识别名（逗号分隔）
                 <input
+                  name="aliases"
+                  defaultValue={article.aliases.join(", ")}
+                  placeholder="如：标准差, σ, Sigma"
+                />
+              </label>
+              <label>
+                内容负责人
+                <select
                   name="contentOwnerId"
                   defaultValue={article.contentOwnerId ?? ""}
-                />
+                >
+                  <option value="">未指定</option>
+                  {owners.map((owner) => (
+                    <option key={owner.id} value={owner.id}>
+                      {owner.name}
+                    </option>
+                  ))}
+                </select>
               </label>
               <label>
                 下次复核日期
@@ -566,19 +583,25 @@ export function Editor({
                 >
                   保存草稿
                 </button>
-                <button
-                  className={styles.publishButton}
-                  onClick={(event) => {
-                    // EDIT-08：发布必须在线
-                    if (!navigator.onLine) {
-                      event.preventDefault();
-                      setUploadError("发布必须在线完成，请联网后重试。");
-                    }
-                  }}
-                  type="submit"
-                >
-                  发布
-                </button>
+                {publishAction ? (
+                  <button
+                    className={styles.publishButton}
+                    onClick={(event) => {
+                      // EDIT-08：发布必须在线
+                      if (!navigator.onLine) {
+                        event.preventDefault();
+                        setUploadError("发布必须在线完成，请联网后重试。");
+                      }
+                    }}
+                    type="submit"
+                  >
+                    发布
+                  </button>
+                ) : (
+                  <span className={styles.help}>
+                    新文章先保存草稿，随后可在编辑页发布
+                  </span>
+                )}
               </div>
             </form>
           </aside>
