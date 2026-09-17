@@ -29,7 +29,7 @@ export default async function OnboardingManagementPage({
 }) {
   const params = await searchParams;
   const session = await requirePortalSession("/manage/onboarding");
-  if (session.member.role !== "administrator") redirect("/manage");
+  if (session.member.role === "reader") redirect("/manage");
 
   const stages = await createOnboardingAdminService(getDatabase())
     .listStagesWithSteps(session.member.id)

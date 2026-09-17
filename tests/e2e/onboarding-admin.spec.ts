@@ -68,8 +68,19 @@ test("invalid step reference is refused with a clear error", async ({
   await expect(page.getByText("引用的文章不存在或未发布。")).toBeVisible();
 });
 
-test("editor cannot access onboarding management", async ({ page }) => {
+test("editor can maintain the onboarding route; reader is denied", async ({
+  page,
+}) => {
+  // 需求：编辑者可维护学习路线、模板、书目和标签
   await login(page, "editor", "editor secure password");
+  await page.goto("/manage/onboarding");
+  await expect(page).toHaveURL(/\/manage\/onboarding$/);
+  await expect(
+    page.getByRole("heading", { level: 1, name: "新人路线管理" }),
+  ).toBeVisible();
+
+  await page.getByRole("button", { name: "退出登录" }).click();
+  await login(page, "member", "member secure password");
   await page.goto("/manage/onboarding");
   await expect(page).not.toHaveURL(/\/manage\/onboarding$/);
 });

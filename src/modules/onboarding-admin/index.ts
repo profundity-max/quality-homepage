@@ -32,11 +32,11 @@ export type ManagedStep = {
   templateStableId: string | null;
 };
 
-async function assertAdministrator(
+async function assertEditor(
   client: ReturnType<typeof createDatabaseClient>,
   requestingUserId: string,
 ): Promise<void> {
-  return requireRole(client, requestingUserId, "administrator");
+  return requireRole(client, requestingUserId, "editor");
 }
 
 async function assertValidStepReference(
@@ -148,7 +148,7 @@ export function createOnboardingAdminService(
 
   return {
     async listStagesWithSteps(requestingUserId) {
-      await assertAdministrator(client, requestingUserId);
+      await assertEditor(client, requestingUserId);
       const stages = await client
         .select({
           id: onboardingStages.id,
@@ -184,7 +184,7 @@ export function createOnboardingAdminService(
     },
 
     async updateStage(requestingUserId, stageStableId, input) {
-      await assertAdministrator(client, requestingUserId);
+      await assertEditor(client, requestingUserId);
       const rows = await client
         .update(onboardingStages)
         .set({ description: input.description })
@@ -203,7 +203,7 @@ export function createOnboardingAdminService(
     },
 
     async createStep(requestingUserId, stageStableId, input) {
-      await assertAdministrator(client, requestingUserId);
+      await assertEditor(client, requestingUserId);
       const title = input.title.trim();
       if (!title) {
         throw new Error("步骤标题不能为空。");
@@ -256,7 +256,7 @@ export function createOnboardingAdminService(
     },
 
     async updateStep(requestingUserId, stepId, input) {
-      await assertAdministrator(client, requestingUserId);
+      await assertEditor(client, requestingUserId);
       const existing = (
         await client
           .select()
@@ -308,14 +308,14 @@ export function createOnboardingAdminService(
     },
 
     async deleteStep(requestingUserId, stepId) {
-      await assertAdministrator(client, requestingUserId);
+      await assertEditor(client, requestingUserId);
       await client
         .delete(onboardingSteps)
         .where(eq(onboardingSteps.id, stepId));
     },
 
     async moveStep(requestingUserId, stepId, direction) {
-      await assertAdministrator(client, requestingUserId);
+      await assertEditor(client, requestingUserId);
       const step = (
         await client
           .select({ id: onboardingSteps.id, stageId: onboardingSteps.stageId })
@@ -340,7 +340,7 @@ export function createOnboardingAdminService(
     },
 
     async reorderSteps(requestingUserId, stageStableId, orderedStepIds) {
-      await assertAdministrator(client, requestingUserId);
+      await assertEditor(client, requestingUserId);
       const stage = (
         await client
           .select({ id: onboardingStages.id })
@@ -366,7 +366,7 @@ export function createOnboardingAdminService(
     },
 
     async moveStage(requestingUserId, stageStableId, direction) {
-      await assertAdministrator(client, requestingUserId);
+      await assertEditor(client, requestingUserId);
       const stages = await client
         .select({
           id: onboardingStages.id,

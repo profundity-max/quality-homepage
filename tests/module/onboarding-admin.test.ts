@@ -9,6 +9,7 @@ import { createOnboardingService } from "@/modules/onboarding";
 
 const administratorId = "00000000-0000-4000-8000-0000000000f0";
 const editorId = "00000000-0000-4000-8000-0000000000f1";
+const readerId = "00000000-0000-4000-8000-0000000000f2";
 const anovaTopicId = "00000000-0000-4000-8000-000000000c04";
 const templateCategoryId = "00000000-0000-4000-8000-0000000000a1";
 
@@ -16,7 +17,7 @@ async function insertUser(
   database: PGlite,
   id: string,
   username: string,
-  role: "administrator" | "editor",
+  role: "administrator" | "editor" | "reader",
 ) {
   const client = createDatabaseClient(database);
   await client.insert(users).values({
@@ -106,9 +107,10 @@ describe("onboarding admin service", () => {
     await database.close();
   });
 
-  test("administrator can update a stage description and editor is rejected", async () => {
+  test("editor and administrator can update a stage description; reader is rejected", async () => {
     await insertUser(database, administratorId, "admin", "administrator");
     await insertUser(database, editorId, "editor", "editor");
+    await insertUser(database, readerId, "reader", "reader");
     const admin = createOnboardingAdminService(database);
 
     const updated = await admin.updateStage(administratorId, "first-day", {
@@ -117,9 +119,15 @@ describe("onboarding admin service", () => {
     expect(updated.stableId).toBe("first-day");
     expect(updated.description).toBe("了解部门、岗位与工作环境；含安全须知。");
 
+    // 需求：编辑者可维护学习路线（新人专区）
+    const editorUpdate = await admin.updateStage(editorId, "first-day", {
+      description: "了解部门、岗位与工作环境；含安全须知。",
+    });
+    expect(editorUpdate.description).toBe("了解部门、岗位与工作环境；含安全须知。");
+
     await expect(
-      admin.updateStage(editorId, "first-day", { description: "x" }),
-    ).rejects.toThrow(/administrator/i);
+      admin.updateStage(readerId, "first-day", { description: "x" }),
+    ).rejects.toThrow(/Editor privileges/i);
 
     const reader = createOnboardingService(database);
     const detail = await reader.getStage("first-day");
@@ -247,8 +255,13 @@ describe("onboarding admin service", () => {
     expect(stages[0]!.steps.length).toBeGreaterThan(0);
     expect(stages[0]!.steps[0]!.sortOrder).toBe(0);
 
-    await expect(admin.listStagesWithSteps(editorId)).rejects.toThrow(
-      /administrator/i,
+    // 编辑者同样可维护新人路线（需求：维护学习路线、模板、书目和标签）
+    const editorStages = await admin.listStagesWithSteps(editorId);
+    expect(editorStages).toHaveLength(6);
+
+    await insertUser(database, readerId, "reader", "reader");
+    await expect(admin.listStagesWithSteps(readerId)).rejects.toThrow(
+      /Editor privileges/i,
     );
   });
 
