@@ -65,10 +65,24 @@ describe("knowledge administration service", () => {
     expect(measurement?.topics.map((topic) => topic.name)).toContain("MSA");
   });
 
-  test("rejects non-administrators", async () => {
+  test("editors can maintain columns; readers are rejected", async () => {
     const service = createKnowledgeAdministrationService(database);
-    await expect(service.listAllSections(editorId)).rejects.toThrow(
-      /administrator/i,
+    // 需求变更：编辑者可维护栏目与主题结构
+    const editorView = await service.listAllSections(editorId);
+    expect(editorView.length).toBeGreaterThan(0);
+
+    const readerId = "00000000-0000-4000-8000-0000000000a3";
+    await createDatabaseClient(database).insert(users).values({
+      id: readerId,
+      username: "reader",
+      normalizedUsername: "reader",
+      passwordHash: "hash",
+      role: "reader",
+      mustChangePassword: false,
+      createdAt: new Date(),
+    });
+    await expect(service.listAllSections(readerId)).rejects.toThrow(
+      /Editor privileges/i,
     );
   });
 

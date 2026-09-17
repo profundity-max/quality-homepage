@@ -28,7 +28,7 @@ export default async function ColumnManagementPage({
 }) {
   const params = await searchParams;
   const session = await requirePortalSession("/manage/columns");
-  if (session.member.role !== "administrator") redirect("/manage");
+  if (session.member.role === "reader") redirect("/manage");
 
   const service = createKnowledgeAdministrationService(getDatabase());
   const tree = await service

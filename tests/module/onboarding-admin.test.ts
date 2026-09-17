@@ -123,7 +123,9 @@ describe("onboarding admin service", () => {
     const editorUpdate = await admin.updateStage(editorId, "first-day", {
       description: "了解部门、岗位与工作环境；含安全须知。",
     });
-    expect(editorUpdate.description).toBe("了解部门、岗位与工作环境；含安全须知。");
+    expect(editorUpdate.description).toBe(
+      "了解部门、岗位与工作环境；含安全须知。",
+    );
 
     await expect(
       admin.updateStage(readerId, "first-day", { description: "x" }),

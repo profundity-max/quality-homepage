@@ -111,3 +111,44 @@ test("management page shows due reviews and confirms still valid (GOV-02/03)", a
   await reviews.getByRole("button", { name: "确认仍然有效" }).click();
   await expect(page.getByRole("status")).toContainText("内容复核已更新");
 });
+
+test("editor can maintain columns and topics (permission update)", async ({
+  page,
+}) => {
+  await page.goto("/login");
+  await page.getByLabel("用户名").fill("editor");
+  await page.getByLabel("密码").fill("editor secure password");
+  await page.getByRole("button", { name: "登录" }).click();
+  await expect(page).toHaveURL(/\/$/);
+
+  // 编辑者的管理落地页应包含新人路线与栏目入口
+  await page.goto("/manage");
+  await expect(
+    page.getByRole("heading", { level: 1, name: "内容管理" }),
+  ).toBeVisible();
+  await expect(page.getByRole("link", { name: "新人路线管理" })).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "栏目与主题管理" }),
+  ).toBeVisible();
+
+  // 编辑者可进入栏目管理并执行改名（随后还原）
+  await page.goto("/manage/columns");
+  await expect(
+    page.getByRole("heading", { level: 1, name: "栏目" }),
+  ).toBeVisible();
+  const renameInput = page.getByLabel("重命名栏目 品质知识");
+  await renameInput.fill("品质知识（编辑者改名）");
+  await renameInput
+    .locator("xpath=ancestor::form")
+    .getByRole("button", { name: "改名" })
+    .click();
+  await expect(page.getByRole("status")).toContainText("栏目已改名");
+
+  const restoreInput = page.getByLabel("重命名栏目 品质知识（编辑者改名）");
+  await restoreInput.fill("品质知识");
+  await restoreInput
+    .locator("xpath=ancestor::form")
+    .getByRole("button", { name: "改名" })
+    .click();
+  await expect(page.getByRole("status")).toContainText("栏目已改名");
+});

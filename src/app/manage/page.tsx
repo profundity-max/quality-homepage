@@ -45,12 +45,14 @@ export default async function AccountManagementPage({
             <div>
               <p className={styles.eyebrow}>品集｜Q Nexus · 门户管理</p>
               <h1>内容管理</h1>
-              <p>维护模板与书单、处理反馈并查看内容统计。</p>
+              <p>维护新人路线、栏目、模板与书单，处理反馈并查看内容统计。</p>
             </div>
           </header>
           <section className={styles.panel} aria-label="内容管理入口">
             <h2>内容管理</h2>
             <div className={styles.actions}>
+              <Link href="/manage/onboarding">新人路线管理</Link>
+              <Link href="/manage/columns">栏目与主题管理</Link>
               <Link href="/manage/templates">模板管理</Link>
               <Link href="/manage/books">书单管理</Link>
               <Link href="/manage/feedback">内容反馈处理</Link>

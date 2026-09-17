@@ -107,16 +107,6 @@ async function assertEditorOrAdministrator(
   return requireRole(client, requestingUserId, "editor");
 }
 
-async function assertAdministrator(
-  client: ReturnType<typeof createDatabaseClient>,
-  requestingUserId: string,
-): Promise<void> {
-  return requireRole(client, requestingUserId, "administrator", {
-    passwordChangeDone: true,
-    message: "Administrator access is required.",
-  });
-}
-
 export function createKnowledgeAdministrationService(
   database: PGlite | Sql,
 ): KnowledgeAdministrationService {
@@ -212,7 +202,7 @@ export function createKnowledgeAdministrationService(
 
   return {
     async listAllSections(requestingUserId) {
-      await assertAdministrator(client, requestingUserId);
+      await assertEditorOrAdministrator(client, requestingUserId);
       return loadTree();
     },
 
@@ -236,7 +226,7 @@ export function createKnowledgeAdministrationService(
     },
 
     async renameSection(requestingUserId, stableId, newName) {
-      await assertAdministrator(client, requestingUserId);
+      await assertEditorOrAdministrator(client, requestingUserId);
       const trimmed = newName.trim();
       if (trimmed.length === 0) throw new Error("Section name is required.");
       const rows = await client
@@ -260,7 +250,7 @@ export function createKnowledgeAdministrationService(
     },
 
     async renameTopic(requestingUserId, stableId, newName) {
-      await assertAdministrator(client, requestingUserId);
+      await assertEditorOrAdministrator(client, requestingUserId);
       const trimmed = newName.trim();
       if (trimmed.length === 0) throw new Error("Topic name is required.");
       const rows = await client
@@ -284,7 +274,7 @@ export function createKnowledgeAdministrationService(
     },
 
     async createTopic(requestingUserId, parentSectionStableId, name) {
-      await assertAdministrator(client, requestingUserId);
+      await assertEditorOrAdministrator(client, requestingUserId);
       const trimmed = name.trim();
       if (trimmed.length === 0) throw new Error("Topic name is required.");
       const section = await findSectionByStableId(parentSectionStableId);
@@ -315,7 +305,7 @@ export function createKnowledgeAdministrationService(
     },
 
     async createSection(requestingUserId, parentSectionStableId, name) {
-      await assertAdministrator(client, requestingUserId);
+      await assertEditorOrAdministrator(client, requestingUserId);
       const trimmed = name.trim();
       if (trimmed.length === 0) throw new Error("Section name is required.");
       const parent = await findSectionByStableId(parentSectionStableId);
@@ -346,7 +336,7 @@ export function createKnowledgeAdministrationService(
     },
 
     async moveTopic(requestingUserId, stableId, direction) {
-      await assertAdministrator(client, requestingUserId);
+      await assertEditorOrAdministrator(client, requestingUserId);
       await swapSortOrder(
         topics,
         topics.stableId,
@@ -368,7 +358,7 @@ export function createKnowledgeAdministrationService(
     },
 
     async moveSection(requestingUserId, stableId, direction) {
-      await assertAdministrator(client, requestingUserId);
+      await assertEditorOrAdministrator(client, requestingUserId);
       await swapSortOrder(
         sections,
         sections.stableId,
