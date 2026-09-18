@@ -101,10 +101,12 @@ export async function KnowledgeEntryPage({
         </aside>
 
         <section className={styles.content}>
-          <h1 className={styles.pageTitle}>{section.name}</h1>
+          {/* 栏目名与主题名已经由顶部导航和左侧分类树表达，
+              这里只给屏幕阅读器保留结构，正文直接铺开（IA-01 精简）。 */}
+          <h1 className={styles.visuallyHidden}>{section.name}</h1>
           {selectedTopic ? (
             <>
-              <h2 className={styles.topicTitle}>{selectedTopic.name}</h2>
+              <h2 className={styles.visuallyHidden}>{selectedTopic.name}</h2>
               {articles.length > 0 ? (
                 <ul className={styles.articleList}>
                   {articles.map((article) => (
@@ -113,12 +115,9 @@ export async function KnowledgeEntryPage({
                         className={styles.article}
                         aria-label={`文章 ${article.title}`}
                       >
-                        <Link
-                          className={styles.articleLink}
-                          href={`/articles/${article.stableId}`}
-                        >
+                        <h3 className={styles.visuallyHidden}>
                           {article.title}
-                        </Link>
+                        </h3>
                         <p className={styles.articleMeta}>
                           <span>
                             负责人 {article.ownerDisplayName ?? "待指定"}
@@ -131,9 +130,6 @@ export async function KnowledgeEntryPage({
                           >
                             打开阅读页（目录 / 收藏 / 反馈）
                           </Link>
-                        </p>
-                        <p className={styles.articleSummary}>
-                          {article.summary}
                         </p>
                         <ArticleBody html={article.bodyHtml} />
                       </article>

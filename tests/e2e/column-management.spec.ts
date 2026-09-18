@@ -28,9 +28,12 @@ test("administrator can rename a topic without breaking its stable link", async 
 
   // 改名不破坏旧链接（IA-03）：知识入口的 ?topic=anova 仍有效
   await page.goto("/quality?topic=anova");
+  // 主题名显示在左侧分类树（正文区已精简，不再重复主题标题）
   await expect(
-    page.getByRole("heading", { name: "ANOVA 方差分析" }),
-  ).toBeVisible();
+    page
+      .getByRole("complementary", { name: "分类树" })
+      .getByRole("link", { name: "ANOVA 方差分析" }),
+  ).toHaveAttribute("aria-current", "page");
 
   // 还原主题名，避免污染后续依赖 "ANOVA" 名称的 e2e（知识入口、阅读路径等）
   await page.goto("/manage/columns");
@@ -94,7 +97,11 @@ test("administrator can reorder topics (IA-07)", async ({ page }) => {
 
   // 仍可通过稳定标识访问（IA-03 不受排序影响）
   await page.goto("/quality?topic=spc");
-  await expect(page.getByRole("heading", { name: "SPC" })).toBeVisible();
+  await expect(
+    page
+      .getByRole("complementary", { name: "分类树" })
+      .getByRole("link", { name: "SPC" }),
+  ).toHaveAttribute("aria-current", "page");
 });
 
 test("management page shows due reviews and confirms still valid (GOV-02/03)", async ({

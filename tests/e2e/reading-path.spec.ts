@@ -26,7 +26,10 @@ test("full reading path: home → entry → tree → topic → article → recen
   await expect(page).toHaveURL(/topic=anova/);
 
   // 主题 → 文章
-  await page.getByRole("link", { name: "ANOVA 实例" }).click();
+  await page
+    .getByLabel("文章 ANOVA 实例", { exact: true })
+    .getByRole("link", { name: "打开阅读页（目录 / 收藏 / 反馈）" })
+    .click();
   await expect(page).toHaveURL(/\/articles\/anova-example$/);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
     "ANOVA 实例",
@@ -95,8 +98,10 @@ test("full reading path survives 390px width (common definition)", async ({
     .getByRole("link")
     .click();
   await expect(page).toHaveURL(/\/quality$/);
-  // 分类树与文章列表在窄屏堆叠可用
-  await expect(page.getByRole("heading", { name: "品质知识" })).toBeVisible();
+  // 分类树与正文在窄屏堆叠可用
+  await expect(
+    page.getByRole("complementary", { name: "分类树" }),
+  ).toBeVisible();
   // seed 首个主题是 sigma，先点选 ANOVA 主题
   await page
     .getByRole("complementary", { name: "分类树" })
@@ -104,7 +109,7 @@ test("full reading path survives 390px width (common definition)", async ({
     .click();
   await page
     .getByLabel("文章 ANOVA 入门", { exact: true })
-    .getByRole("link", { name: "ANOVA 入门", exact: true })
+    .getByRole("link", { name: "打开阅读页（目录 / 收藏 / 反馈）" })
     .click();
   await expect(page).toHaveURL(/\/articles\/anova-intro$/);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
@@ -121,8 +126,15 @@ test("full reading path survives 390px width (common definition)", async ({
 test("spc demo article is readable via the entry page", async ({ page }) => {
   await loginAsMember(page);
   await page.goto("/quality?topic=spc");
-  await expect(page.getByRole("heading", { name: "SPC" })).toBeVisible();
-  await page.getByRole("link", { name: "SPC 基础" }).click();
+  await expect(
+    page
+      .getByRole("complementary", { name: "分类树" })
+      .getByRole("link", { name: "SPC" }),
+  ).toHaveAttribute("aria-current", "page");
+  await page
+    .getByLabel("文章 SPC 基础", { exact: true })
+    .getByRole("link", { name: "打开阅读页（目录 / 收藏 / 反馈）" })
+    .click();
   await expect(page).toHaveURL(/\/articles\/spc-basics$/);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("SPC 基础");
   await expect(page.locator("article h2")).toContainText("控制图");
