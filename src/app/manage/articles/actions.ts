@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { getDatabase } from "@/db/database";
 import { createKnowledgeEditingService } from "@/modules/knowledge-editing";
 import type { SaveDraftInput } from "@/modules/knowledge-editing";
+import { createOnboardingAdminService } from "@/modules/onboarding-admin";
 
 import { requirePortalSession } from "../../authorization";
 
@@ -14,6 +15,7 @@ const editorPath = "/manage/articles";
 async function runEditorAction(
   successMessage: string,
   operation: (requestingUserId: string) => Promise<{ stableId: string }>,
+  fromOnboarding = false,
 ) {
   const session = await requirePortalSession(editorPath);
   let errorMessage: string | null = null;
@@ -24,9 +26,12 @@ async function runEditorAction(
     errorMessage = editorErrorMessage(error);
   }
   revalidatePath(editorPath);
+  revalidatePath("/manage/onboarding");
+  revalidatePath("/onboarding");
+  revalidatePath("/");
   if (result) {
     redirect(
-      `/manage/articles/${result.stableId}/edit?${errorMessage ? "error" : "notice"}=${encodeURIComponent(errorMessage ?? successMessage)}`,
+      `/manage/articles/${result.stableId}/edit?${errorMessage ? "error" : "notice"}=${encodeURIComponent(errorMessage ?? successMessage)}${fromOnboarding ? "&from=onboarding" : ""}`,
     );
   }
   redirect(
@@ -37,34 +42,50 @@ async function runEditorAction(
 export async function saveDraftAction(formData: FormData): Promise<void> {
   const stableId = readString(formData, "stableId");
   const input = readArticleInput(formData);
-  await runEditorAction("草稿已保存。", (requestingUserId) =>
-    createKnowledgeEditingService(getDatabase()).saveDraft(
-      requestingUserId,
-      stableId,
-      input,
-    ),
+  await runEditorAction(
+    "草稿已保存。",
+    (requestingUserId) =>
+      createKnowledgeEditingService(getDatabase()).saveDraft(
+        requestingUserId,
+        stableId,
+        input,
+      ),
+    readString(formData, "from") === "onboarding",
   );
 }
 
 export async function publishAction(formData: FormData): Promise<void> {
   const stableId = readString(formData, "stableId");
   const input = readArticleInput(formData);
-  await runEditorAction("文章已发布。", (requestingUserId) =>
-    createKnowledgeEditingService(getDatabase()).publish(
-      requestingUserId,
-      stableId,
-      input,
-    ),
+  await runEditorAction(
+    "文章已发布。",
+    (requestingUserId) =>
+      createKnowledgeEditingService(getDatabase()).publish(
+        requestingUserId,
+        stableId,
+        input,
+      ),
+    readString(formData, "from") === "onboarding",
   );
 }
 
 export async function createDraftAction(formData: FormData): Promise<void> {
   const input = readArticleInput(formData);
-  await runEditorAction("草稿已创建。", (requestingUserId) =>
-    createKnowledgeEditingService(getDatabase()).createDraft(
-      requestingUserId,
-      input,
-    ),
+  const fromOnboarding = readString(formData, "from") === "onboarding";
+  await runEditorAction(
+    "草稿已创建。",
+    async (requestingUserId) => {
+      return fromOnboarding
+        ? createOnboardingAdminService(getDatabase()).createArticle(
+            requestingUserId,
+            input,
+          )
+        : createKnowledgeEditingService(getDatabase()).createDraft(
+            requestingUserId,
+            input,
+          );
+    },
+    fromOnboarding,
   );
 }
 

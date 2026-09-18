@@ -1,204 +1,209 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
-
 import { getDatabase } from "@/db/database";
-import {
-  createOnboardingAdminService,
-  type ManagedStage,
-  type ManagedStep,
-} from "@/modules/onboarding-admin";
-
+import { createOnboardingAdminService } from "@/modules/onboarding-admin";
 import { requirePortalSession } from "../../authorization";
 import { PortalShell } from "../../portal-shell";
-import { DirectionButtons } from "../direction-buttons";
 import {
-  createStepAction,
-  deleteStepAction,
-  moveStageAction,
-  moveStepAction,
-  updateStageAction,
-  updateStepAction,
+  addRouteArticleAction,
+  moveRouteArticleAction,
+  removeRouteArticleAction,
 } from "./actions";
-import styles from "../manage.module.css";
+import { SubmitButton } from "./submit-button";
+import styles from "./route.module.css";
 
-type ManagedStageWithSteps = ManagedStage & { steps: ManagedStep[] };
+function statusLabel(article: { status: string; publishedAt: Date | null }) {
+  if (article.status === "archived") return "已归档 · 阅读者不可见";
+  if (article.status === "published") return "已发布";
+  return article.publishedAt ? "有待发布修改" : "草稿 · 阅读者不可见";
+}
 
 export default async function OnboardingManagementPage({
   searchParams,
 }: {
-  searchParams: Promise<{ notice?: string; error?: string }>;
+  searchParams: Promise<{ q?: string; notice?: string; error?: string }>;
 }) {
   const params = await searchParams;
   const session = await requirePortalSession("/manage/onboarding");
   if (session.member.role === "reader") redirect("/manage");
-
-  const stages = await createOnboardingAdminService(getDatabase())
-    .listStagesWithSteps(session.member.id)
-    .catch(() => null);
-  if (!stages) redirect("/manage");
+  const service = createOnboardingAdminService(getDatabase());
+  const [items, candidates] = await Promise.all([
+    service.listArticles(session.member.id),
+    params.q !== undefined
+      ? service.searchArticles(session.member.id, params.q)
+      : Promise.resolve([]),
+  ]);
 
   return (
     <PortalShell currentPath="/manage/onboarding">
       <main id="main-content" tabIndex={-1} className={styles.layout}>
+        <nav className={styles.breadcrumb} aria-label="后台导航">
+          <Link href="/manage">内容管理</Link>
+          <span aria-hidden="true">/</span>
+          <Link href="/manage/articles">文章管理</Link>
+          <span aria-hidden="true">/</span>
+          <span>新人路线</span>
+        </nav>
         <header className={styles.header}>
           <div>
-            <p className={styles.eyebrow}>品集｜Q Nexus · 门户管理</p>
-            <h1>新人路线管理</h1>
-            <p>调整六阶段说明、学习步骤引用与顺序（ONB-08）。</p>
+            <p className={styles.eyebrow}>内容编排</p>
+            <h1>新人路线</h1>
+            <p>每一步是一篇文章，按新人的阅读顺序排列。</p>
           </div>
+          <Link className={styles.secondaryLink} href="/onboarding">
+            预览新人专区
+          </Link>
         </header>
-
-        {params.notice ? (
+        {params.notice && (
           <p className={styles.notice} role="status">
             {params.notice}
           </p>
-        ) : null}
-        {params.error ? (
+        )}
+        {params.error && (
           <p className={styles.error} role="alert">
             {params.error}
           </p>
-        ) : null}
-
-        {stages.map((stage) => (
-          <StageCard key={stage.id} stage={stage} />
-        ))}
+        )}
+        <section className={styles.panel} aria-label="路线文章">
+          <div className={styles.sectionHeader}>
+            <div>
+              <h2>
+                路线文章 <span>{items.length}</span>
+              </h2>
+              <p>修改正文请点“编辑文章”。移出路线不会删除原文章。</p>
+            </div>
+            <div className={styles.toolbar}>
+              <a className={styles.secondaryLink} href="#add-articles">
+                添加已有文章
+              </a>
+              <Link
+                className={styles.primaryLink}
+                href="/manage/articles/new?from=onboarding"
+              >
+                新建路线文章
+              </Link>
+            </div>
+          </div>
+          {items.length === 0 ? (
+            <p className={styles.empty}>
+              路线中还没有文章。添加已有文章，或新建第一篇。
+            </p>
+          ) : (
+            <ol className={styles.list}>
+              {items.map((item, index) => (
+                <li
+                  key={item.id}
+                  className={styles.row}
+                  aria-label={`路线文章 ${item.title}`}
+                >
+                  <span className={styles.order}>
+                    {String(index + 1).padStart(2, "0")}
+                  </span>
+                  <div className={styles.article}>
+                    <Link
+                      className={styles.articleTitle}
+                      href={`/manage/articles/${item.stableId}/edit?from=onboarding`}
+                    >
+                      {item.title}
+                    </Link>
+                    <div className={styles.meta}>
+                      <span className={styles.badge}>{statusLabel(item)}</span>
+                      <span>负责人：{item.ownerName ?? "待指定"}</span>
+                    </div>
+                  </div>
+                  <div className={styles.rowActions}>
+                    <Link
+                      href={`/manage/articles/${item.stableId}/edit?from=onboarding`}
+                    >
+                      编辑文章
+                    </Link>
+                    <form action={moveRouteArticleAction}>
+                      <input type="hidden" name="itemId" value={item.id} />
+                      <SubmitButton
+                        name="direction"
+                        value="up"
+                        disabled={index === 0}
+                        label={`上移 ${item.title}`}
+                      >
+                        上移
+                      </SubmitButton>
+                      <SubmitButton
+                        name="direction"
+                        value="down"
+                        disabled={index === items.length - 1}
+                        label={`下移 ${item.title}`}
+                      >
+                        下移
+                      </SubmitButton>
+                    </form>
+                    <form action={removeRouteArticleAction}>
+                      <input type="hidden" name="itemId" value={item.id} />
+                      <SubmitButton label={`移出路线 ${item.title}`}>
+                        移出路线
+                      </SubmitButton>
+                    </form>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          )}
+        </section>
+        <section
+          id="add-articles"
+          className={styles.panel}
+          aria-labelledby="add-heading"
+        >
+          <h2 id="add-heading">添加已有文章</h2>
+          <p className={styles.help}>
+            搜索文章标题后加入路线。草稿可以先编排，发布后才对阅读者可见。
+          </p>
+          <form
+            className={styles.search}
+            method="get"
+            action="/manage/onboarding#add-articles"
+          >
+            <label htmlFor="article-search">文章标题</label>
+            <input
+              id="article-search"
+              name="q"
+              type="search"
+              defaultValue={params.q ?? ""}
+              placeholder="输入标题关键词"
+            />
+            <button type="submit">搜索文章</button>
+          </form>
+          {params.q !== undefined && (
+            <ul className={styles.candidates}>
+              {candidates.map((article) => (
+                <li key={article.stableId}>
+                  <div>
+                    <strong>{article.title}</strong>
+                    <p>{statusLabel(article)}</p>
+                  </div>
+                  <form action={addRouteArticleAction}>
+                    <input
+                      type="hidden"
+                      name="stableId"
+                      value={article.stableId}
+                    />
+                    <SubmitButton label={`加入路线 ${article.title}`}>
+                      加入路线
+                    </SubmitButton>
+                  </form>
+                </li>
+              ))}
+              {candidates.length === 0 && (
+                <li>
+                  没有找到可添加的文章。已在路线中或已归档的文章不会重复显示。
+                </li>
+              )}
+            </ul>
+          )}
+          {candidates.length === 50 && (
+            <p>当前显示前 50 篇，请补充关键词缩小范围。</p>
+          )}
+        </section>
       </main>
     </PortalShell>
-  );
-}
-
-function StageCard({ stage }: { stage: ManagedStageWithSteps }) {
-  return (
-    <section
-      className={styles.panel}
-      aria-labelledby={`stage-${stage.stableId}`}
-    >
-      <div className={styles.columnRow}>
-        <h2 id={`stage-${stage.stableId}`}>{stage.name}</h2>
-        <DirectionButtons
-          action={moveStageAction}
-          idName="stageStableId"
-          idValue={stage.stableId}
-          labelPrefix={`移动阶段 ${stage.name}`}
-        />
-      </div>
-
-      <form action={updateStageAction} className={styles.createForm}>
-        <input type="hidden" name="stageStableId" value={stage.stableId} />
-        <label>
-          阶段说明
-          <textarea
-            name="description"
-            defaultValue={stage.description}
-            aria-label={`阶段说明 ${stage.name}`}
-            rows={2}
-          />
-        </label>
-        <button type="submit">保存说明</button>
-      </form>
-
-      <h3>学习步骤</h3>
-      {stage.steps.length === 0 ? <p>暂无步骤。</p> : null}
-      {stage.steps.map((step) => (
-        <StepRow key={step.id} step={step} />
-      ))}
-
-      <h3>新增步骤</h3>
-      <form action={createStepAction} className={styles.createForm}>
-        <input type="hidden" name="stageStableId" value={stage.stableId} />
-        <label>
-          标题
-          <input
-            name="title"
-            required
-            aria-label={`新增步骤标题 ${stage.name}`}
-          />
-        </label>
-        <label>
-          说明
-          <input name="description" aria-label={`新增步骤说明 ${stage.name}`} />
-        </label>
-        <label>
-          文章稳定标识
-          <input
-            name="articleStableId"
-            aria-label={`新增步骤文章 ${stage.name}`}
-          />
-        </label>
-        <label>
-          模板稳定标识
-          <input
-            name="templateStableId"
-            aria-label={`新增步骤模板 ${stage.name}`}
-          />
-        </label>
-        <button type="submit">添加步骤</button>
-      </form>
-    </section>
-  );
-}
-
-function StepRow({ step }: { step: ManagedStep }) {
-  return (
-    <div className={styles.columnNode}>
-      <div className={styles.columnRow}>
-        <span className={styles.columnName}>{step.title}</span>
-        <DirectionButtons
-          action={moveStepAction}
-          idName="stepId"
-          idValue={step.id}
-          labelPrefix={`移动步骤 ${step.title}`}
-        />
-        <form action={deleteStepAction}>
-          <input type="hidden" name="stepId" value={step.id} />
-          <button className={styles.textButton} type="submit">
-            删除
-          </button>
-        </form>
-      </div>
-      <p>{step.description}</p>
-      <p>
-        {step.articleStableId ? `文章：${step.articleStableId}` : ""}
-        {step.templateStableId ? `模板：${step.templateStableId}` : ""}
-        {!step.articleStableId && !step.templateStableId ? "无引用" : ""}
-      </p>
-
-      <form action={updateStepAction} className={styles.createForm}>
-        <input type="hidden" name="stepId" value={step.id} />
-        <label>
-          标题
-          <input
-            name="title"
-            defaultValue={step.title}
-            required
-            aria-label={`步骤标题 ${step.title}`}
-          />
-        </label>
-        <label>
-          说明
-          <input
-            name="description"
-            defaultValue={step.description}
-            aria-label={`步骤说明 ${step.title}`}
-          />
-        </label>
-        <label>
-          文章
-          <input
-            name="articleStableId"
-            defaultValue={step.articleStableId ?? ""}
-            aria-label={`步骤文章 ${step.title}`}
-          />
-        </label>
-        <label>
-          模板
-          <input
-            name="templateStableId"
-            defaultValue={step.templateStableId ?? ""}
-            aria-label={`步骤模板 ${step.title}`}
-          />
-        </label>
-        <button type="submit">更新步骤</button>
-      </form>
-    </div>
   );
 }

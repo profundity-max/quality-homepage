@@ -11,7 +11,12 @@ import { PortalShell } from "../../../portal-shell";
 import { Editor } from "../[stableId]/edit/editor";
 import { createDraftAction } from "../actions";
 
-export default async function NewArticlePage() {
+export default async function NewArticlePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ from?: string }>;
+}) {
+  const fromOnboarding = (await searchParams).from === "onboarding";
   const session = await requirePortalSession("/manage/articles/new");
   if (session.member.role === "reader") redirect("/");
 
@@ -28,7 +33,12 @@ export default async function NewArticlePage() {
     title: "",
     summary: "",
     bodyMarkdown: "",
-    primaryTopicId: "",
+    primaryTopicId: fromOnboarding
+      ? (topics.find(
+          (topic) =>
+            topic.stableId === "onboarding-route-articles" && !topic.archived,
+        )?.id ?? "")
+      : "",
     tags: [],
     aliases: [],
     contentOwnerId: session.member.id,
@@ -48,6 +58,7 @@ export default async function NewArticlePage() {
       <main id="main-content" tabIndex={-1}>
         <Editor
           article={draft}
+          fromOnboarding={fromOnboarding}
           topics={topics}
           owners={owners}
           publishedArticles={[]}

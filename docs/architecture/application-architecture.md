@@ -84,7 +84,7 @@ ops/                             # Compose、Nginx、备份、恢复和健康检
 | `identity`   | 登录、会话、改密、账号与角色管理           | Argon2id、失败锁定、强制退出、最后管理员保护、Cookie |
 | `taxonomy`   | 读取和维护栏目、主题、标签与知识别名         | 稳定标识、排序、空主题可见性、归档迁移规则             |
 | `knowledge`  | 创建草稿、保存、发布、复核、恢复、归档与读取知识文章 | Markdown 版本、并发占用、负责人、历史与发布快照      |
-| `onboarding` | 获取和维护六阶段学习路线               | 有序步骤、文章与有效模板引用、无进度记录约束            |
+| `onboarding` | 获取和维护单条文章学习路线               | 有序文章引用、原子新建并加入、无进度记录约束            |
 | `templates`  | 隔离上传、发布有效模板、下载与版本追溯        | 文件扫描、校验值、历史版本、QMS 提示、下载统计         |
 | `books`      | 发布和读取推荐书目                  | 本地封面、分类、主题关联和灰度占位                 |
 | `search`     | 快速搜索、完整筛选和搜索记录             | PostgreSQL 检索、别名、分组、排序和知识缺口       |
@@ -198,4 +198,3 @@ interface FileVault {
 - [OWASP 密码存储指南](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html)给出 Argon2id 的最低内存、迭代和并行参数。
 - [MDN Cookie 安全指南](https://developer.mozilla.org/en-US/docs/Web/Security/Practical_implementation_guides/Cookies)说明 `HttpOnly`、`Secure` 和 `SameSite` 的使用边界。
 - [Docker Desktop for Mac 说明](https://docs.docker.com/desktop/setup/install/mac-install/)包含 macOS 支持与公司使用许可条件；部署前必须由公司确认适用许可。
-

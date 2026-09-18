@@ -2,109 +2,59 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-
 import { getDatabase } from "@/db/database";
 import { createOnboardingAdminService } from "@/modules/onboarding-admin";
-
 import { requirePortalSession } from "../../authorization";
 
-const onboardingPath = "/manage/onboarding";
-
-async function runOnboardingAction(
-  successMessage: string,
-  operation: (requestingUserId: string) => Promise<unknown>,
+async function changeRoute(
+  formData: FormData,
+  operation: "add" | "remove" | "move",
 ) {
-  const session = await requirePortalSession(onboardingPath);
-  let errorMessage: string | null = null;
+  const session = await requirePortalSession("/manage/onboarding");
+  const service = createOnboardingAdminService(getDatabase());
+  let message = "路线已更新。";
+  let failed = false;
   try {
-    await operation(session.member.id);
+    if (operation === "add") {
+      await service.addArticle(
+        session.member.id,
+        String(formData.get("stableId") ?? ""),
+      );
+      message = "文章已加入路线。";
+    } else if (operation === "remove") {
+      await service.removeArticle(
+        session.member.id,
+        String(formData.get("itemId") ?? ""),
+      );
+      message = "已移出路线，原文章仍保留在文章管理中。";
+    } else {
+      const direction = formData.get("direction");
+      if (direction !== "up" && direction !== "down")
+        throw new Error("排序方向无效。");
+      await service.moveArticle(
+        session.member.id,
+        String(formData.get("itemId") ?? ""),
+        direction,
+      );
+      message = "文章顺序已调整。";
+    }
   } catch (error) {
-    errorMessage =
-      error instanceof Error && error.message ? error.message : "操作失败。";
+    failed = true;
+    message = error instanceof Error ? error.message : "操作未完成，请重试。";
   }
-  revalidatePath(onboardingPath);
+  revalidatePath("/manage/onboarding");
+  revalidatePath("/onboarding");
+  revalidatePath("/");
   redirect(
-    `${onboardingPath}?${errorMessage ? "error" : "notice"}=${encodeURIComponent(errorMessage ?? successMessage)}`,
+    `/manage/onboarding?${failed ? "error" : "notice"}=${encodeURIComponent(message)}`,
   );
 }
-
-function readString(formData: FormData, name: string): string {
-  const value = formData.get(name);
-  return typeof value === "string" ? value : "";
+export async function addRouteArticleAction(formData: FormData) {
+  await changeRoute(formData, "add");
 }
-
-export async function updateStageAction(formData: FormData): Promise<void> {
-  const stageStableId = readString(formData, "stageStableId");
-  const description = readString(formData, "description");
-  await runOnboardingAction("阶段说明已更新。", (requestingUserId) =>
-    createOnboardingAdminService(getDatabase()).updateStage(
-      requestingUserId,
-      stageStableId,
-      { description },
-    ),
-  );
+export async function removeRouteArticleAction(formData: FormData) {
+  await changeRoute(formData, "remove");
 }
-
-export async function moveStageAction(formData: FormData): Promise<void> {
-  const stageStableId = readString(formData, "stageStableId");
-  const direction = readString(formData, "direction");
-  await runOnboardingAction("阶段顺序已调整。", (requestingUserId) =>
-    createOnboardingAdminService(getDatabase()).moveStage(
-      requestingUserId,
-      stageStableId,
-      direction === "up" ? "up" : "down",
-    ),
-  );
-}
-
-export async function createStepAction(formData: FormData): Promise<void> {
-  const stageStableId = readString(formData, "stageStableId");
-  const title = readString(formData, "title");
-  const description = readString(formData, "description");
-  const articleStableId = readString(formData, "articleStableId") || null;
-  const templateStableId = readString(formData, "templateStableId") || null;
-  await runOnboardingAction("步骤已添加。", (requestingUserId) =>
-    createOnboardingAdminService(getDatabase()).createStep(
-      requestingUserId,
-      stageStableId,
-      { title, description, articleStableId, templateStableId },
-    ),
-  );
-}
-
-export async function updateStepAction(formData: FormData): Promise<void> {
-  const stepId = readString(formData, "stepId");
-  const title = readString(formData, "title");
-  const description = readString(formData, "description");
-  const articleStableId = readString(formData, "articleStableId") || null;
-  const templateStableId = readString(formData, "templateStableId") || null;
-  await runOnboardingAction("步骤已更新。", (requestingUserId) =>
-    createOnboardingAdminService(getDatabase()).updateStep(
-      requestingUserId,
-      stepId,
-      { title, description, articleStableId, templateStableId },
-    ),
-  );
-}
-
-export async function deleteStepAction(formData: FormData): Promise<void> {
-  const stepId = readString(formData, "stepId");
-  await runOnboardingAction("步骤已删除。", (requestingUserId) =>
-    createOnboardingAdminService(getDatabase()).deleteStep(
-      requestingUserId,
-      stepId,
-    ),
-  );
-}
-
-export async function moveStepAction(formData: FormData): Promise<void> {
-  const stepId = readString(formData, "stepId");
-  const direction = readString(formData, "direction");
-  await runOnboardingAction("步骤顺序已调整。", (requestingUserId) =>
-    createOnboardingAdminService(getDatabase()).moveStep(
-      requestingUserId,
-      stepId,
-      direction === "up" ? "up" : "down",
-    ),
-  );
+export async function moveRouteArticleAction(formData: FormData) {
+  await changeRoute(formData, "move");
 }

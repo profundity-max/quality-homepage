@@ -8,7 +8,7 @@ import {
   bootstrapFirstAdministrator,
   createIdentityModule,
 } from "../src/modules/identity/index";
-import { eq } from "drizzle-orm";
+import { eq, like } from "drizzle-orm";
 import {
   articleVersions,
   articles,
@@ -84,6 +84,17 @@ try {
   const spcTopicId = "00000000-0000-4000-8000-000000000c12";
   const now = new Date();
   const nextReview = new Date(Date.now() + 180 * 24 * 60 * 60 * 1000);
+  // Fresh-install migrated articles are drafts until a real editor reviews them.
+  await client
+    .update(articles)
+    .set({
+      status: "published",
+      contentOwnerId: admin.id,
+      nextReviewAt: nextReview,
+      publishedAt: new Date(now.getTime() - 30 * 86400000),
+      updatedAt: new Date(now.getTime() - 30 * 86400000),
+    })
+    .where(like(articles.stableId, "onboarding-%"));
   const published = (
     id: string,
     stableId: string,

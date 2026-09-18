@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 
 async function loginAsEditor(page: import("@playwright/test").Page) {
   await page.goto("/login");
+  await page.getByLabel("保持登录 7 天").check();
   await page.getByLabel("用户名").fill("editor");
   await page.getByLabel("密码").fill("editor secure password");
   await page.getByRole("button", { name: "登录" }).click();

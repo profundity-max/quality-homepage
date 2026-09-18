@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 
 import type { EditingArticle } from "@/modules/knowledge-editing";
 import { applyFormatting, type FormatCommand } from "@/modules/editor-commands";
@@ -52,6 +53,7 @@ export function Editor({
   editingLockedBy = null,
   saveDraftAction,
   publishAction,
+  fromOnboarding = false,
 }: {
   article: EditingArticle;
   topics: { id: string; stableId: string; name: string; archived: boolean }[];
@@ -60,6 +62,7 @@ export function Editor({
   editingLockedBy?: string | null;
   saveDraftAction?: (formData: FormData) => Promise<void>;
   publishAction?: (formData: FormData) => Promise<void>;
+  fromOnboarding?: boolean;
 }) {
   const [mode, setMode] = useState<EditorMode>("preview");
   const [body, setBody] = useState(article.bodyMarkdown);
@@ -276,6 +279,7 @@ export function Editor({
         </div>
       )}
       <header className={styles.toolbar}>
+        {fromOnboarding && <Link href="/manage/onboarding">返回新人路线</Link>}
         <div className={styles.modeSwitch} role="tablist" aria-label="编辑模式">
           {(["preview", "source", "split"] as const).map((item) => (
             <button
@@ -478,6 +482,9 @@ export function Editor({
           <aside className={styles.properties} aria-label="文章属性">
             <h2>属性</h2>
             <form action={publishAction} className={styles.propertyForm}>
+              {fromOnboarding && (
+                <input type="hidden" name="from" value="onboarding" />
+              )}
               <input type="hidden" name="stableId" value={article.stableId} />
               <label>
                 标题

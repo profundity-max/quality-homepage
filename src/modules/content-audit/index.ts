@@ -1,9 +1,7 @@
 import { randomUUID } from "node:crypto";
-import type { PGlite } from "@electric-sql/pglite";
 import { and, desc, eq, sql } from "drizzle-orm";
-import type { Sql } from "postgres";
 
-import { createDatabaseClient } from "@/db/client";
+import { createDatabaseClient, type DatabaseConnection } from "@/db/client";
 import { contentAuditEvents, identityAuditEvents, users } from "@/db/schema";
 import { requireRole } from "@/modules/access";
 
@@ -59,7 +57,7 @@ async function assertEditorOrAdmin(
 }
 
 export function createContentAuditService(
-  database: PGlite | Sql,
+  database: DatabaseConnection,
 ): ContentAuditService {
   const client = createDatabaseClient(database);
 

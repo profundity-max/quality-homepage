@@ -45,13 +45,14 @@ describe("content foundation migration", () => {
     expect(topLevel.rows.map(({ name }) => name)).toEqual([
       "品质知识",
       "散热知识",
+      "新人学习",
     ]);
 
     const topics = await database.query<{ count: string }>(
       "select count(*)::text as count from topics",
     );
-    // 品质知识 6 栏目下 6+5+7+4+6+9 = 37 个主题；散热知识两个子栏目暂无主题
-    expect(topics.rows[0]?.count).toBe("37");
+    // 37 个知识主题 + 迁移新人文章使用的入门指南主题。
+    expect(topics.rows[0]?.count).toBe("38");
 
     const anova = await database.query<{ stable_id: string; name: string }>(
       `select stable_id, name from topics where stable_id = 'anova'`,
@@ -230,7 +231,7 @@ describe("content foundation migration", () => {
     const topics = await database.query<{ count: string }>(
       "select count(*)::text as count from topics",
     );
-    expect(topics.rows[0]?.count).toBe("37");
+    expect(topics.rows[0]?.count).toBe("38");
   });
 
   test("keeps the two top-level knowledge sections stable", async () => {

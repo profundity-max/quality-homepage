@@ -6,7 +6,7 @@ export default mergeConfig(
   sharedVitestConfig,
   defineConfig({
     test: {
-      include: ["tests/integration/identity-postgresql.test.ts"],
+      include: ["tests/integration/*-postgresql.test.ts"],
       testTimeout: 60_000,
       fileParallelism: false,
     },

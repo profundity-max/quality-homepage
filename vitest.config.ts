@@ -7,7 +7,7 @@ export default mergeConfig(
   defineConfig({
     test: {
       include: ["tests/**/*.test.ts"],
-      exclude: ["tests/integration/identity-postgresql.test.ts"],
+      exclude: ["tests/integration/*-postgresql.test.ts"],
     },
   }),
 );

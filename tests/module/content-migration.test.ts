@@ -231,7 +231,7 @@ aliases: [别名A]
     const entries = unzip(buffer);
     expect(entries.has("manifest.yaml")).toBe(true);
     expect(entries.get("manifest.yaml")!.toString("utf8")).toMatch(
-      /articles: 1/,
+      /articles: 7/,
     );
     expect(entries.get("sections.yaml")!.toString("utf8")).toContain(
       "quality-knowledge",

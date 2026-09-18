@@ -1,0 +1,232 @@
+.layout {
+  width: min(1180px, calc(100% - 40px));
+  margin: 0 auto;
+  padding: 32px 0 72px;
+}
+.breadcrumb,
+.toolbar,
+.rowActions,
+.rowActions form,
+.meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.breadcrumb {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+  margin-bottom: 28px;
+}
+.breadcrumb a,
+.rowActions a {
+  color: var(--color-link);
+  text-decoration: none;
+}
+.header,
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+.header {
+  margin-bottom: 28px;
+}
+.header h1 {
+  font-size: clamp(1.8rem, 3vw, 2.5rem);
+  font-weight: 500;
+  margin: 6px 0 12px;
+  letter-spacing: -0.04em;
+}
+.header p,
+.sectionHeader p,
+.help {
+  color: var(--color-text-secondary);
+}
+.eyebrow {
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+}
+.panel {
+  background: var(--color-surface);
+  border: 1px solid var(--color-divider);
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 24px;
+  scroll-margin-top: 100px;
+}
+.panel h2 {
+  margin: 0 0 8px;
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+.panel h2 span {
+  margin-left: 8px;
+  color: var(--color-text-secondary);
+  font-weight: 400;
+}
+.sectionHeader p,
+.help {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+.primaryLink,
+.secondaryLink,
+.layout button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 8px 14px;
+  border: 1px solid var(--color-divider);
+  border-radius: 7px;
+  font: inherit;
+  font-size: 0.875rem;
+  text-decoration: none;
+  color: var(--color-text);
+  background: transparent;
+  cursor: pointer;
+}
+.primaryLink,
+.search button {
+  background: var(--color-accent);
+  color: var(--color-accent-foreground);
+  border-color: var(--color-accent);
+}
+.layout button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.layout a:focus-visible,
+.layout button:focus-visible,
+.layout input:focus-visible {
+  outline: 2px solid var(--color-link);
+  outline-offset: 3px;
+}
+.list {
+  margin: 20px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.row {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  padding: 22px 0;
+  border-top: 1px solid var(--color-divider);
+}
+.order {
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+}
+.articleTitle {
+  color: var(--color-text);
+  font-size: 1rem;
+  font-weight: 500;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+.articleTitle:hover {
+  color: var(--color-link);
+}
+.meta {
+  margin-top: 8px;
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+}
+.badge {
+  background: var(--color-surface-muted);
+  border: 1px solid var(--color-divider);
+  padding: 3px 8px;
+  border-radius: 5px;
+}
+.rowActions {
+  gap: 8px;
+  font-size: 0.875rem;
+}
+.rowActions button {
+  padding-inline: 10px;
+}
+.search {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-top: 20px;
+}
+.search label {
+  font-size: 0.875rem;
+}
+.search input {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  border: 1px solid var(--color-divider);
+  border-radius: 7px;
+  padding: 8px 12px;
+  font: inherit;
+  color: var(--color-text);
+  background: var(--color-canvas);
+}
+.candidates {
+  padding: 0;
+  margin: 20px 0 0;
+  list-style: none;
+}
+.candidates li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 0;
+  border-top: 1px solid var(--color-divider);
+  overflow-wrap: anywhere;
+}
+.candidates p {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  margin: 5px 0 0;
+}
+.notice,
+.error {
+  padding: 14px 18px;
+  border-left: 3px solid var(--color-accent);
+  background: var(--color-surface);
+}
+.error {
+  border-color: var(--color-warning);
+}
+.empty {
+  padding: 32px 0;
+  color: var(--color-text-secondary);
+}
+@media (max-width: 850px) {
+  .row {
+    grid-template-columns: 28px minmax(0, 1fr);
+  }
+  .rowActions {
+    grid-column: 2;
+  }
+}
+@media (max-width: 560px) {
+  .layout {
+    width: calc(100% - 32px);
+    padding-top: 24px;
+  }
+  .panel {
+    padding: 18px;
+  }
+  .search {
+    flex-wrap: wrap;
+  }
+  .search label {
+    width: 100%;
+  }
+  .rowActions {
+    grid-column: 1 / -1;
+  }
+}

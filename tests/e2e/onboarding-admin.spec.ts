@@ -13,72 +13,129 @@ async function login(
   await expect(page).toHaveURL(/\/$/);
 }
 
-test("administrator updates a stage and adds a step; member sees the changes", async ({
+test("administrator adds, reorders and removes an existing article without deleting it", async ({
   page,
 }) => {
   await login(page, "columnadmin", "column admin secure password");
   await page.goto("/manage/onboarding");
-
-  // ONB-08：调整阶段说明
-  const description = page.getByLabel("阶段说明 入职第一天");
-  await description.fill("了解部门、岗位与工作环境；含安全须知。");
-  await description
-    .locator("xpath=ancestor::form")
-    .getByRole("button", { name: "保存说明" })
+  const list = page
+    .getByLabel("路线文章", { exact: true })
+    .getByRole("listitem");
+  await expect(list).toHaveCount(6);
+  await page.getByLabel("文章标题", { exact: true }).fill("ANOVA 入门");
+  await page.getByRole("button", { name: "搜索文章" }).click();
+  await page
+    .getByRole("button", { name: "加入路线 ANOVA 入门", exact: true })
     .click();
-  await expect(page.getByRole("status")).toContainText("阶段说明已更新");
-  await expect(description).toHaveValue(
-    "了解部门、岗位与工作环境；含安全须知。",
-  );
-
-  // ONB-03/08：新增步骤引用已发布文章
-  const addTitle = page.getByLabel("新增步骤标题 入职第一天");
-  await addTitle.fill("阅读 ANOVA 入门");
-  await page.getByLabel("新增步骤文章 入职第一天").fill("anova-intro");
-  await addTitle
-    .locator("xpath=ancestor::form")
-    .getByRole("button", { name: "添加步骤" })
+  await expect(list).toHaveCount(7);
+  await page
+    .getByRole("button", { name: "上移 ANOVA 入门", exact: true })
     .click();
-  await expect(page.getByRole("status")).toContainText("步骤已添加");
-  await expect(page.getByText("阅读 ANOVA 入门")).toBeVisible();
-
-  // 阅读者视角能看到管理端调整后的内容
-  await page.getByRole("button", { name: "退出登录" }).click();
-  await login(page, "member", "member secure password");
+  await expect(list.nth(5)).toContainText("ANOVA 入门");
   await page.goto("/onboarding");
-  await expect(page.getByLabel("当前阶段")).toContainText(
-    "了解部门、岗位与工作环境；含安全须知。",
-  );
-  await expect(page.getByLabel("当前阶段")).toContainText("阅读 ANOVA 入门");
-});
-
-test("invalid step reference is refused with a clear error", async ({
-  page,
-}) => {
-  await login(page, "columnadmin", "column admin secure password");
+  await expect(
+    page.getByLabel("新人路线总览").getByRole("listitem").nth(5),
+  ).toContainText("ANOVA 入门");
   await page.goto("/manage/onboarding");
-
-  const addTitle = page.getByLabel("新增步骤标题 入职第一天");
-  await addTitle.fill("引用不存在的文章");
-  await page.getByLabel("新增步骤文章 入职第一天").fill("no-such-article");
-  await addTitle
-    .locator("xpath=ancestor::form")
-    .getByRole("button", { name: "添加步骤" })
+  await page
+    .getByRole("button", { name: "移出路线 ANOVA 入门", exact: true })
     .click();
-  await expect(page.getByText("引用的文章不存在或未发布。")).toBeVisible();
+  await expect(list).toHaveCount(6);
+  await page.goto("/articles/anova-intro");
+  await expect(
+    page.getByRole("heading", { level: 1, name: "ANOVA 入门" }),
+  ).toBeVisible();
 });
 
-test("editor can maintain the onboarding route; reader is denied", async ({
+test("editor creates and publishes a route article, while later draft changes stay private", async ({
   page,
+  browser,
 }) => {
-  // 需求：编辑者可维护学习路线、模板、书目和标签
   await login(page, "editor", "editor secure password");
   await page.goto("/manage/onboarding");
-  await expect(page).toHaveURL(/\/manage\/onboarding$/);
+  await page.getByRole("link", { name: "新建路线文章" }).click();
+  await expect(page).toHaveURL(/\/manage\/articles\/new\?from=onboarding/);
+  await page.getByRole("tab", { name: "源码", exact: true }).click();
+  await page
+    .getByLabel("Markdown 源码")
+    .fill("## 开始工作\n\n这是一篇可维护的路线文章。");
+  await page.getByRole("button", { name: "属性", exact: true }).click();
+  const properties = page.getByLabel("文章属性");
+  await properties.getByLabel("标题", { exact: true }).fill("路线操作验证文章");
+  await properties
+    .getByLabel("摘要", { exact: true })
+    .fill("路线文章已发布的摘要");
   await expect(
-    page.getByRole("heading", { level: 1, name: "新人路线管理" }),
-  ).toBeVisible();
+    properties.getByRole("combobox", { name: "主题", exact: true }),
+  ).toHaveValue(/.+/);
+  await properties.getByLabel("内容负责人").selectOption({ label: "品质编辑" });
+  await properties.getByLabel("下次复核日期").fill("2027-06-30");
+  await properties
+    .getByRole("button", { name: "保存草稿", exact: true })
+    .click();
+  await expect(page.getByRole("status")).toContainText("草稿已创建");
+  await expect(page.getByRole("link", { name: "返回新人路线" })).toBeVisible();
+  await page.getByRole("button", { name: "属性", exact: true }).click();
+  await properties.getByRole("button", { name: "发布", exact: true }).click();
+  await expect(page.getByRole("status")).toContainText("文章已发布");
+  await page.getByRole("link", { name: "返回新人路线" }).click();
+  const row = page.getByLabel("路线文章 路线操作验证文章", { exact: true });
+  await expect(row).toContainText("已发布");
+  await row.getByRole("link", { name: "编辑文章", exact: true }).click();
+  await page.getByRole("button", { name: "属性", exact: true }).click();
+  await properties.getByLabel("标题", { exact: true }).fill("路线未发布标题");
+  await properties
+    .getByRole("button", { name: "保存草稿", exact: true })
+    .click();
+  await expect(page.getByRole("status")).toContainText("草稿已保存");
 
+  const readerContext = await browser.newContext();
+  const reader = await readerContext.newPage();
+  await login(reader, "member", "member secure password");
+  await reader.goto("/onboarding");
+  await expect(reader.getByLabel("新人路线总览")).toContainText(
+    "路线操作验证文章",
+  );
+  await expect(reader.getByLabel("新人路线总览")).not.toContainText(
+    "路线未发布标题",
+  );
+  await readerContext.close();
+
+  await page.getByRole("link", { name: "返回新人路线" }).click();
+  await expect(page.getByLabel("路线文章 路线未发布标题")).toContainText(
+    "有待发布修改",
+  );
+  await page
+    .getByRole("button", { name: "移出路线 路线未发布标题", exact: true })
+    .click();
+  await expect(
+    page.getByLabel("路线文章", { exact: true }).getByRole("listitem"),
+  ).toHaveCount(6);
+});
+
+test("editor can maintain the route in both themes at 390px; reader is denied", async ({
+  page,
+}) => {
+  await login(page, "editor", "editor secure password");
+  await page.goto("/manage/onboarding");
+  await expect(
+    page.getByRole("heading", { level: 1, name: "新人路线", exact: true }),
+  ).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  for (const theme of ["light", "dark"]) {
+    await page.evaluate((value) => {
+      document.documentElement.dataset.theme = value;
+    }, theme);
+    await expect(
+      page.getByRole("link", { name: "新建路线文章" }),
+    ).toBeVisible();
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth,
+      ),
+    ).toBe(true);
+  }
+  await page.setViewportSize({ width: 1280, height: 900 });
   await page.getByRole("button", { name: "退出登录" }).click();
   await login(page, "member", "member secure password");
   await page.goto("/manage/onboarding");

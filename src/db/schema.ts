@@ -244,6 +244,19 @@ export const onboardingSteps = pgTable(
   (table) => [index("onboarding_steps_stage_id_idx").on(table.stageId)],
 );
 
+export const onboardingRouteItems = pgTable(
+  "onboarding_route_items",
+  {
+    id: uuid("id").primaryKey(),
+    articleId: uuid("article_id")
+      .notNull()
+      .references(() => articles.id, { onDelete: "cascade" }),
+    sortOrder: integer("sort_order").notNull(),
+    legacyStageStableId: text("legacy_stage_stable_id"),
+  },
+  (table) => [uniqueIndex("onboarding_route_article_idx").on(table.articleId)],
+);
+
 export const identitySchema = { users, sessions, identityAuditEvents };
 export type TemplateVersionStatus = "draft" | "active" | "superseded";
 export type QuarantineState = "pending" | "passed" | "failed" | "quarantined";

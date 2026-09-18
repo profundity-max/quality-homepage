@@ -1,9 +1,7 @@
-import type { PGlite } from "@electric-sql/pglite";
 import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
-import type { Sql } from "postgres";
 
-import { createDatabaseClient } from "@/db/client";
+import { createDatabaseClient, type DatabaseConnection } from "@/db/client";
 import {
   articleAliases,
   articleVersions,
@@ -147,7 +145,7 @@ export type KnowledgeEditingService = {
 const defaultReviewCycleMilliseconds = 180 * 24 * 60 * 60 * 1000;
 
 async function recordAudit(
-  database: PGlite | Sql,
+  database: DatabaseConnection,
   actorUserId: string,
   eventType: string,
   targetId: string,
@@ -194,7 +192,7 @@ async function assertEditor(
 }
 
 export function createKnowledgeEditingService(
-  database: PGlite | Sql,
+  database: DatabaseConnection,
 ): KnowledgeEditingService {
   const client = createDatabaseClient(database);
 
@@ -266,6 +264,29 @@ export function createKnowledgeEditingService(
         "案例文章发布前必须确认已移除客户、项目、人员和可追溯编号。",
       );
     }
+  }
+
+  async function snapshotPublished(
+    current: EditingArticle,
+    editorUserId: string,
+  ) {
+    const version = (await latestVersion(current.id)) + 1;
+    await client.insert(articleVersions).values({
+      id: randomUUID(),
+      articleId: current.id,
+      version,
+      kind: "publish",
+      title: current.title,
+      summary: current.summary,
+      bodyMarkdown: current.bodyMarkdown,
+      primaryTopicId: current.primaryTopicId,
+      tags: current.tags,
+      contentOwnerId: current.contentOwnerId,
+      lastReviewedAt: current.lastReviewedAt,
+      nextReviewAt: current.nextReviewAt,
+      createdBy: editorUserId,
+      createdAt: new Date(),
+    });
   }
 
   async function writeArticle(
@@ -345,6 +366,9 @@ export function createKnowledgeEditingService(
         );
       }
 
+      // 手动保存和自动保存都可直接进入草稿，必须先保留阅读者可见版本。
+      if (current.status === "published")
+        await snapshotPublished(current, editorUserId);
       return writeArticle(stableId, input, { status: "draft" });
     },
 
@@ -357,6 +381,8 @@ export function createKnowledgeEditingService(
 
       // 首次发布：写入 version 1（当前内容即第一版）。
       // 后续发布（VER-02）：旧版本已由 beginEdit 快照进历史，此处只更新内容。
+      if (current.status === "published")
+        await snapshotPublished(current, editorUserId);
       if (current.publishedAt === null) {
         const version = (await latestVersion(current.id)) + 1;
         await client.insert(articleVersions).values({
@@ -406,23 +432,7 @@ export function createKnowledgeEditingService(
       }
 
       // VER-01：已发布快照进历史，文章转为草稿
-      const version = (await latestVersion(current.id)) + 1;
-      await client.insert(articleVersions).values({
-        id: randomUUID(),
-        articleId: current.id,
-        version,
-        kind: "publish",
-        title: current.title,
-        summary: current.summary,
-        bodyMarkdown: current.bodyMarkdown,
-        primaryTopicId: current.primaryTopicId,
-        tags: current.tags,
-        contentOwnerId: current.contentOwnerId,
-        lastReviewedAt: current.lastReviewedAt,
-        nextReviewAt: current.nextReviewAt,
-        createdBy: editorUserId,
-        createdAt: new Date(),
-      });
+      await snapshotPublished(current, editorUserId);
 
       const rows = await client
         .update(articles)

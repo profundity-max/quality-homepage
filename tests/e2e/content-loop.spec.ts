@@ -21,7 +21,7 @@ test("home shows real template, book and onboarding entries (HOME-03)", async ({
   await expect(books).toContainText(/[1-9]\d* 本书/);
 
   const onboarding = page.locator("main section", { hasText: "新人专区" });
-  await expect(onboarding).toContainText("6 个阶段");
+  await expect(onboarding).toContainText("6 篇文章");
 });
 
 test("content loop: onboarding → article; templates → download; books browse", async ({
@@ -29,9 +29,15 @@ test("content loop: onboarding → article; templates → download; books browse
 }) => {
   await loginAsMember(page);
 
-  // 新人路线可进入并查看阶段
+  // 新人路线可进入并查看文章
   await page.goto("/onboarding");
-  await expect(page.getByLabel("当前阶段")).toContainText("入职第一天");
+  await page
+    .getByLabel("新人路线总览")
+    .getByRole("link", { name: "入职第一天", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { level: 1, name: "入职第一天" }),
+  ).toBeVisible();
 
   // 模板中心浏览 + 详情字段
   await page.goto("/templates");

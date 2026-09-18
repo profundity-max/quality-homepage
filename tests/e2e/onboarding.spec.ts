@@ -2,55 +2,66 @@ import { expect, test } from "@playwright/test";
 
 async function loginAsMember(page: import("@playwright/test").Page) {
   await page.goto("/login");
+  await page.getByLabel("保持登录 7 天").check();
   await page.getByLabel("用户名").fill("member");
   await page.getByLabel("密码").fill("member secure password");
   await page.getByRole("button", { name: "登录" }).click();
   await expect(page).toHaveURL(/\/$/);
 }
 
-test("onboarding shows the six-stage overview and stage navigation", async ({
+test("onboarding lists articles and provides route-specific reading navigation", async ({
   page,
 }) => {
   await loginAsMember(page);
   await page.goto("/onboarding");
-
-  // 六阶段总览
   const overview = page.getByLabel("新人路线总览");
-  await expect(overview).toContainText("入职第一天");
-  await expect(overview).toContainText("培训与试用期");
-
-  // 默认显示第一阶段
-  await expect(page.getByLabel("当前阶段")).toContainText("入职第一天");
-  await expect(page.getByText("第 1 阶段 / 共 6 阶段")).toBeVisible();
-
-  // 下一篇导航
-  await page.getByRole("link", { name: "下一篇 →" }).click();
-  await expect(page.getByLabel("当前阶段")).toContainText("认识品质工作");
-  await expect(page.getByText("第 2 阶段 / 共 6 阶段")).toBeVisible();
+  await expect(
+    overview.getByRole("heading", { name: "学习路线 · 6 篇文章" }),
+  ).toBeVisible();
+  await overview.getByRole("link", { name: "入职第一天", exact: true }).click();
+  const navigation = page.getByLabel("新人路线阅读导航");
+  await expect(navigation).toContainText("第 1 步 / 共 6 步");
+  await navigation.getByRole("link", { name: "下一篇：认识品质工作" }).click();
+  await expect(
+    page.getByRole("heading", { level: 1, name: "认识品质工作" }),
+  ).toBeVisible();
+  await expect(navigation).toContainText("第 2 步 / 共 6 步");
+  await expect(page.getByLabel("上下篇导航", { exact: true })).toHaveCount(0);
+  await navigation.getByRole("link", { name: "返回路线总览" }).click();
+  await expect(overview).toBeVisible();
 });
 
-test("work-principles stage shows the four principles (ONB-02)", async ({
+test("legacy stage links preserve the four work principles", async ({
   page,
 }) => {
   await loginAsMember(page);
   await page.goto("/onboarding?stage=work-principles");
-
-  await expect(page.getByLabel("当前阶段")).toContainText("Reality > Opinion");
-  await expect(page.getByLabel("当前阶段")).toContainText(
+  await expect(page).toHaveURL(/\/articles\/onboarding-.+\?from=onboarding$/);
+  const article = page.locator("article");
+  for (const principle of [
+    "Reality > Opinion",
     "Ownership > Explanation",
-  );
-  await expect(page.getByLabel("当前阶段")).toContainText(
     "Early Exposure > Late Fix",
-  );
-  await expect(page.getByLabel("当前阶段")).toContainText("System > Hero");
+    "System > Hero",
+  ]) {
+    await expect(article).toContainText(principle);
+  }
 });
 
-test("onboarding works at 390px", async ({ page }) => {
+test("onboarding works at 390px without horizontal overflow", async ({
+  page,
+}) => {
   await loginAsMember(page);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/onboarding");
-
-  await expect(page.getByLabel("新人路线总览")).toBeVisible();
-  await page.getByRole("link", { name: "下一篇 →" }).click();
-  await expect(page.getByLabel("当前阶段")).toContainText("认识品质工作");
+  await page
+    .getByLabel("新人路线总览")
+    .getByRole("link", { name: "入职第一天", exact: true })
+    .click();
+  await expect(page.getByLabel("新人路线阅读导航")).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
 });

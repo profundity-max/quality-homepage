@@ -17,7 +17,7 @@
     "test": "npm run test:local && npm run test:postgres:container",
     "test:local": "vitest run",
     "test:module": "vitest run tests/module",
-    "test:integration": "vitest run --exclude tests/integration/identity-postgresql.test.ts tests/integration && npm run test:postgres:container",
+    "test:integration": "vitest run tests/integration && npm run test:postgres:container",
     "test:postgres": "vitest run --config vitest.postgres.config.ts",
     "test:postgres:container": "node scripts/test-postgres-container.mjs",
     "test:e2e": "playwright test",

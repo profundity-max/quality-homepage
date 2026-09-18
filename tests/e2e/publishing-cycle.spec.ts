@@ -60,7 +60,9 @@ test("full cycle: create draft → edit → publish → read → restore (roadma
 
   await page.goto("/articles/edit-fixture/versions");
   await expect(page.getByText(/共 \d+ 个版本/)).toBeVisible();
-  await expect(page.getByRole("button", { name: "恢复此版本" })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "恢复此版本" }).first(),
+  ).toBeVisible();
 
   // 闭环终点（VER-03）：恢复版本 1，把文章还原为编辑前的原始内容
   const versionOneForm = page

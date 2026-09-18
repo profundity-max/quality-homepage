@@ -15,7 +15,7 @@ export default async function EditArticlePage({
   searchParams,
 }: {
   params: Promise<{ stableId: string }>;
-  searchParams: Promise<{ notice?: string; error?: string }>;
+  searchParams: Promise<{ notice?: string; error?: string; from?: string }>;
 }) {
   const { stableId } = await params;
   const query = await searchParams;
@@ -80,6 +80,7 @@ export default async function EditArticlePage({
         )}
         <Editor
           article={article}
+          fromOnboarding={query.from === "onboarding"}
           topics={topics}
           owners={owners}
           publishedArticles={published}

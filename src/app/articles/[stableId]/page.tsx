@@ -5,6 +5,7 @@ import { getDatabase } from "@/db/database";
 import { createContentStatsService } from "@/modules/content-stats";
 import { createFavoritesService } from "@/modules/favorites";
 import { createKnowledgePublishingService } from "@/modules/knowledge-publishing";
+import { createOnboardingService } from "@/modules/onboarding";
 import {
   renderMarkdown,
   extractTableOfContents,
@@ -39,7 +40,7 @@ export default async function ArticlePage({
   searchParams,
 }: {
   params: Promise<{ stableId: string }>;
-  searchParams: Promise<{ feedback?: string }>;
+  searchParams: Promise<{ feedback?: string; from?: string }>;
 }) {
   const { stableId } = await params;
   const query = await searchParams;
@@ -61,6 +62,9 @@ export default async function ArticlePage({
       <PortalShell currentPath={`/articles/${stableId}`}>
         <main id="main-content" tabIndex={-1} className={styles.layout}>
           <section className={styles.archived} aria-label="归档说明">
+            {query.from === "onboarding" && (
+              <Link href="/onboarding">返回路线总览</Link>
+            )}
             <h1>{archivedInfo.title}</h1>
             <p className={styles.archivedBadge}>已归档</p>
             {archivedInfo.summary && <p>{archivedInfo.summary}</p>}
@@ -84,6 +88,14 @@ export default async function ArticlePage({
   }
 
   if (!article) notFound();
+
+  const route =
+    query.from === "onboarding"
+      ? await createOnboardingService(getDatabase()).listArticles()
+      : [];
+  const routeIndex = route.findIndex((item) => item.stableId === stableId);
+  const routePrevious = routeIndex > 0 ? route[routeIndex - 1] : null;
+  const routeNext = routeIndex >= 0 ? route[routeIndex + 1] : null;
 
   // 渲染正文、提取目录并读取收藏状态
   const [bodyHtml, bodyToc, isFavorite] = await Promise.all([
@@ -115,13 +127,19 @@ export default async function ArticlePage({
       <main id="main-content" tabIndex={-1} className={styles.layout}>
         <aside className={styles.meta} aria-label="文章信息">
           <nav className={styles.breadcrumb} aria-label="面包屑">
-            <Link href={`/quality?topic=${article.topicStableId}`}>
-              {article.sectionName}
-            </Link>
-            <span aria-hidden="true">/</span>
-            <Link href={`/quality?topic=${article.topicStableId}`}>
-              {article.topicName}
-            </Link>
+            {query.from === "onboarding" ? (
+              <Link href="/onboarding">新人专区</Link>
+            ) : (
+              <>
+                <Link href={`/quality?topic=${article.topicStableId}`}>
+                  {article.sectionName}
+                </Link>
+                <span aria-hidden="true">/</span>
+                <Link href={`/quality?topic=${article.topicStableId}`}>
+                  {article.topicName}
+                </Link>
+              </>
+            )}
           </nav>
 
           <dl className={styles.metaList}>
@@ -228,6 +246,31 @@ export default async function ArticlePage({
         </aside>
 
         <article className={styles.article}>
+          {query.from === "onboarding" && (
+            <nav
+              aria-label="新人路线阅读导航"
+              className={styles.routeNavigation}
+            >
+              <Link href="/onboarding">返回路线总览</Link>
+              {routeIndex >= 0 && (
+                <span>
+                  第 {routeIndex + 1} 步 / 共 {route.length} 步
+                </span>
+              )}
+              {routePrevious && (
+                <Link
+                  href={`/articles/${routePrevious.stableId}?from=onboarding`}
+                >
+                  上一篇：{routePrevious.title}
+                </Link>
+              )}
+              {routeNext && (
+                <Link href={`/articles/${routeNext.stableId}?from=onboarding`}>
+                  下一篇：{routeNext.title}
+                </Link>
+              )}
+            </nav>
+          )}
           <h1 className={styles.title}>{article.title}</h1>
           <p className={styles.summary}>{article.summary}</p>
           <div className={styles.body}>
@@ -246,22 +289,24 @@ export default async function ArticlePage({
           )}
         </aside>
 
-        <nav className={styles.adjacent} aria-label="上下篇导航">
-          {adjacent.previous ? (
-            <Link href={`/articles/${adjacent.previous.stableId}`}>
-              ← {adjacent.previous.title}
-            </Link>
-          ) : (
-            <span />
-          )}
-          {adjacent.next ? (
-            <Link href={`/articles/${adjacent.next.stableId}`}>
-              {adjacent.next.title} →
-            </Link>
-          ) : (
-            <span />
-          )}
-        </nav>
+        {query.from !== "onboarding" && (
+          <nav className={styles.adjacent} aria-label="上下篇导航">
+            {adjacent.previous ? (
+              <Link href={`/articles/${adjacent.previous.stableId}`}>
+                ← {adjacent.previous.title}
+              </Link>
+            ) : (
+              <span />
+            )}
+            {adjacent.next ? (
+              <Link href={`/articles/${adjacent.next.stableId}`}>
+                {adjacent.next.title} →
+              </Link>
+            ) : (
+              <span />
+            )}
+          </nav>
+        )}
       </main>
     </PortalShell>
   );

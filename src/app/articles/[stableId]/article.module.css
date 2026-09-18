@@ -476,3 +476,17 @@
   padding-top: 16px;
   border-top: 1px solid var(--color-divider);
 }
+.routeNavigation {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  align-items: center;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--color-divider);
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+}
+.routeNavigation a {
+  color: var(--color-link);
+}

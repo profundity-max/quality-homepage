@@ -36,7 +36,7 @@ export default async function HomePage() {
     recentUpdates,
     templateCategories,
     bookCategories,
-    onboardingStages,
+    onboardingArticles,
   ] = await Promise.all([
     service.listTopicTree(),
     service.listRecentUpdates(5),
@@ -45,7 +45,7 @@ export default async function HomePage() {
       scanner: { scan: async () => ({ safe: true }) },
     }).listPublishedTemplatesByCategory(),
     createBookService(getDatabase()).listBooksByCategory(),
-    createOnboardingService(getDatabase()).listStages(),
+    createOnboardingService(getDatabase()).listArticles(),
   ]);
   const publishedTemplates = templateCategories.reduce(
     (total, category) => total + category.templates.length,
@@ -81,10 +81,10 @@ export default async function HomePage() {
         <EditorialSection
           index="01"
           title="新人专区"
-          description="六个阶段，一条清晰的新人成长路线。"
+          description="循序阅读，走进品质工作。"
           status={
-            onboardingStages.length > 0
-              ? `${onboardingStages.length} 个阶段 · 点击进入`
+            onboardingArticles.length > 0
+              ? `${onboardingArticles.length} 篇文章 · 点击进入`
               : "暂无内容"
           }
           href="/onboarding"
