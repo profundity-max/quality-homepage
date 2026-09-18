@@ -4,6 +4,8 @@ import { notFound } from "next/navigation";
 import { getDatabase } from "@/db/database";
 import { createKnowledgePublishingService } from "@/modules/knowledge-publishing";
 import type { SectionNode, TopicSummary } from "@/modules/knowledge-publishing";
+import { renderMarkdown } from "@/modules/shared/markdown-renderer";
+import { ArticleBody } from "@/ui/article-body";
 
 import { requirePortalSession } from "./authorization";
 import { PortalShell } from "./portal-shell";
@@ -19,6 +21,14 @@ const knownEntrySections: Record<string, string> = {
   "quality-knowledge": "品质知识",
   "thermal-knowledge": "散热知识",
 };
+
+function formatDate(value: Date): string {
+  return new Intl.DateTimeFormat("zh-CN", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  }).format(value);
+}
 
 export async function KnowledgeEntryPage({
   sectionStableId,
@@ -53,9 +63,16 @@ export async function KnowledgeEntryPage({
   }
 
   const selectedTopic = findTopicInSection(section, topicStableId);
-  const articles = selectedTopic
-    ? await service.listArticlesByTopic(selectedTopic.id)
+  // 主题页不只是目录：直接渲染整篇正文，读者不必先跳转再阅读（IA-01）。
+  const topicArticles = selectedTopic
+    ? await service.listTopicArticlesForReading(selectedTopic.id)
     : [];
+  const articles = await Promise.all(
+    topicArticles.map(async (article) => ({
+      ...article,
+      bodyHtml: await renderMarkdown(article.bodyMarkdown),
+    })),
+  );
 
   return (
     <PortalShell currentPath={destinationPath}>
@@ -92,13 +109,34 @@ export async function KnowledgeEntryPage({
                 <ul className={styles.articleList}>
                   {articles.map((article) => (
                     <li key={article.id}>
-                      <Link
-                        className={styles.articleLink}
-                        href={`/articles/${article.stableId}`}
+                      <article
+                        className={styles.article}
+                        aria-label={`文章 ${article.title}`}
                       >
-                        {article.title}
-                      </Link>
-                      <p className={styles.articleSummary}>{article.summary}</p>
+                        <Link
+                          className={styles.articleLink}
+                          href={`/articles/${article.stableId}`}
+                        >
+                          {article.title}
+                        </Link>
+                        <p className={styles.articleMeta}>
+                          <span>
+                            负责人 {article.ownerDisplayName ?? "待指定"}
+                          </span>
+                          <span aria-hidden="true">·</span>
+                          <span>更新 {formatDate(article.updatedAt)}</span>
+                          <Link
+                            className={styles.articleOpenLink}
+                            href={`/articles/${article.stableId}`}
+                          >
+                            打开阅读页（目录 / 收藏 / 反馈）
+                          </Link>
+                        </p>
+                        <p className={styles.articleSummary}>
+                          {article.summary}
+                        </p>
+                        <ArticleBody html={article.bodyHtml} />
+                      </article>
                     </li>
                   ))}
                 </ul>

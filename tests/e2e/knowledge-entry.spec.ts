@@ -24,12 +24,52 @@ test("knowledge entry pages show the real column tree and published articles", a
   // 选中 ANOVA 主题后展示其已发布文章（seed 首个主题已变为 sigma）
   await tree.getByRole("link", { name: "ANOVA" }).click();
   await expect(page).toHaveURL(/topic=anova/);
-  await expect(page.getByRole("heading", { name: "ANOVA" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "ANOVA 入门" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "ANOVA", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByLabel("文章 ANOVA 入门", { exact: true })
+      .getByRole("link", { name: "ANOVA 入门", exact: true }),
+  ).toBeVisible();
   await expect(page.getByText("方差分析的基础概念与适用场景。")).toBeVisible();
 
   // 空主题/空栏目不出现（种子中 测量与数据可信度 等无内容）
   await expect(tree.getByRole("link", { name: "MSA" })).toHaveCount(0);
+});
+
+test("topic page renders the whole article body inline, not just the summary", async ({
+  page,
+}) => {
+  await loginAsMember(page);
+
+  await page.goto("/quality?topic=anova");
+  const entry = page.getByLabel("文章 ANOVA 入门", { exact: true });
+  await expect(entry).toBeVisible();
+  // 摘要
+  await expect(entry).toContainText("方差分析的基础概念与适用场景。");
+  // 正文（只存在于 Markdown 正文，不在摘要里）
+  await expect(entry).toContainText("方差分析用于比较多个组的均值差异。");
+  await expect(page.getByText("什么是 ANOVA", { exact: true })).toBeVisible();
+  // 整篇可读，同时保留进入完整阅读页的入口
+  await expect(
+    entry.getByRole("link", { name: "打开阅读页（目录 / 收藏 / 反馈）" }),
+  ).toHaveAttribute("href", "/articles/anova-intro");
+
+  // 内联正文（含表格/公式）不能把窄屏撑出横向滚动
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
+  await page.setViewportSize({ width: 1280, height: 900 });
+
+  await entry.getByRole("link", { name: "ANOVA 入门", exact: true }).click();
+  await expect(page).toHaveURL(/\/articles\/anova-intro$/);
+  await expect(
+    page.getByRole("heading", { level: 1, name: "ANOVA 入门" }),
+  ).toBeVisible();
 });
 
 test("clicking a topic switches the article list via stable id", async ({

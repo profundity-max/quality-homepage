@@ -102,7 +102,10 @@ test("full reading path survives 390px width (common definition)", async ({
     .getByRole("complementary", { name: "分类树" })
     .getByRole("link", { name: "ANOVA" })
     .click();
-  await page.getByRole("link", { name: "ANOVA 入门", exact: true }).click();
+  await page
+    .getByLabel("文章 ANOVA 入门", { exact: true })
+    .getByRole("link", { name: "ANOVA 入门", exact: true })
+    .click();
   await expect(page).toHaveURL(/\/articles\/anova-intro$/);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
     "ANOVA 入门",

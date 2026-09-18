@@ -14,7 +14,7 @@ import type { TocEntry } from "@/modules/shared/markdown-renderer";
 
 import { requirePortalSession } from "../../authorization";
 import { PortalShell } from "../../portal-shell";
-import { MermaidRenderer } from "../../mermaid-renderer";
+import { ArticleBody } from "@/ui/article-body";
 import { submitFeedbackAction, toggleFavoriteAction } from "./actions";
 import styles from "./article.module.css";
 
@@ -273,9 +273,7 @@ export default async function ArticlePage({
           )}
           <h1 className={styles.title}>{article.title}</h1>
           <p className={styles.summary}>{article.summary}</p>
-          <div className={styles.body}>
-            <MermaidRenderer html={bodyHtml} />
-          </div>
+          <ArticleBody html={bodyHtml} />
         </article>
 
         <aside className={styles.toc} aria-label="正文目录">

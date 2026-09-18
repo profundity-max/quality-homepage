@@ -172,6 +172,32 @@ describe("knowledge publishing read service", () => {
     expect(article!.ownerDisplayName).toBe("owner");
   });
 
+  test("returns topic articles with bodies for inline reading on the entry page", async () => {
+    const service = createKnowledgePublishingService(database);
+    const list = await service.listTopicArticlesForReading(anovaTopicId);
+
+    // 与摘要列表同序（按更新时间倒序），并且带上可用于内联渲染的正文
+    expect(list.map((article) => article.stableId)).toEqual([
+      "anova-example",
+      "anova-intro",
+    ]);
+    expect(list.map((article) => article.bodyMarkdown)).toEqual([
+      "正文二",
+      "正文一",
+    ]);
+    expect(list[1]!.title).toBe("ANOVA 入门");
+    expect(list[1]!.topicName).toBe("ANOVA");
+    expect(list[1]!.ownerDisplayName).toBe("owner");
+
+    // 草稿与已归档文章绝不进入阅读侧列表（不泄露未发布内容）
+    expect(list.map((article) => article.stableId)).not.toContain(
+      "anova-draft",
+    );
+    expect(list.map((article) => article.stableId)).not.toContain(
+      "anova-archived",
+    );
+  });
+
   test("does not return draft or archived articles", async () => {
     const service = createKnowledgePublishingService(database);
     await expect(

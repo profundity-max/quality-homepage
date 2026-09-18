@@ -233,7 +233,9 @@ test("Editorial Space works across desktop, theme, keyboard, and mobile", async 
     .getByRole("complementary", { name: "分类树" })
     .getByRole("link", { name: "ANOVA" })
     .click();
-  await expect(page.getByRole("heading", { name: "ANOVA" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "ANOVA", exact: true }),
+  ).toBeVisible();
   await expect(
     page.getByRole("link", { name: "品质知识", exact: true }),
   ).toHaveAttribute("aria-current", "page");

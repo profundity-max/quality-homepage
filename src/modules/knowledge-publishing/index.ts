@@ -38,6 +38,20 @@ export type ArticleSummary = {
   updatedAt: Date;
 };
 
+/** 主题页内联阅读用的文章：在摘要列表基础上带上正文（IA-01 阅读入口）。 */
+export type TopicReadingArticle = {
+  id: string;
+  stableId: string;
+  title: string;
+  summary: string;
+  bodyMarkdown: string;
+  topicName: string;
+  topicStableId: string;
+  ownerDisplayName: string | null;
+  updatedAt: Date;
+  nextReviewAt: Date | null;
+};
+
 export type PublishedArticle = {
   id: string;
   stableId: string;
@@ -84,6 +98,8 @@ export type KnowledgePublishingService = {
   listTopicTree(): Promise<SectionNode[]>;
   /** 主题下的已发布文章，按更新时间倒序。 */
   listArticlesByTopic(topicId: string): Promise<ArticleSummary[]>;
+  /** 主题页内联阅读：该主题下已发布文章，含正文（草稿与归档不进入阅读侧）。 */
+  listTopicArticlesForReading(topicId: string): Promise<TopicReadingArticle[]>;
   /** 仅返回已发布版本（VER-02 读取侧）；草稿与归档返回 null。 */
   getPublishedArticleByStableId(
     stableId: string,
@@ -216,6 +232,32 @@ export function createKnowledgePublishingService(
         eq(articles.primaryTopicId, topicId),
         defaultListLimit,
       );
+    },
+
+    async listTopicArticlesForReading(topicId) {
+      // 只取 status=published：编辑中的文章（草稿工作区）绝不进入阅读侧，
+      // 与 listArticlesByTopic 的口径保持一致。
+      return client
+        .select({
+          id: articles.id,
+          stableId: articles.stableId,
+          title: articles.title,
+          summary: articles.summary,
+          bodyMarkdown: articles.bodyMarkdown,
+          topicName: topics.name,
+          topicStableId: topics.stableId,
+          ownerDisplayName: sql<
+            string | null
+          >`coalesce(${users.displayName}, ${users.username})`,
+          updatedAt: articles.updatedAt,
+          nextReviewAt: articles.nextReviewAt,
+        })
+        .from(articles)
+        .innerJoin(topics, eq(articles.primaryTopicId, topics.id))
+        .leftJoin(users, eq(articles.contentOwnerId, users.id))
+        .where(and(publishedWhere, eq(articles.primaryTopicId, topicId)))
+        .orderBy(desc(articles.updatedAt))
+        .limit(defaultListLimit);
     },
 
     async getPublishedArticleByStableId(stableId) {
