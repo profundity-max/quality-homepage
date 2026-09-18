@@ -119,6 +119,7 @@ function editorErrorMessage(error: unknown): string {
   if (/editor/i.test(message)) return "没有编辑权限。";
   if (/not found/i.test(message)) return "未找到目标文章。";
   if (/必填/i.test(message)) return message;
+  if (/脱敏/.test(message)) return message;
   if (/reason|原因/i.test(message)) return "恢复历史版本必须填写原因。";
   return "操作未完成，请检查输入后重试。";
 }
@@ -126,4 +127,46 @@ function editorErrorMessage(error: unknown): string {
 function readString(formData: FormData, name: string): string {
   const value = formData.get(name);
   return typeof value === "string" ? value : "";
+}
+
+/** 列表页直接发布：用已保存的内容发布文章，缺必填项时带错误返回原列表。 */
+export async function publishFromListAction(formData: FormData): Promise<void> {
+  const stableId = readString(formData, "stableId");
+  const returnTo = readString(formData, "returnTo") || editorPath;
+  const session = await requirePortalSession(editorPath);
+  let errorMessage: string | null = null;
+  try {
+    const service = createKnowledgeEditingService(getDatabase());
+    const article = await service.getArticleForEditing(
+      session.member.id,
+      stableId,
+    );
+    // SEC-07：脱敏确认只在编辑器里勾选，列表页不代用户确认。
+    if (article.isCaseArticle) {
+      throw new Error(
+        "案例文章需要先确认已脱敏，请打开编辑器勾选确认后再发布。",
+      );
+    }
+    await service.publish(session.member.id, stableId, {
+      title: article.title,
+      summary: article.summary,
+      bodyMarkdown: article.bodyMarkdown,
+      primaryTopicId: article.primaryTopicId,
+      tags: article.tags,
+      aliases: article.aliases,
+      contentOwnerId: article.contentOwnerId,
+      nextReviewAt: article.nextReviewAt,
+      isCaseArticle: article.isCaseArticle,
+    });
+  } catch (error) {
+    errorMessage = editorErrorMessage(error);
+  }
+  revalidatePath(editorPath);
+  revalidatePath("/manage/onboarding");
+  revalidatePath("/onboarding");
+  revalidatePath("/");
+  const safeReturnTo = returnTo.startsWith("/manage/") ? returnTo : editorPath;
+  redirect(
+    `${safeReturnTo}?${errorMessage ? "error" : "notice"}=${encodeURIComponent(errorMessage ?? "文章已发布。")}`,
+  );
 }

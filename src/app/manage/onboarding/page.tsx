@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getDatabase } from "@/db/database";
 import { createOnboardingAdminService } from "@/modules/onboarding-admin";
 import { requirePortalSession } from "../../authorization";
+import { publishFromListAction } from "../articles/actions";
 import { PortalShell } from "../../portal-shell";
 import {
   addRouteArticleAction,
@@ -117,6 +118,23 @@ export default async function OnboardingManagementPage({
                     >
                       编辑文章
                     </Link>
+                    {item.status === "draft" ? (
+                      <form action={publishFromListAction}>
+                        <input
+                          type="hidden"
+                          name="stableId"
+                          value={item.stableId}
+                        />
+                        <input
+                          type="hidden"
+                          name="returnTo"
+                          value="/manage/onboarding"
+                        />
+                        <SubmitButton label={`发布 ${item.title}`}>
+                          发布
+                        </SubmitButton>
+                      </form>
+                    ) : null}
                     <form action={moveRouteArticleAction}>
                       <input type="hidden" name="itemId" value={item.id} />
                       <SubmitButton

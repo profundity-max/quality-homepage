@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { getDatabase } from "@/db/database";
 import { createKnowledgeEditingService } from "@/modules/knowledge-editing";
 
+import { publishFromListAction } from "./actions";
+
 import { requirePortalSession } from "../../authorization";
 import { PortalShell } from "../../portal-shell";
 import styles from "../manage.module.css";
@@ -33,7 +35,7 @@ function formatDate(value: Date | null): string {
 export default async function ArticleManagementPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string }>;
+  searchParams: Promise<{ status?: string; notice?: string; error?: string }>;
 }) {
   const params = await searchParams;
   const session = await requirePortalSession("/manage/articles");
@@ -52,6 +54,16 @@ export default async function ArticleManagementPage({
   return (
     <PortalShell currentPath="/manage/articles">
       <main id="main-content" tabIndex={-1} className={styles.layout}>
+        {params.notice && (
+          <p className={styles.notice} role="status">
+            {params.notice}
+          </p>
+        )}
+        {params.error && (
+          <p className={styles.error} role="alert">
+            {params.error}
+          </p>
+        )}
         <header className={styles.header}>
           <div>
             <p className={styles.eyebrow}>品集｜Q Nexus · 门户管理</p>
@@ -108,6 +120,21 @@ export default async function ArticleManagementPage({
                     <Link href={`/articles/${article.stableId}/versions`}>
                       版本历史
                     </Link>
+                    {article.status === "draft" ? (
+                      <form action={publishFromListAction}>
+                        <input
+                          type="hidden"
+                          name="stableId"
+                          value={article.stableId}
+                        />
+                        <input
+                          type="hidden"
+                          name="returnTo"
+                          value="/manage/articles"
+                        />
+                        <button type="submit">发布</button>
+                      </form>
+                    ) : null}
                   </div>
                 </li>
               ))}

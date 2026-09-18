@@ -141,3 +141,53 @@ test("editor can maintain the route in both themes at 390px; reader is denied", 
   await page.goto("/manage/onboarding");
   await expect(page).not.toHaveURL(/\/manage\/onboarding$/);
 });
+
+test("editor publishes a route draft straight from the route list", async ({
+  page,
+}) => {
+  await login(page, "editor", "editor secure password");
+  await page.goto("/manage/onboarding");
+  await page.getByRole("link", { name: "新建路线文章" }).click();
+  await page.getByRole("tab", { name: "源码", exact: true }).click();
+  await page
+    .getByLabel("Markdown 源码")
+    .fill("## 路线列表发布\n\n这篇草稿直接从路线列表发布。");
+  await page.getByRole("button", { name: "属性", exact: true }).click();
+  const properties = page.getByLabel("文章属性");
+  await properties.getByLabel("标题", { exact: true }).fill("路线列表发布文章");
+  await properties
+    .getByLabel("摘要", { exact: true })
+    .fill("验证新人路线列表自带发布入口");
+  await properties.getByLabel("内容负责人").selectOption({ label: "品质编辑" });
+  await properties.getByLabel("下次复核日期").fill("2027-06-30");
+  await properties
+    .getByRole("button", { name: "保存草稿", exact: true })
+    .click();
+  await expect(page.getByRole("status")).toContainText("草稿已创建");
+
+  await page.getByRole("link", { name: "返回新人路线" }).click();
+  const row = page.getByLabel("路线文章 路线列表发布文章", { exact: true });
+  await expect(row).toContainText("草稿");
+  await row
+    .getByRole("button", { name: "发布 路线列表发布文章", exact: true })
+    .click();
+
+  await expect(page.getByRole("status")).toContainText("文章已发布。");
+  await expect(row).toContainText("已发布");
+  await expect(
+    row.getByRole("button", { name: "发布 路线列表发布文章", exact: true }),
+  ).toHaveCount(0);
+  await page.goto("/onboarding");
+  await expect(page.getByLabel("新人路线总览")).toContainText(
+    "路线列表发布文章",
+  );
+
+  // 清理：移出路线，保持后续用例的路线长度不变
+  await page.goto("/manage/onboarding");
+  await page
+    .getByRole("button", { name: "移出路线 路线列表发布文章", exact: true })
+    .click();
+  await expect(
+    page.getByLabel("路线文章", { exact: true }).getByRole("listitem"),
+  ).toHaveCount(6);
+});
