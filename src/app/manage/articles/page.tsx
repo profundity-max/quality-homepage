@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { getDatabase } from "@/db/database";
 import { createKnowledgeEditingService } from "@/modules/knowledge-editing";
 
-import { publishFromListAction } from "./actions";
+import { archiveFromListAction, publishFromListAction } from "./actions";
 
 import { requirePortalSession } from "../../authorization";
 import { PortalShell } from "../../portal-shell";
@@ -69,7 +69,8 @@ export default async function ArticleManagementPage({
             <p className={styles.eyebrow}>品集｜Q Nexus · 门户管理</p>
             <h1>文章管理</h1>
             <p>
-              维护品质知识与散热知识的文章：新建草稿、编辑、发布、查看版本历史。
+              维护品质知识与散热知识的文章：新建草稿、编辑、发布、归档，归档内容进回收站，30
+              天后可由管理员永久清理。
             </p>
           </div>
         </header>
@@ -77,6 +78,9 @@ export default async function ArticleManagementPage({
         <section className={styles.panel} aria-label="文章操作">
           <div className={styles.actions}>
             <Link href="/manage/articles/new">新建文章</Link>
+            {session.member.role === "administrator" ? (
+              <Link href="/manage/recycle-bin?type=article">回收站</Link>
+            ) : null}
           </div>
 
           <nav className={styles.createForms} aria-label="状态筛选">
@@ -133,6 +137,25 @@ export default async function ArticleManagementPage({
                           value="/manage/articles"
                         />
                         <button type="submit">发布</button>
+                      </form>
+                    ) : null}
+                    {article.status !== "archived" ? (
+                      <form
+                        action={archiveFromListAction}
+                        className={styles.archiveForm}
+                      >
+                        <input
+                          type="hidden"
+                          name="stableId"
+                          value={article.stableId}
+                        />
+                        <input
+                          name="reason"
+                          required
+                          aria-label={`归档文章 ${article.title} 的原因`}
+                          placeholder="归档原因（如：测试内容，不再需要）"
+                        />
+                        <button type="submit">归档</button>
                       </form>
                     ) : null}
                   </div>

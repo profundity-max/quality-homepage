@@ -216,6 +216,19 @@
   gap: 8px;
 }
 
+/* 列表行内的归档表单：原因输入 + 归档按钮 */
+.archiveForm {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.archiveForm input[type="text"],
+.archiveForm input:not([type]) {
+  min-width: 220px;
+}
+
 .createForms {
   margin: 8px 0 16px;
   flex-wrap: wrap;

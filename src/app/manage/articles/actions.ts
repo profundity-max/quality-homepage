@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { getDatabase } from "@/db/database";
+import { createArchivalService } from "@/modules/archival";
 import { createKnowledgeEditingService } from "@/modules/knowledge-editing";
 import type { SaveDraftInput } from "@/modules/knowledge-editing";
 import { createOnboardingAdminService } from "@/modules/onboarding-admin";
@@ -120,6 +121,7 @@ function editorErrorMessage(error: unknown): string {
   if (/not found/i.test(message)) return "未找到目标文章。";
   if (/必填/i.test(message)) return message;
   if (/脱敏/.test(message)) return message;
+  if (/归档必须填写原因/.test(message)) return message;
   if (/reason|原因/i.test(message)) return "恢复历史版本必须填写原因。";
   return "操作未完成，请检查输入后重试。";
 }
@@ -168,5 +170,35 @@ export async function publishFromListAction(formData: FormData): Promise<void> {
   const safeReturnTo = returnTo.startsWith("/manage/") ? returnTo : editorPath;
   redirect(
     `${safeReturnTo}?${errorMessage ? "error" : "notice"}=${encodeURIComponent(errorMessage ?? "文章已发布。")}`,
+  );
+}
+
+/**
+ * 列表页归档：测试内容或下线内容不必进编辑器，直接归档；
+ * 归档必须填写原因（AUDIT-02），归档后进入回收站（DEL-01/DEL-02）。
+ */
+export async function archiveFromListAction(formData: FormData): Promise<void> {
+  const stableId = readString(formData, "stableId");
+  const reason = readString(formData, "reason");
+  const session = await requirePortalSession(editorPath);
+  let errorMessage: string | null = null;
+  try {
+    await createArchivalService(getDatabase()).archive(
+      session.member.id,
+      { type: "article", stableId },
+      reason,
+    );
+  } catch (error) {
+    errorMessage = editorErrorMessage(error);
+  }
+  revalidatePath(editorPath);
+  revalidatePath("/manage/onboarding");
+  revalidatePath("/manage/recycle-bin");
+  revalidatePath("/quality");
+  revalidatePath("/thermal");
+  revalidatePath("/onboarding");
+  revalidatePath("/");
+  redirect(
+    `${editorPath}?${errorMessage ? "error" : "notice"}=${encodeURIComponent(errorMessage ?? "文章已归档。")}`,
   );
 }
