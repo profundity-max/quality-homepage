@@ -44,6 +44,23 @@ export async function resetPasswordAction(formData: FormData): Promise<void> {
   );
 }
 
+/** 修改账号用户名与显示名称（不改密码与角色），改动记审计。 */
+export async function updateMemberIdentityAction(
+  formData: FormData,
+): Promise<void> {
+  const userId = readString(formData, "userId");
+  const username = readString(formData, "username");
+  const displayName = readString(formData, "displayName");
+  await runManagementAction("账号用户名/显示名称已更新。", (requestingUserId) =>
+    getAccountAdministrationModule().updateMemberIdentity({
+      requestingUserId,
+      userId,
+      username,
+      displayName,
+    }),
+  );
+}
+
 export async function unlockMemberAction(formData: FormData): Promise<void> {
   const userId = readString(formData, "userId");
   await runManagementAction("账号已解除锁定。", (requestingUserId) =>

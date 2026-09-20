@@ -154,6 +154,59 @@ export function createAccountAdministrationModule({
       });
     },
 
+    /**
+     * 修改账号的用户名与显示名称（不改密码、不改角色）。
+     * 用户名用于登录，改动必须留审计（AUDIT-01）。
+     */
+    async updateMemberIdentity(input: {
+      requestingUserId: UserId;
+      userId: string;
+      username: string;
+      displayName: string | null;
+    }): Promise<void> {
+      const username = input.username.trim();
+      if (!username) throw new Error("Invalid username.");
+      const displayName = input.displayName?.trim() || null;
+      const normalizedUsername = normalizeUsername(username);
+      const occurredAt = now();
+      await client.transaction(async (transaction) => {
+        await lockAccountAdministrationWrites(transaction);
+        await assertAdministrator(transaction, input.requestingUserId);
+        const targets = await transaction
+          .select({ username: users.username, displayName: users.displayName })
+          .from(users)
+          .where(eq(users.id, input.userId))
+          .limit(1);
+        const target = targets[0];
+        if (!target) throw new Error("Account not found.");
+        const clash = await transaction
+          .select({ id: users.id })
+          .from(users)
+          .where(eq(users.normalizedUsername, normalizedUsername))
+          .limit(1);
+        if (clash[0] && clash[0].id !== input.userId) {
+          throw new Error("Username already in use.");
+        }
+        await transaction
+          .update(users)
+          .set({ username, normalizedUsername, displayName })
+          .where(eq(users.id, input.userId));
+        await recordAudit(
+          transaction,
+          input.requestingUserId,
+          input.userId,
+          "account-identity-update",
+          occurredAt,
+          {
+            username,
+            displayName,
+            previousUsername: target.username,
+            previousDisplayName: target.displayName,
+          },
+        );
+      });
+    },
+
     async unlockMember(input: {
       requestingUserId: UserId;
       userId: string;
@@ -317,7 +370,7 @@ async function recordAudit(
   subjectUserId: string,
   eventType: string,
   occurredAt: Date,
-  metadata: Record<string, string>,
+  metadata: Record<string, string | null>,
 ) {
   await client.insert(identityAuditEvents).values({
     id: randomUUID(),

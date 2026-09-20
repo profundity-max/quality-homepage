@@ -466,6 +466,68 @@ async function openMobileDrawer(page: Page) {
   return drawer;
 }
 
+test("administrator renames an account and its display name from the account list", async ({
+  browser,
+  page,
+}) => {
+  const consoleProblems: string[] = [];
+  monitorConsole(page, consoleProblems);
+
+  await page.goto("/login");
+  await page.getByLabel("用户名").fill("columnadmin");
+  await page.getByLabel("密码").fill("column admin secure password");
+  await page.getByRole("button", { name: "登录" }).click();
+  await expect(page).toHaveURL(/\/$/);
+
+  await page.goto("/manage");
+  const createForm = page.getByRole("region", { name: "创建账号" });
+  await createForm.getByLabel("用户名").fill("rename-target");
+  await createForm.getByLabel("显示名称").fill("待改名账号");
+  await createForm
+    .getByRole("combobox", { name: "角色" })
+    .selectOption("reader");
+  await createForm
+    .getByLabel("临时密码", { exact: true })
+    .fill("temporary rename password");
+  await createForm.getByRole("button", { name: "创建账号" }).click();
+  await expect(page.getByText("账号已创建。")).toBeVisible();
+
+  const card = page
+    .getByRole("heading", { name: "待改名账号" })
+    .locator("xpath=ancestor::article");
+  await card.getByLabel("修改 rename-target 的用户名").fill("Lou-Test");
+  await card.getByLabel("修改 rename-target 的显示名称").fill("Lou 测试");
+  await card.getByRole("button", { name: "保存用户名与名称" }).click();
+  await expect(page.getByText("账号用户名/显示名称已更新。")).toBeVisible();
+
+  const renamed = page
+    .getByRole("heading", { name: "Lou 测试" })
+    .locator("xpath=ancestor::article");
+  await expect(renamed).toContainText("@Lou-Test");
+
+  // 密码没变：用新用户名（大小写不敏感）+ 原临时密码仍能登录，并进入首次改密页
+  const renamedContext = await browser.newContext();
+  const renamedPage = await renamedContext.newPage();
+  await renamedPage.goto("/login");
+  await renamedPage.getByLabel("用户名").fill("lou-test");
+  await renamedPage.getByLabel("密码").fill("temporary rename password");
+  await renamedPage.getByRole("button", { name: "登录" }).click();
+  await expect(renamedPage).toHaveURL(/\/change-password$/);
+  await renamedContext.close();
+
+  // 旧用户名不再可用
+  await page.getByRole("button", { name: "退出登录" }).click();
+  await expect(page).toHaveURL(/\/login$/);
+  await page
+    .getByRole("textbox", { name: "用户名", exact: true })
+    .fill("rename-target");
+  await page.getByLabel("密码").fill("temporary rename password");
+  await page.getByRole("button", { name: "登录" }).click();
+  await expect(page.getByText("用户名或密码不正确，请重试。")).toBeVisible();
+
+  expect(consoleProblems).toEqual([]);
+});
+
 async function logoutFromMobile(page: Page) {
   const drawer = await openMobileDrawer(page);
   await drawer.getByRole("button", { name: "退出登录" }).click();

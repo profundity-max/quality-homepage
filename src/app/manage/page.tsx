@@ -14,6 +14,7 @@ import {
   disableMemberAction,
   resetPasswordAction,
   unlockMemberAction,
+  updateMemberIdentityAction,
 } from "./actions";
 import styles from "./manage.module.css";
 
@@ -209,6 +210,29 @@ export default async function AccountManagementPage({
                 </div>
 
                 <div className={styles.actions}>
+                  <form action={updateMemberIdentityAction}>
+                    <input type="hidden" name="userId" value={member.id} />
+                    <label>
+                      修改 {member.username} 的用户名
+                      <input
+                        name="username"
+                        required
+                        autoComplete="off"
+                        defaultValue={member.username}
+                        aria-label={`修改 ${member.username} 的用户名`}
+                      />
+                    </label>
+                    <label>
+                      显示名称
+                      <input
+                        name="displayName"
+                        autoComplete="off"
+                        defaultValue={member.displayName ?? ""}
+                        aria-label={`修改 ${member.username} 的显示名称`}
+                      />
+                    </label>
+                    <button type="submit">保存用户名与名称</button>
+                  </form>
                   <form action={changeRoleAction}>
                     <input type="hidden" name="userId" value={member.id} />
                     <label>

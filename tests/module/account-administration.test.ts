@@ -112,6 +112,14 @@ describe("account administration", () => {
         temporaryPassword: "forged administrator password",
       }),
     ).rejects.toThrow(/administrator/i);
+    await expect(
+      accounts.updateMemberIdentity({
+        requestingUserId: reader.member.id,
+        userId: reader.member.id,
+        username: "renamed-reader",
+        displayName: "改名",
+      }),
+    ).rejects.toThrow(/administrator/i);
   });
 
   test("a temporary administrator cannot forge management calls before first password change", async () => {
@@ -158,6 +166,148 @@ describe("account administration", () => {
         temporaryPassword: "forged temporary password",
       }),
     ).rejects.toThrow(/administrator/i);
+  });
+
+  test("an administrator renames an account and its display name without touching the password", async () => {
+    database = new PGlite();
+    await migrate(database);
+    await bootstrapFirstAdministrator({
+      database,
+      username: "admin",
+      displayName: null,
+      password: "correct horse battery staple",
+    });
+    const identity = createIdentityModule({ database });
+    const administrator = await identity.authenticate({
+      username: "admin",
+      password: "correct horse battery staple",
+    });
+    expect(administrator.kind).toBe("authenticated");
+    if (administrator.kind !== "authenticated") return;
+    await completeFirstPasswordChange(identity, administrator);
+    const accounts = createAccountAdministrationModule({ database });
+    await accounts.createMember({
+      requestingUserId: administrator.member.id,
+      username: "Old.Name",
+      displayName: "旧名",
+      role: "reader",
+      temporaryPassword: "reader initial password",
+    });
+    const member = (await accounts.listMembers(administrator.member.id)).find(
+      ({ username }) => username === "Old.Name",
+    )!;
+
+    await accounts.updateMemberIdentity({
+      requestingUserId: administrator.member.id,
+      userId: member.id,
+      username: "  Lou  ",
+      displayName: "  部门主管 Lou  ",
+    });
+
+    expect(
+      (await accounts.listMembers(administrator.member.id)).find(
+        ({ id }) => id === member.id,
+      ),
+    ).toMatchObject({ username: "Lou", displayName: "部门主管 Lou" });
+
+    // 用户名改了、密码没变：旧用户名登录失败，新用户名登录仍用原临时密码
+    await expect(
+      identity.authenticate({
+        username: "old.name",
+        password: "reader initial password",
+      }),
+    ).resolves.toMatchObject({ kind: "invalid-credentials" });
+    await expect(
+      identity.authenticate({
+        username: "lou",
+        password: "reader initial password",
+      }),
+    ).resolves.toMatchObject({
+      kind: "authenticated",
+      mustChangePassword: true,
+    });
+
+    const audits = await database.query<{
+      event_type: string;
+      metadata: Record<string, unknown>;
+    }>(
+      `select event_type, metadata from identity_audit_events
+       where event_type = 'account-identity-update'`,
+    );
+    expect(audits.rows).toHaveLength(1);
+    expect(audits.rows[0]!.metadata).toMatchObject({
+      username: "Lou",
+      displayName: "部门主管 Lou",
+      previousUsername: "Old.Name",
+      previousDisplayName: "旧名",
+    });
+  });
+
+  test("renaming to an existing username is rejected, ignoring case", async () => {
+    database = new PGlite();
+    await migrate(database);
+    await bootstrapFirstAdministrator({
+      database,
+      username: "admin",
+      displayName: null,
+      password: "correct horse battery staple",
+    });
+    const identity = createIdentityModule({ database });
+    const administrator = await identity.authenticate({
+      username: "admin",
+      password: "correct horse battery staple",
+    });
+    expect(administrator.kind).toBe("authenticated");
+    if (administrator.kind !== "authenticated") return;
+    await completeFirstPasswordChange(identity, administrator);
+    const accounts = createAccountAdministrationModule({ database });
+    await accounts.createMember({
+      requestingUserId: administrator.member.id,
+      username: "Taken",
+      displayName: null,
+      role: "reader",
+      temporaryPassword: "reader initial password",
+    });
+    await accounts.createMember({
+      requestingUserId: administrator.member.id,
+      username: "Other",
+      displayName: null,
+      role: "reader",
+      temporaryPassword: "reader initial password",
+    });
+    const other = (await accounts.listMembers(administrator.member.id)).find(
+      ({ username }) => username === "Other",
+    )!;
+
+    await expect(
+      accounts.updateMemberIdentity({
+        requestingUserId: administrator.member.id,
+        userId: other.id,
+        username: "  taken  ",
+        displayName: null,
+      }),
+    ).rejects.toThrow(/already/i);
+
+    // 空用户名、以及保持自己原名不算冲突
+    await expect(
+      accounts.updateMemberIdentity({
+        requestingUserId: administrator.member.id,
+        userId: other.id,
+        username: "   ",
+        displayName: null,
+      }),
+    ).rejects.toThrow(/invalid/i);
+    await accounts.updateMemberIdentity({
+      requestingUserId: administrator.member.id,
+      userId: other.id,
+      username: "Other",
+      displayName: "其他",
+    });
+    expect(
+      (await accounts.listMembers(administrator.member.id)).find(
+        ({ id }) => id === other.id,
+      ),
+    ).toMatchObject({ username: "Other", displayName: "其他" });
   });
 
   test("normalized usernames stay unique", async () => {
