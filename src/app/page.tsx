@@ -67,8 +67,11 @@ export default async function HomePage() {
       <main id="main-content" tabIndex={-1}>
         <section className={styles.hero} data-testid="home-hero">
           <div>
-            <p className={styles.eyebrow}>{model.greeting}</p>
-            <h1>{model.name}</h1>
+            {/* 名字与问候同一行、同一字体；两个词各自不拆开 */}
+            <h1 className={styles.greeting}>
+              <span className={styles.greetingPart}>{model.name}</span>{" "}
+              <span className={styles.greetingPart}>{model.greeting}</span>
+            </h1>
             <p className={styles.belief}>{model.belief}</p>
           </div>
           <aside className={styles.searchPosition} aria-label="站内搜索">

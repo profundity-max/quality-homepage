@@ -12,8 +12,25 @@ test("identity lifecycle protects lockout, sessions, revocation, and disabled ac
   await page.goto("/manage?status=active");
   await expect(page).toHaveURL(/\/login\?next=%2Fmanage%3Fstatus%3Dactive$/);
   await expect(
-    page.getByRole("heading", { name: "登录品集｜Q Nexus" }),
+    page.getByRole("heading", { name: /登录品集.*Q Nexus/ }),
   ).toBeVisible();
+  // 中文一行、英文一行：两行都在，且「Q Nexus」不被拆开
+  const loginHeadingLines = await page
+    .locator("#login-heading > span")
+    .evaluateAll((lines) => lines.map((line) => line.getBoundingClientRect()));
+  expect(loginHeadingLines).toHaveLength(2);
+  expect(loginHeadingLines[1]!.top).toBeGreaterThan(
+    loginHeadingLines[0]!.bottom - 4,
+  );
+  expect(
+    await page.getByTestId("login-line-en").evaluate((line) => {
+      const range = document.createRange();
+      range.selectNodeContents(line);
+      return new Set(
+        [...range.getClientRects()].map((rect) => Math.round(rect.top)),
+      ).size;
+    }),
+  ).toBe(1);
 
   await page.getByLabel("用户名").fill("unknown-member");
   await page.getByLabel("密码").fill("wrong secret");

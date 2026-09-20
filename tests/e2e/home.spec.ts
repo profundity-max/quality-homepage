@@ -13,6 +13,32 @@ test("home shows real knowledge entries and recent updates", async ({
 }) => {
   await loginAsMember(page);
 
+  // 首页问候：名字 + 问候语在同一行、同一字体（不换行）
+  const greeting = page.getByTestId("home-hero").getByRole("heading", {
+    level: 1,
+  });
+  await expect(greeting).toHaveText(/^品质成员 (早上好|下午好|晚上好)$/);
+  // 名字与问候：顶边一致（同一行）+ 同字号
+  const greetingParts = () =>
+    greeting.locator("span").evaluateAll((parts) =>
+      parts.map((part) => ({
+        top: Math.round(part.getBoundingClientRect().top),
+        fontSize: getComputedStyle(part).fontSize,
+      })),
+    );
+  const desktopParts = await greetingParts();
+  expect(new Set(desktopParts.map((part) => part.top)).size).toBe(1);
+  expect(new Set(desktopParts.map((part) => part.fontSize)).size).toBe(1);
+  await page.setViewportSize({ width: 390, height: 844 });
+  const mobileParts = await greetingParts();
+  expect(new Set(mobileParts.map((part) => part.top)).size).toBe(1);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
+  await page.setViewportSize({ width: 1280, height: 900 });
+
   // 品质知识入口显示真实状态（种子有已发布文章）
   const qualitySection = page
     .locator("main section", { hasText: "品质知识" })
