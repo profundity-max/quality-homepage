@@ -39,19 +39,27 @@ export async function permanentDeleteAction(formData: FormData) {
   const session = await requirePortalSession(recycleBinPath);
   const type = readType(formData.get("type"));
   const stableId = readType(formData.get("stableId"));
-  let notice = "已永久删除。";
+  const reason = readType(formData.get("reason"));
+  let error: string | null = null;
   try {
     if (type === "article" || type === "template") {
       await createArchivalService(getDatabase()).permanentlyDelete(
         session.member.id,
         { type, stableId },
+        { reason },
       );
+    } else {
+      error = "该类型不支持永久删除。";
     }
-  } catch (error) {
-    notice =
-      error instanceof Error && error.message
-        ? error.message
+  } catch (cause) {
+    error =
+      cause instanceof Error && cause.message
+        ? cause.message
         : "永久删除失败。";
   }
-  redirect(`${recycleBinPath}?notice=${encodeURIComponent(notice)}`);
+  redirect(
+    error
+      ? `${recycleBinPath}?error=${encodeURIComponent(error)}`
+      : `${recycleBinPath}?notice=${encodeURIComponent("已永久删除。")}`,
+  );
 }

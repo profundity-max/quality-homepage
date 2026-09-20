@@ -38,8 +38,16 @@ export type TrashedItem = {
   stableId: string;
   title: string;
   archivedAt: Date;
-  /** 归档超过 30 天才允许永久删除（DEL-02）。 */
+  /** 当前是否允许永久删除（DEL-02）。 */
   deletable: boolean;
+  /** 允许立即删除的规则；null 表示保留期未满、还不能删除。 */
+  purgeReason: "retention-elapsed" | "never-published-draft" | null;
+};
+
+export type PermanentDeleteInput = {
+  /** 永久删除必须填写简短原因（AUDIT-02）。 */
+  reason: string;
+  instant?: Date;
 };
 
 export type ArchivalService = {
@@ -56,13 +64,16 @@ export type ArchivalService = {
   ): Promise<{ status?: string }>;
   listTrashed(
     actorId: string,
-    input?: { types?: ArchivalTargetType[]; limit?: number },
+    input?: { types?: ArchivalTargetType[]; limit?: number; instant?: Date },
   ): Promise<TrashedItem[]>;
-  /** 仅文章/模板支持永久删除，且必须归档满 30 天（DEL-02/03）。 */
+  /**
+   * 仅文章/模板支持永久删除（DEL-02/03）：
+   * 已发布过的内容必须归档满 30 天；从未发布过的草稿可由管理员立即删除。
+   */
   permanentlyDelete(
     actorId: string,
     target: ArchivalTarget,
-    instant?: Date,
+    input: PermanentDeleteInput,
   ): Promise<void>;
 };
 
@@ -356,7 +367,10 @@ export function createArchivalService(database: PGlite | Sql): ArchivalService {
       return {};
     },
 
-    async listTrashed(actorId, { types, limit = 100 } = {}) {
+    async listTrashed(
+      actorId,
+      { types, limit = 100, instant = new Date() } = {},
+    ) {
       await requireRestorer(actorId);
       const requested = new Set(
         types ?? [
@@ -368,7 +382,7 @@ export function createArchivalService(database: PGlite | Sql): ArchivalService {
         ],
       );
       const rows: TrashedItem[] = [];
-      const now = Date.now();
+      const now = instant.getTime();
 
       if (requested.has("article")) {
         const found = await client
@@ -377,6 +391,7 @@ export function createArchivalService(database: PGlite | Sql): ArchivalService {
             stableId: articles.stableId,
             title: articles.title,
             archivedAt: articles.archivedAt,
+            publishedAt: articles.publishedAt,
           })
           .from(articles)
           .where(
@@ -388,12 +403,24 @@ export function createArchivalService(database: PGlite | Sql): ArchivalService {
           .orderBy(desc(articles.archivedAt))
           .limit(limit);
         rows.push(
-          ...found.map((row) => ({
-            type: "article" as const,
-            ...row,
-            archivedAt: row.archivedAt!,
-            deletable: row.archivedAt!.getTime() <= now - retentionDays * dayMs,
-          })),
+          ...found.map((row) => {
+            const neverPublished = row.publishedAt === null;
+            const retentionElapsed =
+              row.archivedAt!.getTime() <= now - retentionDays * dayMs;
+            return {
+              type: "article" as const,
+              id: row.id,
+              stableId: row.stableId,
+              title: row.title,
+              archivedAt: row.archivedAt!,
+              deletable: neverPublished || retentionElapsed,
+              purgeReason: neverPublished
+                ? ("never-published-draft" as const)
+                : retentionElapsed
+                  ? ("retention-elapsed" as const)
+                  : null,
+            };
+          }),
         );
       }
       if (requested.has("template")) {
@@ -419,6 +446,10 @@ export function createArchivalService(database: PGlite | Sql): ArchivalService {
             ...row,
             archivedAt: row.archivedAt!,
             deletable: row.archivedAt!.getTime() <= now - retentionDays * dayMs,
+            purgeReason:
+              row.archivedAt!.getTime() <= now - retentionDays * dayMs
+                ? ("retention-elapsed" as const)
+                : null,
           })),
         );
       }
@@ -440,6 +471,7 @@ export function createArchivalService(database: PGlite | Sql): ArchivalService {
             ...row,
             archivedAt: row.archivedAt!,
             deletable: row.archivedAt!.getTime() <= now - retentionDays * dayMs,
+            purgeReason: null,
           })),
         );
       }
@@ -461,6 +493,7 @@ export function createArchivalService(database: PGlite | Sql): ArchivalService {
             ...row,
             archivedAt: row.archivedAt!,
             deletable: row.archivedAt!.getTime() <= now - retentionDays * dayMs,
+            purgeReason: null,
           })),
         );
       }
@@ -482,6 +515,7 @@ export function createArchivalService(database: PGlite | Sql): ArchivalService {
             ...row,
             archivedAt: row.archivedAt!,
             deletable: row.archivedAt!.getTime() <= now - retentionDays * dayMs,
+            purgeReason: null,
           })),
         );
       }
@@ -490,22 +524,37 @@ export function createArchivalService(database: PGlite | Sql): ArchivalService {
         .slice(0, limit);
     },
 
-    async permanentlyDelete(actorId, target, instant = new Date()) {
+    async permanentlyDelete(actorId, target, { reason, instant = new Date() }) {
+      const reasonText = reason.trim();
+      if (reasonText.length === 0) {
+        throw new Error("永久删除必须填写原因。");
+      }
       await requireRestorer(actorId);
       if (target.type === "article") {
         const article = (
           await client
-            .select({ id: articles.id, archivedAt: articles.archivedAt })
+            .select({
+              id: articles.id,
+              archivedAt: articles.archivedAt,
+              publishedAt: articles.publishedAt,
+            })
             .from(articles)
             .where(eq(articles.stableId, target.stableId))
             .limit(1)
         )[0];
         if (!article) throw new Error("Article not found.");
-        if (
-          !article.archivedAt ||
-          article.archivedAt.getTime() > afterRetention(instant).getTime()
-        ) {
-          throw new Error("回收站保留 30 天，期间不能永久删除。");
+        if (!article.archivedAt) {
+          throw new Error("文章尚未归档，不能永久删除。");
+        }
+        // 从未发布过的草稿不是对外内容，管理员可立即清理；
+        // 已发布过的内容仍按 DEL-02 保留 30 天，避免读者侧内容被误删。
+        const neverPublished = article.publishedAt === null;
+        const retentionElapsed =
+          article.archivedAt.getTime() <= afterRetention(instant).getTime();
+        if (!neverPublished && !retentionElapsed) {
+          throw new Error(
+            "回收站保留 30 天，期间不能永久删除；只有从未发布过的草稿可以立即删除。",
+          );
         }
         await client.transaction(async (transaction) => {
           await transaction
@@ -531,7 +580,12 @@ export function createArchivalService(database: PGlite | Sql): ArchivalService {
           "recycle.permanent-delete",
           "article",
           article.id,
-          "保留期届满",
+          reasonText,
+          {
+            rule: neverPublished
+              ? "never-published-draft"
+              : "retention-elapsed",
+          },
         );
         return;
       }
@@ -572,7 +626,8 @@ export function createArchivalService(database: PGlite | Sql): ArchivalService {
           "recycle.permanent-delete",
           "template",
           template.id,
-          "保留期届满",
+          reasonText,
+          { rule: "retention-elapsed" },
         );
         return;
       }

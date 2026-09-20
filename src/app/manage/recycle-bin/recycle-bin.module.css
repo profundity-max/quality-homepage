@@ -31,6 +31,13 @@
   color: var(--color-link);
 }
 
+.error {
+  padding: 10px 14px;
+  border: 1px solid var(--color-warning);
+  border-radius: 10px;
+  color: var(--color-warning);
+}
+
 .tabs {
   display: flex;
   flex-wrap: wrap;
@@ -121,4 +128,15 @@
 .hint {
   color: var(--color-text-muted);
   font-size: 0.85rem;
+}
+
+.purgeForm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.purgeForm input {
+  min-width: 200px;
 }

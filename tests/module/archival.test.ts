@@ -243,7 +243,7 @@ describe("archival service", () => {
           type: "article",
           stableId: "anova-intro",
         },
-        NOW,
+        { reason: "保留期未满的尝试", instant: NOW },
       ),
     ).rejects.toThrow(/30 天/);
 
@@ -275,7 +275,7 @@ describe("archival service", () => {
         type: "article",
         stableId: "anova-intro",
       },
-      NOW,
+      { reason: "保留期届满清理", instant: NOW },
     );
     const article = (
       await createDatabaseClient(database)
@@ -284,6 +284,98 @@ describe("archival service", () => {
         .where(eq(articles.stableId, "anova-intro"))
     )[0];
     expect(article).toBeUndefined();
+  });
+
+  test("administrators can immediately purge a never-published draft, but published content keeps the 30-day rule (DEL-02)", async () => {
+    const client = createDatabaseClient(database);
+    const draftId = "00000000-0000-4000-8000-0000000000d9";
+    await client.insert(articles).values({
+      id: draftId,
+      stableId: "zz-test-draft",
+      title: "测试草稿",
+      summary: "从未发布过",
+      bodyMarkdown: "草稿正文",
+      primaryTopicId: "00000000-0000-4000-8000-000000000c04",
+      tags: [],
+      contentOwnerId: EDITOR_ID,
+      status: "draft",
+      publishedAt: null,
+      updatedAt: NOW,
+      createdAt: NOW,
+    });
+    await service().archive(
+      EDITOR_ID,
+      { type: "article", stableId: "zz-test-draft" },
+      "测试内容，不再需要",
+      NOW,
+    );
+
+    // 回收站告诉管理员：这条可以立刻永久删除，且给出原因类型
+    const trashedDraft = (
+      await service().listTrashed(ADMIN_ID, {
+        types: ["article"],
+        instant: NOW,
+      })
+    ).find((item) => item.stableId === "zz-test-draft");
+    expect(trashedDraft?.deletable).toBe(true);
+    expect(trashedDraft?.purgeReason).toBe("never-published-draft");
+
+    // 永久删除必须填写原因（AUDIT-02）
+    await expect(
+      service().permanentlyDelete(
+        ADMIN_ID,
+        { type: "article", stableId: "zz-test-draft" },
+        { reason: "   ", instant: NOW },
+      ),
+    ).rejects.toThrow(/原因/);
+
+    await service().permanentlyDelete(
+      ADMIN_ID,
+      { type: "article", stableId: "zz-test-draft" },
+      { reason: "测试内容清理", instant: NOW },
+    );
+    expect(
+      (
+        await client
+          .select()
+          .from(articles)
+          .where(eq(articles.stableId, "zz-test-draft"))
+      )[0],
+    ).toBeUndefined();
+
+    // 审计留痕：原因 + 触发的规则
+    const purgeAudit = (await client.select().from(contentAuditEvents)).find(
+      (event) =>
+        event.eventType === "recycle.permanent-delete" &&
+        event.targetId === draftId,
+    );
+    expect(purgeAudit?.reason).toBe("测试内容清理");
+    expect(purgeAudit?.metadata).toMatchObject({
+      rule: "never-published-draft",
+    });
+
+    // 已发布过的内容：即使刚归档也不能立即删除
+    await service().archive(
+      ADMIN_ID,
+      { type: "article", stableId: "anova-intro" },
+      "测试",
+      NOW,
+    );
+    const trashedPublished = (
+      await service().listTrashed(ADMIN_ID, {
+        types: ["article"],
+        instant: NOW,
+      })
+    ).find((item) => item.stableId === "anova-intro");
+    expect(trashedPublished?.deletable).toBe(false);
+    expect(trashedPublished?.purgeReason).toBeNull();
+    await expect(
+      service().permanentlyDelete(
+        ADMIN_ID,
+        { type: "article", stableId: "anova-intro" },
+        { reason: "想马上删", instant: NOW },
+      ),
+    ).rejects.toThrow(/30 天/);
   });
 
   test("only articles and templates can be permanently deleted (IA-07)", async () => {
@@ -300,7 +392,7 @@ describe("archival service", () => {
           type: "topic",
           stableId: "msa",
         },
-        NOW,
+        { reason: "不支持的类型", instant: NOW },
       ),
     ).rejects.toThrow(/不支持永久删除/);
   });
