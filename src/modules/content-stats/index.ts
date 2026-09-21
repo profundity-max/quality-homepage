@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { PGlite } from "@electric-sql/pglite";
-import { and, desc, eq, gte, or, sql } from "drizzle-orm";
+import { and, desc, eq, gte, lt, or, sql } from "drizzle-orm";
 import type { Sql } from "postgres";
 
 import { createDatabaseClient } from "@/db/client";
@@ -183,9 +183,10 @@ export function createContentStatsService(
               eq(articleReadEvents.userId, userId),
               eq(articleReadEvents.articleId, articleId),
               gte(articleReadEvents.readAt, dayStart),
-              sql`${articleReadEvents.readAt} < ${new Date(
-                dayStart.getTime() + dayMs,
-              )}`,
+              lt(
+                articleReadEvents.readAt,
+                new Date(dayStart.getTime() + dayMs),
+              ),
             ),
           )
           .limit(1);
@@ -318,35 +319,47 @@ export function createContentStatsService(
           .select({
             stableId: articles.stableId,
             title: articles.title,
-            recentReads: sql<number>`count(*) filter (where ${articleReadEvents.readAt} >= ${new Date(
-              now.getTime() - 7 * dayMs,
+            recentReads: sql<number>`count(*) filter (where ${gte(
+              articleReadEvents.readAt,
+              new Date(now.getTime() - 7 * dayMs),
             )})`,
-            previousReads: sql<number>`count(*) filter (where ${articleReadEvents.readAt} >= ${new Date(
-              now.getTime() - 14 * dayMs,
-            )} and ${articleReadEvents.readAt} < ${new Date(
-              now.getTime() - 7 * dayMs,
+            previousReads: sql<number>`count(*) filter (where ${and(
+              gte(
+                articleReadEvents.readAt,
+                new Date(now.getTime() - 14 * dayMs),
+              ),
+              lt(articleReadEvents.readAt, new Date(now.getTime() - 7 * dayMs)),
             )})`,
           })
           .from(articleReadEvents)
           .innerJoin(articles, eq(articleReadEvents.articleId, articles.id))
           .groupBy(articles.id)
           .having(
-            sql`count(*) filter (where ${articleReadEvents.readAt} >= ${new Date(
-              now.getTime() - 7 * dayMs,
-            )}) > 0 and count(*) filter (where ${articleReadEvents.readAt} >= ${new Date(
-              now.getTime() - 14 * dayMs,
-            )} and ${articleReadEvents.readAt} < ${new Date(
-              now.getTime() - 7 * dayMs,
+            sql`count(*) filter (where ${gte(
+              articleReadEvents.readAt,
+              new Date(now.getTime() - 7 * dayMs),
+            )}) > 0 and count(*) filter (where ${and(
+              gte(
+                articleReadEvents.readAt,
+                new Date(now.getTime() - 14 * dayMs),
+              ),
+              lt(articleReadEvents.readAt, new Date(now.getTime() - 7 * dayMs)),
             )}) > 0`,
           )
           .orderBy(
             desc(
-              sql`count(*) filter (where ${articleReadEvents.readAt} >= ${new Date(
-                now.getTime() - 7 * dayMs,
-              )}) - count(*) filter (where ${articleReadEvents.readAt} >= ${new Date(
-                now.getTime() - 14 * dayMs,
-              )} and ${articleReadEvents.readAt} < ${new Date(
-                now.getTime() - 7 * dayMs,
+              sql`count(*) filter (where ${gte(
+                articleReadEvents.readAt,
+                new Date(now.getTime() - 7 * dayMs),
+              )}) - count(*) filter (where ${and(
+                gte(
+                  articleReadEvents.readAt,
+                  new Date(now.getTime() - 14 * dayMs),
+                ),
+                lt(
+                  articleReadEvents.readAt,
+                  new Date(now.getTime() - 7 * dayMs),
+                ),
               )})`,
             ),
           )
@@ -361,15 +374,13 @@ export function createContentStatsService(
           .where(
             and(
               visibleArticleCondition!,
-              sql`${articles.publishedAt} < ${new Date(
-                now.getTime() - 90 * dayMs,
-              )}`,
+              lt(articles.publishedAt, new Date(now.getTime() - 90 * dayMs)),
               sql`not exists (
                   select 1 from article_read_events unread_event
                   where unread_event.article_id = ${articles.id}
                     and unread_event.read_at >= ${new Date(
                       now.getTime() - 90 * dayMs,
-                    )}
+                    ).toISOString()}
                 )`,
             ),
           )
@@ -501,15 +512,15 @@ export function createContentStatsService(
       await client.transaction(async (transaction) => {
         const readDeleted = await transaction
           .delete(articleReadEvents)
-          .where(sql`${articleReadEvents.readAt} < ${before}`)
+          .where(lt(articleReadEvents.readAt, before))
           .returning({ id: articleReadEvents.id });
         const searchDeleted = await transaction
           .delete(searchEvents)
-          .where(sql`${searchEvents.createdAt} < ${before}`)
+          .where(lt(searchEvents.createdAt, before))
           .returning({ id: searchEvents.id });
         const downloadDeleted = await transaction
           .delete(templateDownloadEvents)
-          .where(sql`${templateDownloadEvents.downloadedAt} < ${before}`)
+          .where(lt(templateDownloadEvents.downloadedAt, before))
           .returning({ id: templateDownloadEvents.id });
 
         purgedReadEvents = readDeleted.length;
