@@ -53,16 +53,35 @@ test("toolbar command wraps selection and command menu opens", async ({
   await expect(source).toHaveValue("> [!warning] **测试文本**");
 });
 
-test("editor outline and properties panels open", async ({ page }) => {
+test("editor outline opens on demand and properties are visible by default", async ({
+  page,
+}) => {
   await loginAsEditor(page);
   await page.goto("/manage/articles/edit-fixture/edit");
+
+  // 属性面板默认展开：不需要先点「属性」
+  await expect(page.getByLabel("文章属性")).toContainText("标题");
+  await expect(page.getByLabel("文章属性")).toContainText("下次复核日期");
 
   await page.getByRole("button", { name: "大纲" }).click();
   await expect(page.getByLabel("文章大纲")).toContainText("编辑测试正文");
 
+  // 预览与阅读页共用正文排版：callout / 代码块必须有样式
+  await page.getByRole("tab", { name: "分栏" }).click();
+  const previewCallout = page.locator('[aria-label="预览"] .callout');
+  await expect(previewCallout.first()).toHaveCSS("padding-left", "16px");
+  expect(
+    await previewCallout
+      .first()
+      .locator(".callout-icon")
+      .evaluate((element) => getComputedStyle(element, "::before").content),
+  ).toContain("重点");
+
+  // 还可以主动收起，再点「属性」重新展开
+  await page.getByRole("button", { name: "收起", exact: true }).click();
+  await expect(page.getByLabel("文章属性")).toHaveCount(0);
   await page.getByRole("button", { name: "属性" }).click();
   await expect(page.getByLabel("文章属性")).toContainText("标题");
-  await expect(page.getByLabel("文章属性")).toContainText("下次复核日期");
 });
 
 test("editor works at 390px", async ({ page }) => {

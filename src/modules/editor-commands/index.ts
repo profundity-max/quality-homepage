@@ -8,6 +8,7 @@ export type FormatCommand =
   | "quote"
   | "code"
   | "table"
+  | "code-block"
   | "link"
   | "image"
   | "callout-info"
@@ -72,6 +73,8 @@ export function applyFormatting(
   switch (command) {
     case "table":
       return insertTable(source, start, end);
+    case "code-block":
+      return insertCodeBlock(source, start, end);
     case "link":
       return wrapInline(source, start, end, `[`, `](https://)`);
     case "image": {
@@ -195,4 +198,25 @@ function insertTable(source: string, start: number, end: number): FormatResult {
   const table = "| 列1 | 列2 |\n| --- | --- |\n| 值1 | 值2 |";
   const text = source.slice(0, start) + table + source.slice(end);
   return { text, selectionStart: start, selectionEnd: start + table.length };
+}
+
+function insertCodeBlock(
+  source: string,
+  start: number,
+  end: number,
+): FormatResult {
+  const selected = source.slice(start, end) || "代码";
+  const block = `\`\`\`\n${selected}\n\`\`\``;
+  const needsLeadingBreak = start > 0 && source[start - 1] !== "\n";
+  const text =
+    source.slice(0, start) +
+    (needsLeadingBreak ? "\n" : "") +
+    block +
+    source.slice(end);
+  const codeStart = start + (needsLeadingBreak ? 1 : 0) + 4;
+  return {
+    text,
+    selectionStart: codeStart,
+    selectionEnd: codeStart + selected.length,
+  };
 }

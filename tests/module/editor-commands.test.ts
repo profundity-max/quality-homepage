@@ -63,6 +63,20 @@ describe("editor formatting commands", () => {
     expect(result.text).toContain("| --- | --- |");
   });
 
+  test("inserts a fenced code block around the selection", () => {
+    const wrapped = applyFormatting(
+      "const a = 1;",
+      { start: 0, end: 12 },
+      "code-block",
+    );
+    expect(wrapped.text).toBe("```\nconst a = 1;\n```");
+
+    const empty = applyFormatting("", { start: 0, end: 0 }, "code-block");
+    expect(empty.text).toBe("```\n代码\n```");
+    expect(empty.text.startsWith("```")).toBe(true);
+    expect(empty.text.trimEnd().endsWith("```")).toBe(true);
+  });
+
   test("unknown commands leave text unchanged", () => {
     const result = applyFormatting(
       "unchanged",

@@ -48,6 +48,15 @@ test("article page renders all section-8 elements in order", async ({
   await expect(toc.getByRole("link", { name: "什么是 ANOVA" })).toBeVisible();
   await expect(page.locator("article h2")).toContainText("什么是 ANOVA");
   await expect(page.locator("article .callout-important")).toBeVisible();
+  // Callout 必须真的被样式命中（CSS Modules 与渲染产物类名对不上时会退化成普通段落）
+  const callout = page.locator("article .callout-important");
+  await expect(callout).toHaveCSS("padding-left", "16px");
+  await expect(callout).toHaveCSS("border-left-width", "3px");
+  expect(
+    await page
+      .locator("article .callout-important .callout-icon")
+      .evaluate((element) => getComputedStyle(element, "::before").content),
+  ).toContain("重点");
 
   // 标签与相关文章
   await expect(page.getByLabel("标签")).toContainText("统计");

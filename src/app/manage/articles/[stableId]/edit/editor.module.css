@@ -135,17 +135,6 @@
 
 .preview {
   max-width: 76ch;
-  font-size: 1rem;
-  line-height: 1.85;
-}
-
-.preview h2 {
-  font-size: 1.5rem;
-  margin: 1.8em 0 0.8em;
-}
-
-.preview p {
-  margin: 0 0 1.2em;
 }
 
 .outline,
@@ -162,6 +151,18 @@
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--color-text-secondary);
+}
+
+.propertiesHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 12px;
+}
+
+.propertiesHeader h2 {
+  margin: 0;
 }
 
 .outline ul {

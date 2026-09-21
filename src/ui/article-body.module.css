@@ -1,4 +1,7 @@
 /* 正文排版（Markdown → 安全 HTML）：阅读页与主题页内联阅读共用同一套样式。 */
+/* 渲染产物自带的类名（callout / katex）来自 Markdown 渲染器，
+   不是本文件里的局部类名，必须用 :global() 包裹，否则会被 CSS Modules
+   哈希成另一个名字而永远匹配不上。 */
 .body {
   font-size: 1rem;
   line-height: 1.85;
@@ -44,7 +47,7 @@
   color: var(--color-text-secondary);
 }
 
-.body .katex-display {
+.body :global(.katex-display) {
   display: block;
   margin: 0 0 1.2em;
   overflow-x: auto;
@@ -98,7 +101,7 @@
 }
 
 /* Callout 结构（视觉规范 §9） */
-.body .callout {
+.body :global(.callout) {
   margin: 0 0 1.2em;
   padding: 14px 16px;
   border-radius: 8px;
@@ -106,54 +109,54 @@
   background: var(--color-surface, rgba(0, 0, 0, 0.03));
 }
 
-.body .callout-title {
+.body :global(.callout-title) {
   font-weight: 600;
   margin-bottom: 6px;
 }
 
-.body .callout-icon {
+.body :global(.callout-icon) {
   display: inline-block;
   font-size: 0.8125rem;
   font-weight: 600;
   margin-right: 8px;
 }
 
-.body .callout-info .callout-icon::before {
+.body :global(.callout-info) :global(.callout-icon)::before {
   content: "信息";
 }
 
-.body .callout-tip .callout-icon::before {
+.body :global(.callout-tip) :global(.callout-icon)::before {
   content: "提示";
 }
 
-.body .callout-important .callout-icon::before {
+.body :global(.callout-important) :global(.callout-icon)::before {
   content: "重点";
 }
 
-.body .callout-warning .callout-icon::before {
+.body :global(.callout-warning) :global(.callout-icon)::before {
   content: "警告";
 }
 
-.body .callout-example .callout-icon::before {
+.body :global(.callout-example) :global(.callout-icon)::before {
   content: "示例";
 }
 
-.body .callout-formula .callout-icon::before {
+.body :global(.callout-formula) :global(.callout-icon)::before {
   content: "公式";
 }
 
-.body .callout-title {
+.body :global(.callout-title) {
   display: inline;
 }
 
-.body .callout-body {
+.body :global(.callout-body) {
   display: inline;
 }
 
-.body .callout.callout-important {
+.body :global(.callout.callout-important) {
   border-left: 3px solid #0096ff;
 }
 
-.body .callout.callout-warning {
+.body :global(.callout.callout-warning) {
   border-left: 3px solid var(--color-warning);
 }

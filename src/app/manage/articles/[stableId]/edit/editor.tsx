@@ -11,7 +11,7 @@ import {
 } from "@/modules/shared/markdown-renderer";
 import type { TocEntry } from "@/modules/shared/markdown-renderer";
 
-import { MermaidRenderer } from "../../../../mermaid-renderer";
+import { ArticleBody } from "@/ui/article-body";
 import {
   autosaveDraftAction,
   takeOverEditLockAction,
@@ -37,6 +37,7 @@ const menuCommands: { label: string; command: FormatCommand }[] = [
   { label: "三级标题", command: "h3" },
   { label: "有序列表", command: "ordered-list" },
   { label: "图片", command: "image" },
+  { label: "代码块", command: "code-block" },
   { label: "信息 Callout", command: "callout-info" },
   { label: "提示 Callout", command: "callout-tip" },
   { label: "重点 Callout", command: "callout-important" },
@@ -70,7 +71,8 @@ export function Editor({
   const [summary, setSummary] = useState(article.summary);
   const [isCaseArticle, setIsCaseArticle] = useState(article.isCaseArticle);
   const [showOutline, setShowOutline] = useState(false);
-  const [showProperties, setShowProperties] = useState(false);
+  // 属性面板默认展开（用户要求：进来就能看到并编辑标题/摘要/主题等）
+  const [showProperties, setShowProperties] = useState(true);
   const [showMenu, setShowMenu] = useState(false);
   const [showLinks, setShowLinks] = useState(false);
   const [previewHtml, setPreviewHtml] = useState<string>("");
@@ -388,7 +390,7 @@ export function Editor({
           </button>
           <button
             className={styles.toolButton}
-            onClick={() => setShowProperties((v) => !v)}
+            onClick={() => setShowProperties(true)}
             type="button"
           >
             属性
@@ -459,7 +461,8 @@ export function Editor({
         {(mode === "preview" || mode === "split") && (
           <div className={styles.previewArea} aria-label="预览">
             <div className={styles.preview}>
-              <MermaidRenderer key={previewHtml} html={previewHtml} />
+              {/* 预览与阅读页共用同一套正文排版（含 callout / 代码块 / 公式） */}
+              <ArticleBody key={previewHtml} html={previewHtml} />
             </div>
           </div>
         )}
@@ -480,7 +483,16 @@ export function Editor({
         )}
         {showProperties && (
           <aside className={styles.properties} aria-label="文章属性">
-            <h2>属性</h2>
+            <div className={styles.propertiesHeader}>
+              <h2>属性</h2>
+              <button
+                className={styles.toolButton}
+                onClick={() => setShowProperties(false)}
+                type="button"
+              >
+                收起
+              </button>
+            </div>
             <form action={publishAction} className={styles.propertyForm}>
               {fromOnboarding && (
                 <input type="hidden" name="from" value="onboarding" />
