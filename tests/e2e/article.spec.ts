@@ -61,6 +61,14 @@ test("article page renders all section-8 elements in order", async ({
   // 方案 2：淡底 + 细描边（类型之间靠低饱和强调色区分）
   await expect(callout).toHaveCSS("background-color", "rgb(245, 248, 252)");
   await expect(callout).toHaveCSS("border-top-width", "1px");
+  // Callout 整体默认加粗（标题与正文都比普通段落更醒目）
+  await expect(callout).toHaveCSS("font-weight", "700");
+  expect(
+    await callout
+      .locator(".callout-body p")
+      .first()
+      .evaluate((element) => getComputedStyle(element).fontWeight),
+  ).toBe("700");
   const calloutLabel = callout.locator(".callout-icon");
   await expect(calloutLabel).toHaveText("重点");
   expect(

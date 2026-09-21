@@ -113,12 +113,13 @@
   border-left: 4px solid var(--callout-accent);
   border-radius: 0 8px 8px 0;
   background: var(--callout-tint);
+  /* Callout 整体默认加粗：标题与正文都比普通段落更醒目 */
+  font-weight: 700;
 }
 
 .body :global(.callout-title) {
   display: block;
   color: var(--callout-accent);
-  font-weight: 600;
 }
 
 .body :global(.callout-body) {
