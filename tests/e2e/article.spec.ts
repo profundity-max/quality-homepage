@@ -51,12 +51,20 @@ test("article page renders all section-8 elements in order", async ({
   // Callout 必须真的被样式命中（CSS Modules 与渲染产物类名对不上时会退化成普通段落）
   const callout = page.locator("article .callout-important");
   await expect(callout).toHaveCSS("padding-left", "16px");
-  await expect(callout).toHaveCSS("border-left-width", "3px");
+  await expect(callout).toHaveCSS("border-left-width", "4px");
+  // 方案 A：标题用类型色，类型名只留给读屏（视觉上裁掉）
   expect(
-    await page
-      .locator("article .callout-important .callout-icon")
-      .evaluate((element) => getComputedStyle(element, "::before").content),
-  ).toContain("重点");
+    await callout
+      .locator(".callout-title")
+      .evaluate((element) => getComputedStyle(element).color),
+  ).toBe("rgb(0, 116, 200)");
+  const calloutLabel = callout.locator(".callout-icon");
+  await expect(calloutLabel).toHaveText("重点");
+  expect(
+    await calloutLabel.evaluate(
+      (element) => getComputedStyle(element).clipPath,
+    ),
+  ).not.toBe("none");
 
   // 标签与相关文章
   await expect(page.getByLabel("标签")).toContainText("统计");

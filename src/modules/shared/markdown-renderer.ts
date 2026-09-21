@@ -18,6 +18,16 @@ type CalloutType =
   | "example"
   | "formula";
 
+// 类型名只在无障碍层出现（视觉上由色条/底色/标题色区分，见视觉规范 §9）
+const calloutTypeLabels: Record<CalloutType, string> = {
+  info: "信息",
+  tip: "提示",
+  important: "重点",
+  warning: "警告",
+  example: "示例",
+  formula: "公式",
+};
+
 export type TocEntry = {
   id: string;
   depth: number;
@@ -103,8 +113,8 @@ function annotateCallouts() {
       const iconNode: Element = {
         type: "element",
         tagName: "span",
-        properties: { className: ["callout-icon"], ariaHidden: "true" },
-        children: [],
+        properties: { className: ["callout-icon"] },
+        children: [{ type: "text", value: calloutTypeLabels[type] }],
       };
 
       const titleNode: Element | undefined = title

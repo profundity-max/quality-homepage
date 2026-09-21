@@ -11,6 +11,19 @@
   --color-accent-foreground: #1d1d1f;
   --color-link: #006bb8;
   --color-warning: #a85d1d;
+  /* Callout 六种类型的强调色与底色（方案 A：左侧色条 + 极淡同色底） */
+  --callout-info: #64748b;
+  --callout-info-surface: #f4f6f8;
+  --callout-tip: #15803d;
+  --callout-tip-surface: #f1fbf4;
+  --callout-important: #0074c8;
+  --callout-important-surface: #eff7ff;
+  --callout-warning: #b45309;
+  --callout-warning-surface: #fdf6ec;
+  --callout-example: #6d28d9;
+  --callout-example-surface: #f7f5ff;
+  --callout-formula: #0f766e;
+  --callout-formula-surface: #effbf9;
   color-scheme: light;
 }
 
@@ -27,6 +40,18 @@
     --color-accent-foreground: #1c1c1e;
     --color-link: #70c2ff;
     --color-warning: #e6a062;
+    --callout-info: #94a3b8;
+    --callout-info-surface: #262b33;
+    --callout-tip: #4ade80;
+    --callout-tip-surface: #1b2a20;
+    --callout-important: #4cb8ff;
+    --callout-important-surface: #17272f;
+    --callout-warning: #fbbf24;
+    --callout-warning-surface: #2b2418;
+    --callout-example: #c4b5fd;
+    --callout-example-surface: #241f31;
+    --callout-formula: #5eead4;
+    --callout-formula-surface: #162b29;
     color-scheme: dark;
   }
 }
@@ -43,5 +68,17 @@
   --color-accent-foreground: #1c1c1e;
   --color-link: #70c2ff;
   --color-warning: #e6a062;
+  --callout-info: #94a3b8;
+  --callout-info-surface: #262b33;
+  --callout-tip: #4ade80;
+  --callout-tip-surface: #1b2a20;
+  --callout-important: #4cb8ff;
+  --callout-important-surface: #17272f;
+  --callout-warning: #fbbf24;
+  --callout-warning-surface: #2b2418;
+  --callout-example: #c4b5fd;
+  --callout-example-surface: #241f31;
+  --callout-formula: #5eead4;
+  --callout-formula-surface: #162b29;
   color-scheme: dark;
 }

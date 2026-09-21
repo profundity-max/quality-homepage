@@ -70,12 +70,10 @@ test("editor outline opens on demand and properties are visible by default", asy
   await page.getByRole("tab", { name: "分栏" }).click();
   const previewCallout = page.locator('[aria-label="预览"] .callout');
   await expect(previewCallout.first()).toHaveCSS("padding-left", "16px");
-  expect(
-    await previewCallout
-      .first()
-      .locator(".callout-icon")
-      .evaluate((element) => getComputedStyle(element, "::before").content),
-  ).toContain("重点");
+  await expect(previewCallout.first()).toHaveCSS("border-left-width", "4px");
+  await expect(previewCallout.first().locator(".callout-icon")).toHaveText(
+    "重点",
+  );
 
   // 还可以主动收起，再点「属性」重新展开
   await page.getByRole("button", { name: "收起", exact: true }).click();
