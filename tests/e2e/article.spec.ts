@@ -57,7 +57,10 @@ test("article page renders all section-8 elements in order", async ({
     await callout
       .locator(".callout-title")
       .evaluate((element) => getComputedStyle(element).color),
-  ).toBe("rgb(0, 116, 200)");
+  ).toBe("rgb(47, 111, 186)");
+  // 方案 2：淡底 + 细描边（类型之间靠低饱和强调色区分）
+  await expect(callout).toHaveCSS("background-color", "rgb(245, 248, 252)");
+  await expect(callout).toHaveCSS("border-top-width", "1px");
   const calloutLabel = callout.locator(".callout-icon");
   await expect(calloutLabel).toHaveText("重点");
   expect(

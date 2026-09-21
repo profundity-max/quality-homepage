@@ -100,15 +100,18 @@
   font-weight: 600;
 }
 
-/* Callout（视觉规范 §9，方案 A）：左侧色条 + 极淡同色底 + 标题同色。
-   类型名不再作为可见文字标签，只保留给屏幕阅读器。 */
+/* Callout（视觉规范 §9，方案 2）：左侧 4px 色条 + 5% 同色底 + 细描边 + 同色标题。
+   六种类型用低饱和、同明度的强调色区分；类型名不再作为可见文字标签，
+   只保留给屏幕阅读器。 */
 .body :global(.callout) {
   --callout-accent: var(--callout-info);
   --callout-tint: var(--callout-info-surface);
+  --callout-edge: var(--callout-info-border);
   margin: 0 0 1.2em;
   padding: 14px 16px;
+  border: 1px solid var(--callout-edge);
   border-left: 4px solid var(--callout-accent);
-  border-radius: 6px;
+  border-radius: 0 8px 8px 0;
   background: var(--callout-tint);
 }
 
@@ -139,29 +142,35 @@
 .body :global(.callout-info) {
   --callout-accent: var(--callout-info);
   --callout-tint: var(--callout-info-surface);
+  --callout-edge: var(--callout-info-border);
 }
 
 .body :global(.callout-tip) {
   --callout-accent: var(--callout-tip);
   --callout-tint: var(--callout-tip-surface);
+  --callout-edge: var(--callout-tip-border);
 }
 
 .body :global(.callout-important) {
   --callout-accent: var(--callout-important);
   --callout-tint: var(--callout-important-surface);
+  --callout-edge: var(--callout-important-border);
 }
 
 .body :global(.callout-warning) {
   --callout-accent: var(--callout-warning);
   --callout-tint: var(--callout-warning-surface);
+  --callout-edge: var(--callout-warning-border);
 }
 
 .body :global(.callout-example) {
   --callout-accent: var(--callout-example);
   --callout-tint: var(--callout-example-surface);
+  --callout-edge: var(--callout-example-border);
 }
 
 .body :global(.callout-formula) {
   --callout-accent: var(--callout-formula);
   --callout-tint: var(--callout-formula-surface);
+  --callout-edge: var(--callout-formula-border);
 }
