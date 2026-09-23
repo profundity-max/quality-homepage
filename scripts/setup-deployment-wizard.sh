@@ -329,6 +329,7 @@ admin_id=$(docker compose exec -T db psql -U q_nexus -d q_nexus -tAc \
 if [[ -n "$admin_id" ]]; then
   note "  管理员用户 ID = $admin_id"
   write_env BACKUP_ADMIN_USER_ID "$admin_id"
+  BACKUP_ADMIN_USER_ID="$admin_id"
 else
   warn "未查到管理员 ID，稍后可在数据库查询后补写 BACKUP_ADMIN_USER_ID。"
 fi
@@ -338,12 +339,12 @@ docker compose --profile operations run --rm backup manual "${BACKUP_ADMIN_USER_
 backup_id=$(docker compose exec -T db psql -U q_nexus -d q_nexus -tAc \
   "select id from backups order by started_at desc limit 1" | tr -d '[:space:]' || true)
 if [[ -n "$backup_id" ]]; then
-  say "执行恢复演练 dry-run（解包到容器内 /tmp/q-nexus-restore-check）："
+  say "执行隔离数据库恢复演练（自动创建、核对并删除临时数据库）："
   docker compose --profile operations run --rm \
     --entrypoint "npx tsx scripts/restore.ts" \
-    backup "$backup_id" --apply /tmp/q-nexus-restore-check || warn "恢复演练失败，请查看上方错误"
+    backup "$backup_id" --drill || warn "恢复演练失败，请查看上方错误"
 else
-  warn "未找到备份记录，跳过 dry-run。"
+  warn "未找到备份记录，跳过恢复演练。"
 fi
 pause "确认备份与恢复演练结果后继续"
 

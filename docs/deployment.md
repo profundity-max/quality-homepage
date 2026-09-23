@@ -17,7 +17,7 @@ curl -i http://127.0.0.1:8080/api/health/ready
 docker compose --profile operations run --rm bootstrap --username admin
 ```
 
-`bootstrap` 服务不发布端口，仅连接 `application` 内部网络；首位管理员已存在时命令会拒绝再次初始化。生产 Compose 不发布数据库端口。备份前应暂停写入或使用 PostgreSQL 一致性备份工具；恢复演练必须在隔离数据库完成。
+`bootstrap` 服务不发布端口，仅连接 `application` 内部网络；首位管理员已存在时命令会拒绝再次初始化。生产 Compose 不发布数据库端口。部署前必须在 `.env` 配置 `BACKUP_PASSPHRASE` 和宿主机 `BACKUP_TARGET_DIR`；Compose 会初始化备份目录权限，并让 Web 与运维备份容器共用该目录。备份包同时包含非空 PostgreSQL 转储和受控上传文件，缺失数据库转储时直接失败。恢复演练使用 `scripts/restore.ts <备份ID> --drill` 创建隔离临时数据库，核对核心表后自动删除，不覆盖生产库。详细步骤见 [运维手册](operations/ops-runbook.md)。
 
 如需明确允许局域网访问，维护人员必须设置具体主机地址，例如 `Q_NEXUS_BIND_ADDRESS=192.0.2.10`。不要使用 `0.0.0.0` 作为默认值。仅当反向代理前端已由维护人员配置 HTTPS 时设置 `Q_NEXUS_HTTPS=1`。
 

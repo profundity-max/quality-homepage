@@ -53,7 +53,11 @@ export type BackupService = {
     requestingUserId: string,
     backupId: string,
     context: Pick<BackupContext, "passphrase" | "targetDirectory">,
-  ): Promise<{ checksumOk: boolean; entries: string[] }>;
+  ): Promise<{
+    checksumOk: boolean;
+    entries: string[];
+    entrySizes: Record<string, number>;
+  }>;
 };
 
 export type BackupContext = {
@@ -176,13 +180,18 @@ export function createBackupService(database: PGlite | Sql): BackupService {
       });
 
       try {
-        const files = await collectDataDirectory(context.dataDirectory);
-        if (context.dumpDatabase) {
-          files.push({
-            path: "database.dump",
-            content: await context.dumpDatabase(),
-          });
+        if (!context.dumpDatabase) {
+          throw new Error("数据库转储未配置，不能创建完整备份。");
         }
+        const files = await collectDataDirectory(context.dataDirectory);
+        const databaseDump = await context.dumpDatabase();
+        if (databaseDump.byteLength === 0) {
+          throw new Error("数据库转储为空，不能创建完整备份。");
+        }
+        files.push({
+          path: "database.dump",
+          content: databaseDump,
+        });
         const archive = zipFiles(files);
         const encrypted = encryptBuffer(archive, context.passphrase);
         const checksum = createHash("sha256").update(encrypted).digest("hex");
@@ -261,10 +270,21 @@ export function createBackupService(database: PGlite | Sql): BackupService {
       const checksum = createHash("sha256").update(payload).digest("hex");
       const checksumOk = checksum === record.checksum;
       if (!checksumOk) {
-        return { checksumOk: false, entries: [] };
+        return { checksumOk: false, entries: [], entrySizes: {} };
       }
-      const archive = decryptBuffer(payload, passphrase);
-      return { checksumOk: true, entries: [...unzip(archive).keys()] };
+      try {
+        const archive = decryptBuffer(payload, passphrase);
+        const entries = unzip(archive);
+        return {
+          checksumOk: true,
+          entries: [...entries.keys()],
+          entrySizes: Object.fromEntries(
+            [...entries].map(([path, content]) => [path, content.byteLength]),
+          ),
+        };
+      } catch {
+        throw new Error("备份密钥不匹配或文件已损坏。");
+      }
     },
   };
 }

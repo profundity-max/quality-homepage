@@ -9,6 +9,8 @@ const production = JSON.parse(
     "/dev/null",
     "-f",
     "compose.yaml",
+    "--profile",
+    "operations",
     "config",
     "--format",
     "json",
@@ -48,6 +50,21 @@ assert(
   "Production web must not publish a port.",
 );
 assert(
+  production.services.web.environment.BACKUP_PASSPHRASE ===
+    "compose-verification-only",
+  "Production web must receive the backup passphrase for administrator-triggered backups.",
+);
+assert(
+  production.services.web.environment.BACKUP_TARGET_DIR === "/backups",
+  "Production web must write backups to the dedicated backup mount.",
+);
+assert(
+  production.services.web.volumes?.some(
+    (volume) => volume.target === "/backups" && volume.type === "bind",
+  ),
+  "Production web must mount the host backup directory.",
+);
+assert(
   e2e.services.db.ports?.length === 1 &&
     e2e.services.db.ports[0].host_ip === "127.0.0.1",
   "E2E PostgreSQL must publish exactly one loopback-bound port.",
@@ -74,6 +91,22 @@ assert(
   production.services.web.depends_on["datadir-init"]?.condition ===
     "service_completed_successfully",
   "web must wait for datadir-init before starting.",
+);
+assert(
+  production.services["backupdir-init"],
+  "Production must initialize the backup directory ownership before backup writers start.",
+);
+for (const service of ["web", "backup"]) {
+  assert(
+    production.services[service].depends_on["backupdir-init"]?.condition ===
+      "service_completed_successfully",
+    `${service} must wait for backupdir-init before writing backups.`,
+  );
+}
+assert(
+  production.services.backup.depends_on["datadir-init"]?.condition ===
+    "service_completed_successfully",
+  "backup must wait for datadir-init before reading uploaded files.",
 );
 const nginxConf = await readFile(
   new URL("../ops/nginx.conf", import.meta.url),

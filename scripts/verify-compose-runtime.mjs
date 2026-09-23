@@ -1,4 +1,7 @@
 import { spawn, spawnSync } from "node:child_process";
+import { chmod, mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 const compose = resolveComposeCommand();
 const baseArgs = [
@@ -10,11 +13,16 @@ const baseArgs = [
   "-f",
   "compose.e2e.yaml",
 ];
+const backupTargetDirectory = await mkdtemp(
+  join(tmpdir(), "q-nexus-compose-backups-"),
+);
+await chmod(backupTargetDirectory, 0o777);
 const environment = {
   ...process.env,
   Q_NEXUS_DB_PASSWORD: "compose-runtime-verification",
   BACKUP_PASSPHRASE: "compose-runtime-verification",
   BACKUP_ADMIN_USER_ID: "00000000-0000-4000-8000-000000000000",
+  BACKUP_TARGET_DIR: backupTargetDirectory,
 };
 
 try {
@@ -42,6 +50,7 @@ try {
     "Proxy must send Content-Security-Policy.",
   );
   await verifyBootstrapOperator();
+  await verifyBackupRestoreDrill();
   await run("npm", ["run", "test:e2e:compose"]);
   const userId = (
     await capture(compose.command, [
@@ -82,6 +91,83 @@ try {
   process.stdout.write("Running Compose stack verified.\n");
 } finally {
   await run(compose.command, [...baseArgs, "down", "--volumes"]);
+  await rm(backupTargetDirectory, { recursive: true, force: true });
+}
+
+async function verifyBackupRestoreDrill() {
+  const adminId = (
+    await capture(compose.command, [
+      ...baseArgs,
+      "exec",
+      "-T",
+      "db",
+      "psql",
+      "-U",
+      "q_nexus_e2e",
+      "-d",
+      "q_nexus_e2e",
+      "-tAc",
+      "select id from users where normalized_username='admin'",
+    ])
+  ).trim();
+  assert(adminId, "The restore drill requires the seeded administrator.");
+  await run(compose.command, [
+    ...baseArgs,
+    "exec",
+    "-T",
+    "web",
+    "sh",
+    "-c",
+    "printf 'compose restore drill fixture' > /app/data/uploads/compose-runtime-check.txt",
+  ]);
+  await run(compose.command, [
+    ...baseArgs,
+    "--profile",
+    "operations",
+    "run",
+    "--rm",
+    "backup",
+    "manual",
+    adminId,
+  ]);
+  const backupId = (
+    await capture(compose.command, [
+      ...baseArgs,
+      "exec",
+      "-T",
+      "db",
+      "psql",
+      "-U",
+      "q_nexus_e2e",
+      "-d",
+      "q_nexus_e2e",
+      "-tAc",
+      "select id from backups where status='success' order by started_at desc limit 1",
+    ])
+  ).trim();
+  assert(backupId, "The backup operator must create a successful record.");
+  const output = await capture(compose.command, [
+    ...baseArgs,
+    "--profile",
+    "operations",
+    "run",
+    "--rm",
+    "-e",
+    `BACKUP_ADMIN_USER_ID=${adminId}`,
+    "--entrypoint",
+    "npx tsx scripts/restore.ts",
+    "backup",
+    backupId,
+    "--drill",
+  ]);
+  assert(
+    output.includes("隔离恢复演练通过"),
+    "The encrypted backup must restore into an isolated PostgreSQL database.",
+  );
+  assert(
+    output.includes("上传文件 1"),
+    "The restore drill must verify the uploaded-file entry from the backup.",
+  );
 }
 
 async function restartCount(container) {

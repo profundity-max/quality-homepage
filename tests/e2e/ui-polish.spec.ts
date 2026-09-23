@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import AxeBuilder from "@axe-core/playwright";
 
 async function login(page: Page) {
   await page.goto("/login");
@@ -89,4 +90,26 @@ test("editorial sections reveal once they enter the viewport", async ({
       ),
     )
     .toBe(1);
+});
+
+test("dark home entrance motion preserves readable text contrast", async ({
+  page,
+}) => {
+  await login(page);
+  const themeApplied = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      new URL(response.url()).pathname === "/",
+  );
+  await page.getByRole("button", { name: "切换到深色模式" }).click();
+  await themeApplied;
+  await page.reload();
+
+  const violations = (
+    await new AxeBuilder({ page })
+      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+      .analyze()
+  ).violations;
+
+  expect(violations).toEqual([]);
 });

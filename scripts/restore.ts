@@ -1,6 +1,8 @@
-// 恢复演练（BKP-06）：默认 dry-run 校验并列出备份内容；--apply <目录> 解包还原。
+// 恢复演练（BKP-06）：默认校验备份；--apply 解包；--drill 导入临时 PostgreSQL 后核对核心内容。
 // 用法：
-//   BACKUP_PASSPHRASE=... BACKUP_TARGET_DIR=... npx tsx scripts/restore.ts <备份ID> [--apply <目录>]
+//   BACKUP_PASSPHRASE=... BACKUP_TARGET_DIR=... npx tsx scripts/restore.ts <备份ID> [--apply <目录>] [--drill]
+import { spawn } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { PGlite } from "@electric-sql/pglite";
@@ -9,10 +11,13 @@ import postgres from "postgres";
 import { createBackupService } from "../src/modules/backup";
 import { unzip } from "../src/modules/markdown-package";
 import { decryptBuffer } from "../src/modules/backup";
+import { createContentAuditService } from "../src/modules/content-audit";
+import { runDatabaseRestoreDrill } from "../src/modules/backup/restore-drill";
 
 const backupId = process.argv[2];
 const applyIndex = process.argv.indexOf("--apply");
 const applyDirectory = applyIndex >= 0 ? process.argv[applyIndex + 1] : null;
+const shouldDrill = process.argv.includes("--drill");
 const adminUserId = process.env.BACKUP_ADMIN_USER_ID;
 const passphrase = process.env.BACKUP_PASSPHRASE;
 const targetDirectory = resolve(
@@ -28,6 +33,43 @@ if (!backupId || !adminUserId || !passphrase) {
 }
 
 const database = databaseUrl ? postgres(databaseUrl, { max: 1 }) : null;
+
+function databaseUrlFor(databaseName: string): string {
+  if (!databaseUrl) throw new Error("恢复演练需要 DATABASE_URL。");
+  const value = new URL(databaseUrl);
+  value.pathname = `/${databaseName}`;
+  return value.toString();
+}
+
+async function restoreWithPsql(
+  databaseName: string,
+  databaseDump: Buffer,
+): Promise<void> {
+  await new Promise<void>((resolveCommand, reject) => {
+    const child = spawn(
+      "psql",
+      ["--dbname", databaseUrlFor(databaseName), "--set", "ON_ERROR_STOP=1"],
+      { stdio: ["pipe", "ignore", "pipe"] },
+    );
+    const errors: Buffer[] = [];
+    child.stderr.on("data", (chunk: Buffer) => errors.push(chunk));
+    child.on("error", reject);
+    child.on("close", (code) => {
+      if (code === 0) {
+        resolveCommand();
+        return;
+      }
+      const detail = Buffer.concat(errors).toString().trim();
+      reject(
+        new Error(
+          `隔离数据库恢复失败（退出码 ${code ?? "unknown"}）${detail ? `：${detail}` : ""}`,
+        ),
+      );
+    });
+    child.stdin.end(databaseDump);
+  });
+}
+
 try {
   const service = createBackupService(database ?? new PGlite());
   const result = await service.restoreDryRun(adminUserId, backupId, {
@@ -41,9 +83,10 @@ try {
   console.log(`校验通过，共 ${result.entries.length} 个条目：`);
   for (const entry of result.entries.slice(0, 20)) console.log(`  ${entry}`);
 
-  if (applyDirectory) {
+  let archiveEntries: Map<string, Buffer> | null = null;
+  if (applyDirectory || shouldDrill) {
     if (!database) {
-      throw new Error("--apply 需要 DATABASE_URL 以定位备份文件。");
+      throw new Error("--apply/--drill 需要 DATABASE_URL 以定位备份文件。");
     }
     const row =
       await database`select target from backups where id = ${backupId}`;
@@ -51,13 +94,84 @@ try {
     if (!target) throw new Error(`备份记录不存在：${backupId}`);
     const { readFile } = await import("node:fs/promises");
     const payload = await readFile(resolve(targetDirectory, target));
-    const entries = unzip(decryptBuffer(payload, passphrase));
-    for (const [path, content] of entries) {
-      const destination = resolve(applyDirectory, path);
-      await mkdir(dirname(destination), { recursive: true });
-      await writeFile(destination, content);
+    archiveEntries = unzip(decryptBuffer(payload, passphrase));
+    if (applyDirectory) {
+      for (const [path, content] of archiveEntries) {
+        const destination = resolve(applyDirectory, path);
+        await mkdir(dirname(destination), { recursive: true });
+        await writeFile(destination, content);
+      }
+      console.log(`已解包到 ${applyDirectory}`);
     }
-    console.log(`已解包到 ${applyDirectory}`);
+  }
+
+  if (shouldDrill) {
+    if (!database || !archiveEntries)
+      throw new Error("恢复演练需要 DATABASE_URL。");
+    const databaseDump = archiveEntries.get("database.dump");
+    if (!databaseDump) throw new Error("备份中缺少 database.dump。");
+    const audit = createContentAuditService(database);
+    try {
+      const drill = await runDatabaseRestoreDrill(databaseDump, {
+        async createIsolatedDatabase() {
+          const databaseName = `q_nexus_restore_${randomUUID()
+            .replaceAll("-", "")
+            .slice(0, 12)}`;
+          await database.unsafe(`CREATE DATABASE "${databaseName}"`);
+          return databaseName;
+        },
+        restoreDatabase: restoreWithPsql,
+        async inspectDatabase(databaseName) {
+          const restored = postgres(databaseUrlFor(databaseName), { max: 1 });
+          try {
+            const rows = await restored<
+              {
+                users: number;
+                articles: number;
+                books: number;
+                templates: number;
+              }[]
+            >`select
+              (select count(*)::int from users) as users,
+              (select count(*)::int from articles) as articles,
+              (select count(*)::int from books) as books,
+              (select count(*)::int from templates) as templates`;
+            return rows[0]!;
+          } finally {
+            await restored.end();
+          }
+        },
+        async dropIsolatedDatabase(databaseName) {
+          await database`select pg_terminate_backend(pid) from pg_stat_activity
+            where datname = ${databaseName} and pid <> pg_backend_pid()`;
+          await database.unsafe(`DROP DATABASE IF EXISTS "${databaseName}"`);
+        },
+      });
+      const uploadedFiles = [...archiveEntries.keys()].filter((entry) =>
+        entry.startsWith("data/"),
+      ).length;
+      await audit.record({
+        actorUserId: adminUserId,
+        eventType: "backup.restore_drill.success",
+        targetType: "backup",
+        targetId: backupId,
+        metadata: { ...drill.counts, uploadedFiles },
+      });
+      console.log(
+        `隔离恢复演练通过：账号 ${drill.counts.users}，文章 ${drill.counts.articles}，` +
+          `书目 ${drill.counts.books}，模板 ${drill.counts.templates}，上传文件 ${uploadedFiles}。`,
+      );
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : "恢复演练失败";
+      await audit.record({
+        actorUserId: adminUserId,
+        eventType: "backup.restore_drill.failed",
+        targetType: "backup",
+        targetId: backupId,
+        reason,
+      });
+      throw error;
+    }
   }
 } finally {
   await database?.end();

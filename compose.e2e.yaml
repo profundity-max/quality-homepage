@@ -7,6 +7,9 @@ services:
     depends_on:
       seed:
         condition: service_completed_successfully
+  backup:
+    environment:
+      DATABASE_URL: postgres://q_nexus_e2e:q_nexus_e2e@db:5432/q_nexus_e2e
   seed:
     build:
       context: .

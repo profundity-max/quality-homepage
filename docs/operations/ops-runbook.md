@@ -10,38 +10,36 @@
 
 ## 1. 每日/每周备份（BKP-01/02）
 
-在 macOS 上配置 cron/launchd，按以下命令执行（示例为 cron 行）：
-
-```bash
-# 每日 02:30
-30 2 * * * cd /path/to/quality-homepage && BACKUP_PASSPHRASE=... BACKUP_TARGET_DIR=... Q_NEXUS_DATA_DIR=... npx tsx scripts/backup.ts daily <管理员用户ID> >> logs/backup.log 2>&1
-# 每周日 03:00
-0 3 * * 0 cd /path/to/quality-homepage && BACKUP_PASSPHRASE=... BACKUP_TARGET_DIR=... Q_NEXUS_DATA_DIR=... npx tsx scripts/backup.ts weekly <管理员用户ID> >> logs/backup.log 2>&1
-```
+生产部署优先通过 Compose 的 `backup` 操作服务执行，避免宿主机缺少 `pg_dump` 或依赖版本不一致。示例定时任务可调用下方 Compose 命令；不要把数据库密码或备份口令直接写入任务文件。
 
 Compose 部署形态下，备份在栈内执行（`backup` 操作服务，内部网络连接 PostgreSQL、只读挂载数据卷、挂载宿主机备份目录）：
 
 ```bash
 # 手动备份（替换 <管理员用户ID>）
 docker compose --profile operations run --rm backup manual <管理员用户ID>
-# 恢复演练 dry-run
-docker compose --profile operations run --rm --entrypoint "npx tsx scripts/restore.ts" backup <备份ID> --apply /tmp/restore-check
+# 每日/每周任务使用同一命令，把 manual 换成 daily 或 weekly
+# 加密包结构与校验和验证（不写数据库）
+docker compose --profile operations run --rm --entrypoint "npx tsx scripts/restore.ts" backup <备份ID>
+# 隔离数据库恢复演练（自动创建并删除临时数据库）
+docker compose --profile operations run --rm --entrypoint "npx tsx scripts/restore.ts" backup <备份ID> --drill
 ```
 
-宿主机（非 Compose）形态可用 `PG_DUMP_CMD`（如 `pg_dump "postgres://…"`）或 `COMPOSE_PROJECT`（自动 `docker compose exec db pg_dump`）。保留策略：7 份每日 + 8 份每周，由脚本自动执行（BKP-02）。备份为 AES-256-GCM 加密文件，校验和写入数据库（BKP-04/05）。
+脚本会直接调用 `pg_dump`，把非空数据库转储和受控上传文件一起打包；任一环节失败都会记录失败原因，不生成“成功”的空包。保留策略为 7 份每日 + 8 份每周。备份使用 AES-256-GCM 加密，校验和写入数据库（BKP-02/04/05）。
 
 备份目标：公司服务器或移动硬盘（BKP-03）。配置为 `BACKUP_TARGET_DIR` 指向挂载的目标目录即可；正式上线前必须完成配置。
 
 ## 2. 恢复与季度演练（BKP-06）
 
 ```bash
-# 校验备份并列出内容（dry-run）
-BACKUP_PASSPHRASE=... BACKUP_ADMIN_USER_ID=... npx tsx scripts/restore.ts <备份ID>
-# 解包到临时目录
-BACKUP_PASSPHRASE=... BACKUP_ADMIN_USER_ID=... npx tsx scripts/restore.ts <备份ID> --apply /tmp/restore-check
+# Compose 中验证加密包
+docker compose --profile operations run --rm --entrypoint "npx tsx scripts/restore.ts" backup <备份ID>
+# 恢复数据库到隔离临时库，核对账号、文章、书目、模板和上传文件数量，随后删除临时库
+docker compose --profile operations run --rm --entrypoint "npx tsx scripts/restore.ts" backup <备份ID> --drill
+# 仅在需要检查文件时解包到容器内临时目录；这不等于数据库恢复
+docker compose --profile operations run --rm --entrypoint "npx tsx scripts/restore.ts" backup <备份ID> --apply /tmp/restore-check
 ```
 
-每季度在临时环境执行完整恢复演练：恢复数据库转储（`pg_restore`/`psql`）与数据目录，验证登录、搜索、阅读和模板下载（BKP-06）。恢复结果记录在管理后台备份页与审计日志中。
+每季度至少执行一次 `--drill`。成功或失败都会写入内容审计日志；命令只操作自动创建的临时数据库，不覆盖生产库。完成自动核对后，仍应在隔离环境抽查登录、搜索、阅读和模板下载（BKP-06）。管理后台的“验证备份”只校验文件完整性、密钥和 `database.dump` 是否存在，不替代季度数据库恢复演练。
 
 ## 3. 更新流程（OPS-10）
 

@@ -1,11 +1,11 @@
 import { redirect } from "next/navigation";
 
 import { getDatabase } from "@/db/database";
-import { createBackupService } from "@/modules/backup";
+import { createOperationalBackupService } from "@/modules/backup/operational";
 
 import { requirePortalSession } from "../../authorization";
 import { PortalShell } from "../../portal-shell";
-import { runManualBackupAction } from "./actions";
+import { runManualBackupAction, verifyBackupAction } from "./actions";
 import styles from "./backups.module.css";
 
 const kindNames = { daily: "每日", weekly: "每周", manual: "手动" } as const;
@@ -33,7 +33,9 @@ export default async function BackupsPage({
   const params = await searchParams;
   const session = await requirePortalSession("/manage/backups");
   if (session.member.role !== "administrator") redirect("/");
-  const records = await createBackupService(getDatabase())
+  const backupService = createOperationalBackupService(getDatabase());
+  const configuration = backupService.configuration();
+  const records = await backupService
     .listBackups(session.member.id, 20)
     .catch(() => null);
   if (!records) redirect("/");
@@ -56,8 +58,24 @@ export default async function BackupsPage({
           </p>
         ) : null}
 
+        <section className={styles.notice} aria-label="备份配置状态">
+          {configuration.ready ? (
+            <p>备份配置完整，可以创建数据库与上传文件的加密备份。</p>
+          ) : (
+            <>
+              <p>
+                备份尚未配置完整，缺少：{configuration.missing.join("、")}。
+              </p>
+              <p>请由运维人员写入部署环境后重启服务；不要把密钥提交到 Git。</p>
+            </>
+          )}
+          <p>备份保存位置：{configuration.targetDirectory}</p>
+        </section>
+
         <form action={runManualBackupAction} className={styles.toolbar}>
-          <button type="submit">立即执行手动备份</button>
+          <button type="submit" disabled={!configuration.ready}>
+            立即执行手动备份
+          </button>
         </form>
 
         {records.length === 0 ? (
@@ -81,7 +99,19 @@ export default async function BackupsPage({
                   <td>{statusNames[record.status]}</td>
                   <td>{formatDateTime(record.startedAt)}</td>
                   <td>{record.byteSize} B</td>
-                  <td>{record.target}</td>
+                  <td>
+                    <div>{record.target}</div>
+                    {record.status === "success" ? (
+                      <form action={verifyBackupAction}>
+                        <input
+                          type="hidden"
+                          name="backupId"
+                          value={record.id}
+                        />
+                        <button type="submit">验证备份</button>
+                      </form>
+                    ) : null}
+                  </td>
                   <td>{record.error ?? "—"}</td>
                 </tr>
               ))}

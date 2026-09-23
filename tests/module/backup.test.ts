@@ -74,6 +74,7 @@ describe("backup service", () => {
       dataDirectory,
       targetDirectory,
       passphrase: PASSPHRASE,
+      dumpDatabase: async () => Buffer.from("known-good-database-dump"),
       ...overrides,
     };
   }
@@ -100,6 +101,9 @@ describe("backup service", () => {
     const archive = decryptBuffer(payload, PASSPHRASE);
     const entries = unzip(archive);
     expect(entries.has("data/images/a.png")).toBe(true);
+    expect(entries.get("database.dump")?.toString()).toBe(
+      "known-good-database-dump",
+    );
   });
 
   test("records failures with the error message (BKP-05)", async () => {
@@ -114,6 +118,28 @@ describe("backup service", () => {
     });
     expect(record.status).toBe("failed");
     expect(record.error).toContain("pg_dump unavailable");
+  });
+
+  test("refuses to report success when the database dump is missing", async () => {
+    const record = await service().runBackup({
+      requestingUserId: ADMIN_ID,
+      kind: "manual",
+      context: context({ dumpDatabase: undefined }),
+    });
+
+    expect(record.status).toBe("failed");
+    expect(record.error).toContain("数据库转储");
+  });
+
+  test("refuses to report success when the database dump is empty", async () => {
+    const record = await service().runBackup({
+      requestingUserId: ADMIN_ID,
+      kind: "manual",
+      context: context({ dumpDatabase: async () => Buffer.alloc(0) }),
+    });
+
+    expect(record.status).toBe("failed");
+    expect(record.error).toContain("数据库转储为空");
   });
 
   test("enforces 7 daily and 8 weekly retention (BKP-02)", async () => {
@@ -157,6 +183,21 @@ describe("backup service", () => {
     );
     expect(result.checksumOk).toBe(true);
     expect(result.entries).toContain("data/images/a.png");
+  });
+
+  test("restore verification explains a wrong backup passphrase", async () => {
+    const record = await service().runBackup({
+      requestingUserId: ADMIN_ID,
+      kind: "manual",
+      context: context(),
+    });
+
+    await expect(
+      service().restoreDryRun(ADMIN_ID, record.id, {
+        ...context(),
+        passphrase: "wrong-passphrase",
+      }),
+    ).rejects.toThrow("备份密钥不匹配或文件已损坏");
   });
 
   test("readers cannot manage backups", async () => {

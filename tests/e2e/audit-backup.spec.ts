@@ -25,9 +25,18 @@ test("administrator sees audit logs and can trigger a manual encrypted backup (A
   await expect(
     page.getByRole("heading", { level: 1, name: "备份与恢复" }),
   ).toBeVisible();
+  await expect(
+    page.getByText("备份配置完整，可以创建数据库与上传文件的加密备份。", {
+      exact: true,
+    }),
+  ).toBeVisible();
   await page.getByRole("button", { name: "立即执行手动备份" }).click();
   await expect(page.getByRole("status")).toContainText("备份完成");
   await expect(page.getByText("手动", { exact: true }).first()).toBeVisible();
+  await page.getByRole("button", { name: "验证备份" }).first().click();
+  await expect(page.getByRole("status")).toContainText(
+    "备份验证通过：数据库转储与上传文件均可解密读取",
+  );
 });
 
 test("readers cannot open audit or backup management (SEC/roles)", async ({
