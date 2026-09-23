@@ -19,6 +19,8 @@
 }
 
 .introduction h1 {
+  display: grid;
+  row-gap: clamp(6px, 0.14em, 10px);
   margin: 16px 0 24px;
   font-size: clamp(2rem, 4.5vw, 4rem);
   font-weight: 500;

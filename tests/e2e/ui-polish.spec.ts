@@ -19,6 +19,17 @@ test("login keeps credentials in a natural keyboard order and lets people reveal
     "欢迎来到品集｜Q Nexus",
   );
 
+  const headingLineGap = await page
+    .locator("#login-heading")
+    .evaluate((heading) => {
+      const [welcomeLine, productLine] = Array.from(heading.children);
+      return (
+        productLine.getBoundingClientRect().top -
+        welcomeLine.getBoundingClientRect().bottom
+      );
+    });
+  expect(headingLineGap).toBeGreaterThanOrEqual(6);
+
   const username = page.getByLabel("用户名");
   const password = page.getByLabel("密码");
   const revealPassword = page.getByRole("button", { name: "显示输入内容" });
