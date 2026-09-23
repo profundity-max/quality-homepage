@@ -1,5 +1,8 @@
+"use client";
+
 import { ArrowUpRight } from "lucide-react";
 import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
 
 import styles from "./editorial-section.module.css";
 
@@ -57,9 +60,12 @@ export function EditorialSection({
   action,
   graphic,
 }: EditorialSectionProps) {
+  const sectionRef = useRef<HTMLElement>(null);
+  const [visible, setVisible] = useState(index === "01");
   const graphicKind = graphic?.kind;
   const layout = [
     styles.section,
+    visible ? styles.visible : "",
     graphicKind === "onboarding" ? styles.feature : "",
     graphicKind === "thermal" || graphicKind === "templates"
       ? styles.reverse
@@ -70,10 +76,31 @@ export function EditorialSection({
     .filter(Boolean)
     .join(" ");
 
+  useEffect(() => {
+    const section = sectionRef.current;
+    if (!section || visible) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      requestAnimationFrame(() => setVisible(true));
+      return;
+    }
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry?.isIntersecting) return;
+        setVisible(true);
+        observer.disconnect();
+      },
+      { rootMargin: "0px 0px -10%", threshold: 0.14 },
+    );
+    observer.observe(section);
+    return () => observer.disconnect();
+  }, [visible]);
+
   return (
     <section
+      ref={sectionRef}
       className={layout}
       data-graphic={graphicKind}
+      data-motion-state={visible ? "visible" : "hidden"}
       data-testid="home-editorial-section"
     >
       <p className={styles.index}>{index}</p>

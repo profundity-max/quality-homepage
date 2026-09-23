@@ -16,6 +16,9 @@ body {
     sans-serif;
   font-size: 16px;
   line-height: 1.7;
+  transition:
+    background-color var(--motion-base) var(--motion-ease-out),
+    color var(--motion-base) var(--motion-ease-out);
 }
 
 button,

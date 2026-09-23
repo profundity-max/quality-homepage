@@ -14,6 +14,10 @@
   padding: clamp(32px, 7vw, 112px);
 }
 
+.introduction {
+  animation: login-copy-enter var(--motion-reveal) var(--motion-ease-out) both;
+}
+
 .introduction h1 {
   margin: 16px 0 24px;
   font-size: clamp(2rem, 4.5vw, 4rem);
@@ -45,19 +49,79 @@
   border: 1px solid var(--color-divider);
   border-radius: 20px;
   background: var(--color-surface);
+  box-shadow: 0 24px 70px rgb(0 0 0 / 6%);
+  animation: login-form-enter 420ms var(--motion-ease-out) 70ms both;
 }
 
-.form label {
+.field {
   display: grid;
   gap: 8px;
 }
 
-.form input {
+.form input:not([type="hidden"]):not([type="checkbox"]) {
+  width: 100%;
   min-height: 52px;
   border: 1px solid var(--color-divider);
   border-radius: 10px;
   padding: 10px 14px;
   background: var(--color-surface-muted);
+  color: var(--color-text);
+  transition:
+    border-color var(--motion-fast) var(--motion-ease-out),
+    background-color var(--motion-fast) var(--motion-ease-out),
+    box-shadow var(--motion-fast) var(--motion-ease-out);
+}
+
+.form input:not([type="hidden"]):not([type="checkbox"]):hover {
+  border-color: color-mix(
+    in srgb,
+    var(--color-text-secondary) 48%,
+    var(--color-divider)
+  );
+}
+
+.form input:not([type="hidden"]):not([type="checkbox"]):focus-visible {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-accent) 14%, transparent);
+}
+
+.form input:-webkit-autofill,
+.form input:-webkit-autofill:hover,
+.form input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--color-text);
+  caret-color: var(--color-text);
+  box-shadow: 0 0 0 1000px var(--color-surface-muted) inset;
+}
+
+.passwordField {
+  position: relative;
+}
+
+.passwordField input {
+  padding-right: 52px;
+}
+
+.passwordToggle {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transform: translateY(-50%);
+  transition:
+    background-color var(--motion-fast) var(--motion-ease-out),
+    color var(--motion-fast) var(--motion-ease-out);
+}
+
+.passwordToggle:hover {
+  background: color-mix(in srgb, var(--color-divider) 38%, transparent);
   color: var(--color-text);
 }
 
@@ -73,13 +137,30 @@
   padding: 0;
 }
 
-.form button {
+.submitButton {
   min-height: 52px;
   border: 0;
   border-radius: 10px;
   background: var(--color-accent);
   color: var(--color-accent-foreground);
   cursor: pointer;
+  transition:
+    filter var(--motion-fast) var(--motion-ease-out),
+    transform var(--motion-fast) var(--motion-ease-out);
+}
+
+.submitButton:hover:not(:disabled) {
+  filter: brightness(1.04);
+  transform: translateY(-1px);
+}
+
+.submitButton:active:not(:disabled) {
+  transform: scale(0.985);
+}
+
+.submitButton:disabled {
+  cursor: wait;
+  opacity: 0.72;
 }
 
 .form [role="alert"] {
@@ -97,5 +178,36 @@
 
   .introduction h1 {
     font-size: clamp(1.5rem, 9vw, 2.5rem);
+  }
+}
+
+@keyframes login-copy-enter {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes login-form-enter {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .introduction,
+  .form {
+    animation: none;
   }
 }

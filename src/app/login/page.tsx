@@ -30,14 +30,13 @@ export default async function LoginPage({
           className={styles.introduction}
           aria-labelledby="login-heading"
         >
-          <p className={styles.eyebrow}>品集｜Q Nexus · 品质部门户</p>
-          {/* 中文一行、英文一行，避免「Q Nexus」被拆开 */}
+          <p className={styles.eyebrow}>品质部门户</p>
           <h1 id="login-heading">
             <span className={styles.headingLine} data-testid="login-line-zh">
-              登录品集｜
+              欢迎来到
             </span>
             <span className={styles.headingLine} data-testid="login-line-en">
-              Q Nexus
+              品集｜Q Nexus
             </span>
           </h1>
           <p>连接部门知识，沉淀共同经验。</p>

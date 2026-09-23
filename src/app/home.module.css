@@ -1,11 +1,15 @@
 .hero {
   display: grid;
   min-height: 60svh;
-  grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.6fr);
+  grid-template-columns: minmax(0, 1.3fr) minmax(360px, 0.7fr);
   gap: clamp(48px, 8vw, 140px);
   align-items: center;
   padding: clamp(40px, 6vw, 88px) clamp(20px, 8vw, 128px);
   border-bottom: 1px solid var(--color-divider);
+}
+
+.hero > div {
+  animation: home-hero-enter var(--motion-reveal) var(--motion-ease-out) both;
 }
 
 .belief,
@@ -32,8 +36,11 @@
 }
 
 .searchPosition {
+  width: min(100%, 420px);
+  justify-self: end;
   padding: 28px 0;
   border-block: 1px solid var(--color-divider);
+  animation: home-search-enter 420ms var(--motion-ease-out) 70ms both;
 }
 
 .searchPosition span {
@@ -93,6 +100,9 @@
   padding: 18px 0;
   color: var(--color-text);
   text-decoration: none;
+  transition:
+    color var(--motion-fast) var(--motion-ease-out),
+    transform var(--motion-fast) var(--motion-ease-out);
 }
 
 @media (max-width: 760px) {
@@ -109,6 +119,32 @@
 
 .updateLink:hover .updateTitle {
   color: var(--color-link);
+}
+
+.updateLink:hover {
+  transform: translateX(4px);
+}
+
+.updateTitleGroup {
+  display: inline-flex;
+  min-width: 0;
+  gap: 8px;
+  align-items: center;
+}
+
+.updateArrow {
+  flex: none;
+  opacity: 0;
+  transform: translate(-4px, 4px);
+  transition:
+    opacity var(--motion-fast) var(--motion-ease-out),
+    transform var(--motion-fast) var(--motion-ease-out);
+}
+
+.updateLink:hover .updateArrow,
+.updateLink:focus-visible .updateArrow {
+  opacity: 1;
+  transform: translate(0, 0);
 }
 
 .updateTitle {
@@ -128,4 +164,35 @@
 .updateEmpty {
   color: var(--color-text-secondary);
   padding: 24px 0;
+}
+
+@keyframes home-hero-enter {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes home-search-enter {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero > div,
+  .searchPosition {
+    animation: none;
+  }
 }

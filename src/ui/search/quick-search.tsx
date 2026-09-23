@@ -1,8 +1,10 @@
 "use client";
 
+import { Search } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 import type { SearchGroups } from "@/modules/search";
 
@@ -24,6 +26,7 @@ export function QuickSearch() {
   const [loading, setLoading] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
@@ -67,18 +70,54 @@ export function QuickSearch() {
     [items, router],
   );
 
+  const closeSearch = useCallback(() => {
+    setOpen(false);
+    requestAnimationFrame(() => triggerRef.current?.focus());
+  }, []);
+
+  useEffect(() => {
+    const handleShortcut = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setOpen(true);
+      }
+    };
+    document.addEventListener("keydown", handleShortcut);
+    return () => document.removeEventListener("keydown", handleShortcut);
+  }, []);
+
   useEffect(() => {
     if (!open) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     inputRef.current?.focus();
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        setOpen(false);
-        triggerRef.current?.focus();
+        closeSearch();
+        return;
+      }
+      if (event.key === "Tab") {
+        const focusable = panelRef.current?.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        );
+        if (!focusable || focusable.length === 0) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last?.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first?.focus();
+        }
       }
     };
     document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [open]);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [closeSearch, open]);
 
   useEffect(() => {
     window.clearTimeout(debounceRef.current);
@@ -166,118 +205,127 @@ export function QuickSearch() {
         className={styles.launcher}
         onClick={() => setOpen(true)}
       >
-        搜索知识
+        <Search aria-hidden="true" size={19} strokeWidth={1.8} />
+        <span className={styles.launcherLabel}>搜索知识</span>
+        <span className={styles.shortcut} aria-hidden="true">
+          <kbd>⌘ K</kbd>
+          <span>/</span>
+          <kbd>Ctrl K</kbd>
+        </span>
       </button>
 
-      {open ? (
-        <div className={styles.backdrop} role="presentation">
-          <div
-            className={styles.panel}
-            role="dialog"
-            aria-modal="true"
-            aria-label="快速搜索"
-          >
-            <div className={styles.field}>
-              <label htmlFor="quick-search-input">搜索知识</label>
-              <input
-                ref={inputRef}
-                id="quick-search-input"
-                type="search"
-                value={query}
-                placeholder="文章、主题、模板或书籍"
-                onChange={handleQueryChange}
-                onKeyDown={handleKeyDown}
-              />
-              <button
-                type="button"
-                className={styles.close}
-                onClick={() => {
-                  setOpen(false);
-                  triggerRef.current?.focus();
-                }}
+      {open
+        ? createPortal(
+            <div className={styles.backdrop} role="presentation">
+              <div
+                ref={panelRef}
+                className={styles.panel}
+                role="dialog"
+                aria-modal="true"
+                aria-label="快速搜索"
               >
-                关闭
-              </button>
-            </div>
-
-            {loading ? <p className={styles.status}>正在搜索…</p> : null}
-
-            {!loading && query.trim().length === 0 ? (
-              <p className={styles.status}>输入关键词开始搜索。</p>
-            ) : null}
-
-            {!loading && query.trim().length > 0 && groups ? (
-              total === 0 ? (
-                <p className={styles.status}>
-                  未找到相关内容，回车查看完整结果。
-                </p>
-              ) : (
-                <div className={styles.results}>
-                  {(
-                    [
-                      ["article", groups.articles],
-                      ["topic", groups.topics],
-                      ["template", groups.templates],
-                      ["book", groups.books],
-                    ] as const
-                  ).map(([type, hits]) => {
-                    const start = groupStart(type);
-                    return hits.length > 0 ? (
-                      <section
-                        key={type}
-                        className={styles.group}
-                        aria-label={typeNames[type]}
-                      >
-                        <h2>{typeNames[type]}</h2>
-                        <ul>
-                          {hits.map((hit, offset) => {
-                            const index = start + offset;
-                            const item = items[index]!;
-                            return (
-                              <li key={item.href}>
-                                <Link
-                                  className={
-                                    index === selectedIndex
-                                      ? styles.selected
-                                      : undefined
-                                  }
-                                  aria-selected={index === selectedIndex}
-                                  href={item.href}
-                                  onMouseEnter={() => setSelectedIndex(index)}
-                                >
-                                  <span className={styles.itemLabel}>
-                                    <HighlightText
-                                      text={item.label}
-                                      query={query}
-                                    />
-                                  </span>
-                                  <span className={styles.itemDetail}>
-                                    {item.detail}
-                                  </span>
-                                </Link>
-                              </li>
-                            );
-                          })}
-                        </ul>
-                      </section>
-                    ) : null;
-                  })}
+                <div className={styles.field}>
+                  <label htmlFor="quick-search-input">搜索知识</label>
+                  <input
+                    ref={inputRef}
+                    id="quick-search-input"
+                    type="search"
+                    value={query}
+                    placeholder="文章、主题、模板或书籍"
+                    onChange={handleQueryChange}
+                    onKeyDown={handleKeyDown}
+                  />
+                  <button
+                    type="button"
+                    className={styles.close}
+                    onClick={closeSearch}
+                  >
+                    关闭
+                  </button>
                 </div>
-              )
-            ) : null}
 
-            <div className={styles.footer}>
-              <Link
-                href={`/search?q=${encodeURIComponent(query.trim())}`}
-                onClick={() => setOpen(false)}
-              >
-                查看全部
-              </Link>
-              <span>↑↓ 选择 · Enter 打开 · Esc 关闭</span>
-            </div>
-          </div>
-        </div>
-      ) : null}
+                {loading ? <p className={styles.status}>正在搜索…</p> : null}
+
+                {!loading && query.trim().length === 0 ? (
+                  <p className={styles.status}>输入关键词开始搜索。</p>
+                ) : null}
+
+                {!loading && query.trim().length > 0 && groups ? (
+                  total === 0 ? (
+                    <p className={styles.status}>
+                      未找到相关内容，回车查看完整结果。
+                    </p>
+                  ) : (
+                    <div className={styles.results}>
+                      {(
+                        [
+                          ["article", groups.articles],
+                          ["topic", groups.topics],
+                          ["template", groups.templates],
+                          ["book", groups.books],
+                        ] as const
+                      ).map(([type, hits]) => {
+                        const start = groupStart(type);
+                        return hits.length > 0 ? (
+                          <section
+                            key={type}
+                            className={styles.group}
+                            aria-label={typeNames[type]}
+                          >
+                            <h2>{typeNames[type]}</h2>
+                            <ul>
+                              {hits.map((hit, offset) => {
+                                const index = start + offset;
+                                const item = items[index]!;
+                                return (
+                                  <li key={item.href}>
+                                    <Link
+                                      className={
+                                        index === selectedIndex
+                                          ? styles.selected
+                                          : undefined
+                                      }
+                                      aria-selected={index === selectedIndex}
+                                      href={item.href}
+                                      onMouseEnter={() =>
+                                        setSelectedIndex(index)
+                                      }
+                                    >
+                                      <span className={styles.itemLabel}>
+                                        <HighlightText
+                                          text={item.label}
+                                          query={query}
+                                        />
+                                      </span>
+                                      <span className={styles.itemDetail}>
+                                        {item.detail}
+                                      </span>
+                                    </Link>
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          </section>
+                        ) : null;
+                      })}
+                    </div>
+                  )
+                ) : null}
+
+                <div className={styles.footer}>
+                  <Link
+                    href={`/search?q=${encodeURIComponent(query.trim())}`}
+                    onClick={() => setOpen(false)}
+                  >
+                    查看全部
+                  </Link>
+                  <span>↑↓ 选择 · Enter 打开 · Esc 关闭</span>
+                </div>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
     </>
   );
 }

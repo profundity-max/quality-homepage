@@ -25,6 +25,11 @@
   padding: 8px clamp(20px, 4vw, 64px);
   border-bottom: 1px solid var(--color-divider);
   background: var(--color-canvas);
+  transition:
+    min-height var(--motion-base) var(--motion-ease-out),
+    padding var(--motion-base) var(--motion-ease-out),
+    background-color var(--motion-base) var(--motion-ease-out),
+    border-color var(--motion-base) var(--motion-ease-out);
 }
 
 .compactHeader {

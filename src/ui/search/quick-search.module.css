@@ -1,16 +1,52 @@
 .launcher {
+  display: flex;
+  width: min(100%, 420px);
   min-height: 44px;
-  padding: 0 20px;
+  gap: 10px;
+  align-items: center;
+  padding: 0 12px 0 16px;
   border: 1px solid var(--color-divider);
   border-radius: 999px;
   background: var(--color-surface);
   color: var(--color-text);
   font: inherit;
   cursor: pointer;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 4%);
+  transition:
+    border-color var(--motion-fast) var(--motion-ease-out),
+    box-shadow var(--motion-fast) var(--motion-ease-out),
+    transform var(--motion-fast) var(--motion-ease-out);
 }
 
 .launcher:hover {
   border-color: var(--color-accent);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 7%);
+  transform: translateY(-1px);
+}
+
+.launcher:active {
+  transform: scale(0.99);
+}
+
+.launcherLabel {
+  font-weight: 600;
+}
+
+.shortcut {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  margin-left: auto;
+  color: var(--color-text-muted);
+  font-size: 0.76rem;
+}
+
+.shortcut kbd {
+  padding: 1px 6px;
+  border: 1px solid var(--color-divider);
+  border-radius: 6px;
+  background: var(--color-surface-muted);
+  font: inherit;
 }
 
 .backdrop {
@@ -22,6 +58,7 @@
   justify-content: center;
   padding: clamp(48px, 12vh, 120px) 16px 16px;
   background: color-mix(in srgb, var(--color-canvas) 72%, transparent);
+  animation: search-backdrop-enter var(--motion-fast) ease-out both;
 }
 
 .panel {
@@ -32,6 +69,7 @@
   border-radius: 16px;
   background: var(--color-surface);
   box-shadow: 0 24px 64px rgb(0 0 0 / 0.18);
+  animation: search-panel-enter var(--motion-base) var(--motion-ease-out) both;
 }
 
 .field {
@@ -80,6 +118,7 @@
 
 .group {
   padding: 12px 20px 4px;
+  animation: search-results-enter var(--motion-fast) var(--motion-ease-out) both;
 }
 
 .group h2 {
@@ -159,5 +198,49 @@
 
   .footer span {
     display: none;
+  }
+}
+
+@keyframes search-backdrop-enter {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes search-panel-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes search-results-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .launcher,
+  .backdrop,
+  .panel,
+  .group {
+    animation: none;
+    transition: none;
   }
 }

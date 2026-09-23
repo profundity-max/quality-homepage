@@ -1,6 +1,6 @@
 .section {
   display: grid;
-  min-height: 400px;
+  min-height: 380px;
   width: min(100%, 1440px);
   grid-template-columns: 64px minmax(0, 1fr);
   gap: clamp(20px, 3vw, 48px);
@@ -8,6 +8,16 @@
   padding-inline: clamp(20px, 8vw, 128px);
   padding-block: clamp(64px, 8vw, 96px);
   border-bottom: 1px solid var(--color-divider);
+  opacity: 0;
+  transform: translateY(18px);
+  transition:
+    opacity var(--motion-reveal) var(--motion-ease-out),
+    transform var(--motion-reveal) var(--motion-ease-out);
+}
+
+.visible {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .index {
@@ -42,7 +52,7 @@
 }
 
 .feature {
-  min-height: 500px;
+  min-height: 480px;
 }
 
 .feature .link {
@@ -73,6 +83,13 @@
   font-weight: 500;
   letter-spacing: -0.045em;
   line-height: 0.98;
+  transition:
+    color var(--motion-fast) var(--motion-ease-out),
+    transform var(--motion-base) var(--motion-ease-out);
+}
+
+.link:hover h2 {
+  transform: translateX(4px);
 }
 
 .description {
@@ -115,6 +132,19 @@
   min-height: 270px;
   align-self: center;
   color: var(--color-text);
+  opacity: 0;
+  clip-path: inset(0 100% 0 0);
+  transform: translateY(10px);
+  transition:
+    opacity var(--motion-reveal) var(--motion-ease-out) 80ms,
+    transform var(--motion-reveal) var(--motion-ease-out) 80ms,
+    clip-path var(--motion-graphic) var(--motion-ease-out) 80ms;
+}
+
+.visible .graphic {
+  opacity: 1;
+  clip-path: inset(0 0 0 0);
+  transform: translateY(0);
 }
 
 .graphic svg {
@@ -136,6 +166,7 @@
 
 :global(html[data-theme="dark"]) .darkAsset {
   display: block;
+  opacity: 0.92;
 }
 
 @media (max-width: 960px) {
@@ -185,7 +216,13 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .action {
+  .section,
+  .action,
+  .link h2,
+  .graphic {
+    opacity: 1;
+    clip-path: none;
+    transform: none;
     transition: none;
   }
 }

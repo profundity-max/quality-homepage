@@ -12,9 +12,9 @@ test("identity lifecycle protects lockout, sessions, revocation, and disabled ac
   await page.goto("/manage?status=active");
   await expect(page).toHaveURL(/\/login\?next=%2Fmanage%3Fstatus%3Dactive$/);
   await expect(
-    page.getByRole("heading", { name: /登录品集.*Q Nexus/ }),
+    page.getByRole("heading", { name: /欢迎来到.*品集｜Q Nexus/ }),
   ).toBeVisible();
-  // 中文一行、英文一行：两行都在，且「Q Nexus」不被拆开
+  // 欢迎语与完整产品名各占一行，且「品集｜Q Nexus」不被拆开
   const loginHeadingLines = await page
     .locator("#login-heading > span")
     .evaluateAll((lines) => lines.map((line) => line.getBoundingClientRect()));

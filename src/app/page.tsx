@@ -1,3 +1,4 @@
+import { ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 
 import { getDatabase } from "@/db/database";
@@ -154,7 +155,16 @@ export default async function HomePage() {
                     href={`/articles/${article.stableId}`}
                     className={styles.updateLink}
                   >
-                    <span className={styles.updateTitle}>{article.title}</span>
+                    <span className={styles.updateTitleGroup}>
+                      <span className={styles.updateTitle}>
+                        {article.title}
+                      </span>
+                      <ArrowUpRight
+                        className={styles.updateArrow}
+                        aria-hidden="true"
+                        size={17}
+                      />
+                    </span>
                     <span className={styles.updateMeta}>
                       {article.topicName} ·{" "}
                       {formatUpdateDate(article.updatedAt)}
