@@ -14,7 +14,7 @@ import {
   unlink,
   writeFile,
 } from "node:fs/promises";
-import { join, relative, resolve } from "node:path";
+import { basename, join, relative, resolve } from "node:path";
 import type { PGlite } from "@electric-sql/pglite";
 import { and, desc, eq, sql } from "drizzle-orm";
 import type { Sql } from "postgres";
@@ -49,6 +49,15 @@ export type BackupService = {
     requestingUserId: string,
     limit?: number,
   ): Promise<BackupRecord[]>;
+  readBackupFile(
+    requestingUserId: string,
+    backupId: string,
+    targetDirectory: string,
+  ): Promise<{
+    fileName: string;
+    payload: Buffer;
+    checksum: string;
+  }>;
   restoreDryRun(
     requestingUserId: string,
     backupId: string,
@@ -122,6 +131,33 @@ export function decryptBuffer(payload: Buffer, passphrase: string): Buffer {
 export function createBackupService(database: PGlite | Sql): BackupService {
   const client = createDatabaseClient(database);
   const audit = createContentAuditService(database);
+
+  async function readBackupFile(
+    requestingUserId: string,
+    backupId: string,
+    targetDirectory: string,
+  ) {
+    await assertAdministrator(client, requestingUserId);
+    const record = (
+      await client
+        .select()
+        .from(backups)
+        .where(eq(backups.id, backupId))
+        .limit(1)
+    )[0];
+    if (!record) throw new Error("备份记录不存在。");
+    if (record.status !== "success") {
+      throw new Error("只有成功完成的备份可以下载或恢复演练。");
+    }
+    if (basename(record.target) !== record.target) {
+      throw new Error("备份文件路径无效。");
+    }
+    return {
+      fileName: record.target,
+      payload: await readFile(resolve(targetDirectory, record.target)),
+      checksum: record.checksum,
+    };
+  }
 
   async function enforceRetention(context: BackupContext) {
     const rows = await client
@@ -251,24 +287,20 @@ export function createBackupService(database: PGlite | Sql): BackupService {
       return rows.map(toRecord);
     },
 
+    readBackupFile,
+
     async restoreDryRun(
       requestingUserId,
       backupId,
       { passphrase, targetDirectory },
     ) {
-      await assertAdministrator(client, requestingUserId);
-      const record = (
-        await client
-          .select()
-          .from(backups)
-          .where(eq(backups.id, backupId))
-          .limit(1)
-      )[0];
-      if (!record) throw new Error("Backup not found.");
-      const filePath = resolve(targetDirectory, record.target);
-      const payload = await readFile(filePath);
+      const { payload, checksum: recordedChecksum } = await readBackupFile(
+        requestingUserId,
+        backupId,
+        targetDirectory,
+      );
       const checksum = createHash("sha256").update(payload).digest("hex");
-      const checksumOk = checksum === record.checksum;
+      const checksumOk = checksum === recordedChecksum;
       if (!checksumOk) {
         return { checksumOk: false, entries: [], entrySizes: {} };
       }

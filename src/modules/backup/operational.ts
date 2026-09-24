@@ -1,11 +1,20 @@
 import type { PGlite } from "@electric-sql/pglite";
 import type { Sql } from "postgres";
 import { spawn } from "node:child_process";
+import { createHash } from "node:crypto";
 import { resolve } from "node:path";
 
-import { createBackupService, type BackupRecord } from "@/modules/backup";
+import {
+  createBackupService,
+  decryptBuffer,
+  type BackupRecord,
+} from "@/modules/backup";
 import type { BackupKind } from "@/db/schema";
 import { resolveDataDirectory } from "@/modules/file-storage/configuration";
+import { unzip } from "@/modules/markdown-package";
+import { createContentAuditService } from "@/modules/content-audit";
+import type { DatabaseRestoreDrillResult } from "@/modules/backup/restore-drill";
+import { runPostgresRestoreDrill } from "@/modules/backup/runtime-restore";
 
 type BackupEnvironment = Record<string, string | undefined>;
 export type BackupCommandRunner = (
@@ -21,6 +30,17 @@ export type BackupVerification = {
   entries: string[];
 };
 
+export type OperationalRestoreDrillResult = {
+  counts: DatabaseRestoreDrillResult["counts"];
+  uploadedFiles: number;
+};
+
+export type OperationalBackupDependencies = {
+  runRestoreDrill?: (
+    databaseDump: Buffer,
+  ) => Promise<DatabaseRestoreDrillResult>;
+};
+
 export function isCompleteBackup(
   verification: Pick<BackupVerification, "checksumOk" | "databaseEntrySize">,
 ): boolean {
@@ -32,6 +52,8 @@ export type OperationalBackupService = {
     ready: boolean;
     missing: string[];
     targetDirectory: string;
+    restoreDrillReady: boolean;
+    restoreDrillMissing: string[];
   };
   listBackups(
     requestingUserId: string,
@@ -42,6 +64,14 @@ export type OperationalBackupService = {
     requestingUserId: string,
     backupId: string,
   ): Promise<BackupVerification>;
+  downloadBackup(
+    requestingUserId: string,
+    backupId: string,
+  ): Promise<{ fileName: string; payload: Buffer }>;
+  runRestoreDrill(
+    requestingUserId: string,
+    backupId: string,
+  ): Promise<OperationalRestoreDrillResult>;
 };
 
 async function dumpPGlite(database: PGlite): Promise<Buffer> {
@@ -98,9 +128,12 @@ export async function dumpRuntimeDatabase(
 export function createOperationalBackupService(
   database: PGlite | Sql,
   environment: BackupEnvironment = process.env,
+  dependencies: OperationalBackupDependencies = {},
 ): OperationalBackupService {
   const service = createBackupService(database);
+  const audit = createContentAuditService(database);
   const passphrase = environment.BACKUP_PASSPHRASE;
+  const databaseUrl = environment.DATABASE_URL;
   const targetDirectory = environment.BACKUP_TARGET_DIR
     ? resolve(/* turbopackIgnore: true */ environment.BACKUP_TARGET_DIR)
     : resolve(process.cwd(), ".data", "backups");
@@ -110,6 +143,22 @@ export function createOperationalBackupService(
       ? ["DATABASE_URL"]
       : []),
   ];
+  const restoreDrillMissing = [
+    ...(!passphrase ? ["BACKUP_PASSPHRASE"] : []),
+    ...(!dependencies.runRestoreDrill && !databaseUrl ? ["DATABASE_URL"] : []),
+    ...(!dependencies.runRestoreDrill && supportsPGliteDump(database)
+      ? ["PostgreSQL 部署环境"]
+      : []),
+  ];
+
+  const executeRestoreDrill =
+    dependencies.runRestoreDrill ??
+    ((databaseDump: Buffer) => {
+      if (supportsPGliteDump(database) || !databaseUrl) {
+        throw new Error("恢复演练需要 PostgreSQL 部署环境和 DATABASE_URL。");
+      }
+      return runPostgresRestoreDrill(database, databaseUrl, databaseDump);
+    });
 
   function requirePassphrase(): string {
     if (!passphrase) {
@@ -124,6 +173,8 @@ export function createOperationalBackupService(
         ready: missing.length === 0,
         missing,
         targetDirectory,
+        restoreDrillReady: restoreDrillMissing.length === 0,
+        restoreDrillMissing,
       };
     },
 
@@ -162,6 +213,59 @@ export function createOperationalBackupService(
         databaseEntry,
         databaseEntrySize,
       };
+    },
+
+    async downloadBackup(requestingUserId, backupId) {
+      const { fileName, payload } = await service.readBackupFile(
+        requestingUserId,
+        backupId,
+        targetDirectory,
+      );
+      return { fileName, payload };
+    },
+
+    async runRestoreDrill(requestingUserId, backupId) {
+      const restorePassphrase = requirePassphrase();
+      try {
+        const { payload, checksum } = await service.readBackupFile(
+          requestingUserId,
+          backupId,
+          targetDirectory,
+        );
+        const actualChecksum = createHash("sha256")
+          .update(payload)
+          .digest("hex");
+        if (actualChecksum !== checksum) {
+          throw new Error("备份校验和不匹配，不能执行恢复演练。");
+        }
+        const archiveEntries = unzip(decryptBuffer(payload, restorePassphrase));
+        const databaseDump = archiveEntries.get("database.dump");
+        if (!databaseDump || databaseDump.byteLength === 0) {
+          throw new Error("备份中缺少有效的 database.dump。");
+        }
+        const drill = await executeRestoreDrill(databaseDump);
+        const uploadedFiles = [...archiveEntries.keys()].filter((entry) =>
+          entry.startsWith("data/"),
+        ).length;
+        await audit.record({
+          actorUserId: requestingUserId,
+          eventType: "backup.restore_drill.success",
+          targetType: "backup",
+          targetId: backupId,
+          metadata: { ...drill.counts, uploadedFiles },
+        });
+        return { counts: drill.counts, uploadedFiles };
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : "恢复演练失败";
+        await audit.record({
+          actorUserId: requestingUserId,
+          eventType: "backup.restore_drill.failed",
+          targetType: "backup",
+          targetId: backupId,
+          reason,
+        });
+        throw error;
+      }
     },
   };
 }

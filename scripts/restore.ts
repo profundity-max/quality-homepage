@@ -1,8 +1,6 @@
 // 恢复演练（BKP-06）：默认校验备份；--apply 解包；--drill 导入临时 PostgreSQL 后核对核心内容。
 // 用法：
 //   BACKUP_PASSPHRASE=... BACKUP_TARGET_DIR=... npx tsx scripts/restore.ts <备份ID> [--apply <目录>] [--drill]
-import { spawn } from "node:child_process";
-import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { PGlite } from "@electric-sql/pglite";
@@ -12,7 +10,7 @@ import { createBackupService } from "../src/modules/backup";
 import { unzip } from "../src/modules/markdown-package";
 import { decryptBuffer } from "../src/modules/backup";
 import { createContentAuditService } from "../src/modules/content-audit";
-import { runDatabaseRestoreDrill } from "../src/modules/backup/restore-drill";
+import { runPostgresRestoreDrill } from "../src/modules/backup/runtime-restore";
 
 const backupId = process.argv[2];
 const applyIndex = process.argv.indexOf("--apply");
@@ -33,42 +31,6 @@ if (!backupId || !adminUserId || !passphrase) {
 }
 
 const database = databaseUrl ? postgres(databaseUrl, { max: 1 }) : null;
-
-function databaseUrlFor(databaseName: string): string {
-  if (!databaseUrl) throw new Error("恢复演练需要 DATABASE_URL。");
-  const value = new URL(databaseUrl);
-  value.pathname = `/${databaseName}`;
-  return value.toString();
-}
-
-async function restoreWithPsql(
-  databaseName: string,
-  databaseDump: Buffer,
-): Promise<void> {
-  await new Promise<void>((resolveCommand, reject) => {
-    const child = spawn(
-      "psql",
-      ["--dbname", databaseUrlFor(databaseName), "--set", "ON_ERROR_STOP=1"],
-      { stdio: ["pipe", "ignore", "pipe"] },
-    );
-    const errors: Buffer[] = [];
-    child.stderr.on("data", (chunk: Buffer) => errors.push(chunk));
-    child.on("error", reject);
-    child.on("close", (code) => {
-      if (code === 0) {
-        resolveCommand();
-        return;
-      }
-      const detail = Buffer.concat(errors).toString().trim();
-      reject(
-        new Error(
-          `隔离数据库恢复失败（退出码 ${code ?? "unknown"}）${detail ? `：${detail}` : ""}`,
-        ),
-      );
-    });
-    child.stdin.end(databaseDump);
-  });
-}
 
 try {
   const service = createBackupService(database ?? new PGlite());
@@ -112,41 +74,12 @@ try {
     if (!databaseDump) throw new Error("备份中缺少 database.dump。");
     const audit = createContentAuditService(database);
     try {
-      const drill = await runDatabaseRestoreDrill(databaseDump, {
-        async createIsolatedDatabase() {
-          const databaseName = `q_nexus_restore_${randomUUID()
-            .replaceAll("-", "")
-            .slice(0, 12)}`;
-          await database.unsafe(`CREATE DATABASE "${databaseName}"`);
-          return databaseName;
-        },
-        restoreDatabase: restoreWithPsql,
-        async inspectDatabase(databaseName) {
-          const restored = postgres(databaseUrlFor(databaseName), { max: 1 });
-          try {
-            const rows = await restored<
-              {
-                users: number;
-                articles: number;
-                books: number;
-                templates: number;
-              }[]
-            >`select
-              (select count(*)::int from users) as users,
-              (select count(*)::int from articles) as articles,
-              (select count(*)::int from books) as books,
-              (select count(*)::int from templates) as templates`;
-            return rows[0]!;
-          } finally {
-            await restored.end();
-          }
-        },
-        async dropIsolatedDatabase(databaseName) {
-          await database`select pg_terminate_backend(pid) from pg_stat_activity
-            where datname = ${databaseName} and pid <> pg_backend_pid()`;
-          await database.unsafe(`DROP DATABASE IF EXISTS "${databaseName}"`);
-        },
-      });
+      if (!databaseUrl) throw new Error("恢复演练需要 DATABASE_URL。");
+      const drill = await runPostgresRestoreDrill(
+        database,
+        databaseUrl,
+        databaseDump,
+      );
       const uploadedFiles = [...archiveEntries.keys()].filter((entry) =>
         entry.startsWith("data/"),
       ).length;

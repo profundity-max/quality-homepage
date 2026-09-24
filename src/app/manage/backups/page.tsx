@@ -5,7 +5,11 @@ import { createOperationalBackupService } from "@/modules/backup/operational";
 
 import { requirePortalSession } from "../../authorization";
 import { PortalShell } from "../../portal-shell";
-import { runManualBackupAction, verifyBackupAction } from "./actions";
+import {
+  runManualBackupAction,
+  runRestoreDrillAction,
+  verifyBackupAction,
+} from "./actions";
 import styles from "./backups.module.css";
 
 const kindNames = { daily: "每日", weekly: "每周", manual: "手动" } as const;
@@ -48,7 +52,7 @@ export default async function BackupsPage({
           <h1>备份与恢复</h1>
           <p>
             每日/每周自动备份由运维定时任务执行（scripts/backup.ts）；
-            备份加密保存，恢复通过脚本与季度演练完成（BKP-04/06）。
+            备份加密保存；可在此下载备份文件并执行隔离恢复演练，正式恢复仍由运维通过脚本完成（BKP-04/06）。
           </p>
         </header>
 
@@ -70,6 +74,14 @@ export default async function BackupsPage({
             </>
           )}
           <p>备份保存位置：{configuration.targetDirectory}</p>
+          {configuration.restoreDrillReady ? (
+            <p>恢复演练已就绪，将使用隔离临时数据库，不覆盖生产数据。</p>
+          ) : (
+            <p>
+              当前环境不能执行恢复演练，缺少：
+              {configuration.restoreDrillMissing.join("、")}。
+            </p>
+          )}
         </section>
 
         <form action={runManualBackupAction} className={styles.toolbar}>
@@ -100,16 +112,46 @@ export default async function BackupsPage({
                   <td>{formatDateTime(record.startedAt)}</td>
                   <td>{record.byteSize} B</td>
                   <td>
-                    <div>{record.target}</div>
                     {record.status === "success" ? (
-                      <form action={verifyBackupAction}>
-                        <input
-                          type="hidden"
-                          name="backupId"
-                          value={record.id}
-                        />
-                        <button type="submit">验证备份</button>
-                      </form>
+                      <a
+                        className={styles.fileLink}
+                        href={`/manage/backups/${record.id}/download`}
+                      >
+                        {record.target}
+                        <span className={styles.linkHint}>下载备份文件</span>
+                      </a>
+                    ) : (
+                      <div>{record.target}</div>
+                    )}
+                    {record.status === "success" ? (
+                      <div className={styles.recordActions}>
+                        <form action={verifyBackupAction}>
+                          <input
+                            type="hidden"
+                            name="backupId"
+                            value={record.id}
+                          />
+                          <button type="submit">验证备份</button>
+                        </form>
+                        <form action={runRestoreDrillAction}>
+                          <input
+                            type="hidden"
+                            name="backupId"
+                            value={record.id}
+                          />
+                          <button
+                            type="submit"
+                            disabled={!configuration.restoreDrillReady}
+                            title={
+                              configuration.restoreDrillReady
+                                ? "在隔离临时数据库中恢复并核对，不修改生产数据"
+                                : `当前环境缺少：${configuration.restoreDrillMissing.join("、")}`
+                            }
+                          >
+                            恢复演练
+                          </button>
+                        </form>
+                      </div>
                     ) : null}
                   </td>
                   <td>{record.error ?? "—"}</td>

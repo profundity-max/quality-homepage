@@ -201,8 +201,17 @@ describe("backup service", () => {
   });
 
   test("readers cannot manage backups", async () => {
+    const record = await service().runBackup({
+      requestingUserId: ADMIN_ID,
+      kind: "manual",
+      context: context(),
+    });
+
     await expect(service().listBackups(READER_ID)).rejects.toThrow(
       /Administrator/i,
     );
+    await expect(
+      service().readBackupFile(READER_ID, record.id, targetDirectory),
+    ).rejects.toThrow(/Administrator/i);
   });
 });

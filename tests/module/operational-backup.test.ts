@@ -1,5 +1,5 @@
 import { PGlite } from "@electric-sql/pglite";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
@@ -63,6 +63,56 @@ describe("operational backup", () => {
     expect(verification.entries).toContain("data/cover.png");
   });
 
+  test("downloads the exact encrypted file recorded for a successful backup", async () => {
+    const service = createOperationalBackupService(database, {
+      BACKUP_PASSPHRASE: "operational-backup-test-passphrase",
+      BACKUP_TARGET_DIR: join(rootDirectory, "backups"),
+      Q_NEXUS_DATA_DIR: join(rootDirectory, "data"),
+      Q_NEXUS_E2E: "1",
+    });
+
+    const record = await service.runBackup(ADMIN_ID, "manual");
+    const download = await service.downloadBackup(ADMIN_ID, record.id);
+
+    expect(download.fileName).toBe(record.target);
+    expect(download.payload.byteLength).toBe(record.byteSize);
+    expect(download.payload).toEqual(
+      await readFile(join(rootDirectory, "backups", record.target)),
+    );
+  });
+
+  test("restores a successful backup into an isolated drill and counts uploaded files", async () => {
+    let restoredDump: Buffer | null = null;
+    const service = createOperationalBackupService(
+      database,
+      {
+        BACKUP_PASSPHRASE: "operational-backup-test-passphrase",
+        BACKUP_TARGET_DIR: join(rootDirectory, "backups"),
+        Q_NEXUS_DATA_DIR: join(rootDirectory, "data"),
+        Q_NEXUS_E2E: "1",
+      },
+      {
+        runRestoreDrill: async (databaseDump) => {
+          expect(databaseDump.byteLength).toBeGreaterThan(0);
+          restoredDump = databaseDump;
+          return {
+            databaseName: "q_nexus_restore_test",
+            counts: { users: 4, articles: 3, books: 2, templates: 1 },
+          };
+        },
+      },
+    );
+
+    const record = await service.runBackup(ADMIN_ID, "manual");
+    const result = await service.runRestoreDrill(ADMIN_ID, record.id);
+
+    expect(restoredDump).not.toBeNull();
+    expect(result).toEqual({
+      counts: { users: 4, articles: 3, books: 2, templates: 1 },
+      uploadedFiles: 1,
+    });
+  });
+
   test("uses pg_dump for the PostgreSQL database without shell interpolation", async () => {
     const calls: { command: string; arguments: string[] }[] = [];
     const dump = await dumpRuntimeDatabase(
@@ -97,6 +147,12 @@ describe("operational backup", () => {
       ready: false,
       missing: ["BACKUP_PASSPHRASE"],
       targetDirectory: join(process.cwd(), ".data", "backups"),
+      restoreDrillReady: false,
+      restoreDrillMissing: [
+        "BACKUP_PASSPHRASE",
+        "DATABASE_URL",
+        "PostgreSQL 部署环境",
+      ],
     });
   });
 

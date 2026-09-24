@@ -39,7 +39,9 @@ docker compose --profile operations run --rm --entrypoint "npx tsx scripts/resto
 docker compose --profile operations run --rm --entrypoint "npx tsx scripts/restore.ts" backup <备份ID> --apply /tmp/restore-check
 ```
 
-每季度至少执行一次 `--drill`。成功或失败都会写入内容审计日志；命令只操作自动创建的临时数据库，不覆盖生产库。完成自动核对后，仍应在隔离环境抽查登录、搜索、阅读和模板下载（BKP-06）。管理后台的“验证备份”只校验文件完整性、密钥和 `database.dump` 是否存在，不替代季度数据库恢复演练。
+管理员也可以在“管理 → 备份与恢复”中点击备份文件名下载对应的原始加密包，或点击“恢复演练”执行相同的隔离数据库核对。浏览器下载不会暴露或打开服务器上的 Finder 路径；部署在远程 Mac Studio 时，本地浏览器无权直接定位服务器文件。网页恢复演练只创建和删除临时数据库，不提供覆盖生产数据库的按钮。
+
+每季度至少执行一次 `--drill` 或后台“恢复演练”。成功或失败都会写入内容审计日志；命令只操作自动创建的临时数据库，不覆盖生产库。完成自动核对后，仍应在隔离环境抽查登录、搜索、阅读和模板下载（BKP-06）。管理后台的“验证备份”只校验文件完整性、密钥和 `database.dump` 是否存在，不替代季度数据库恢复演练。
 
 ## 3. 更新流程（OPS-10）
 

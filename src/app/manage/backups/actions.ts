@@ -46,3 +46,25 @@ export async function verifyBackupAction(formData: FormData) {
   }
   redirect(`${backupsPath}?notice=${encodeURIComponent(notice)}`);
 }
+
+export async function runRestoreDrillAction(formData: FormData) {
+  const session = await requirePortalSession(backupsPath);
+  const backupId = formData.get("backupId");
+  let notice: string;
+  if (typeof backupId !== "string" || !backupId) {
+    notice = "缺少要执行恢复演练的备份。";
+  } else {
+    try {
+      const result = await createOperationalBackupService(
+        getDatabase(),
+      ).runRestoreDrill(session.member.id, backupId);
+      notice =
+        `隔离恢复演练通过：账号 ${result.counts.users}，文章 ${result.counts.articles}，` +
+        `书目 ${result.counts.books}，模板 ${result.counts.templates}，` +
+        `上传文件 ${result.uploadedFiles}。生产数据库未被修改。`;
+    } catch (error) {
+      notice = error instanceof Error ? error.message : "恢复演练失败。";
+    }
+  }
+  redirect(`${backupsPath}?notice=${encodeURIComponent(notice)}`);
+}
