@@ -339,6 +339,44 @@ describe("content statistics service", () => {
     });
   });
 
+  // 线上真实场景：旧版本被下载过，之后发布了新版本，看板不能把下载数清成 0
+  test("template download totals survive publishing a newer version (STAT-04)", async () => {
+    const client = createDatabaseClient(database);
+    const stats = service();
+    await stats.recordTemplateDownload({
+      templateVersionId: VERSION_ID,
+      userId: READER_ID,
+      instant: NOW,
+    });
+
+    // 发布 v2：v1 转为 superseded，active 变成没有任何下载的 v2
+    await client.insert(templateVersions).values({
+      id: "00000000-0000-4000-8000-0000000000e3",
+      templateId: TEMPLATE_ID,
+      version: 2,
+      versionLabel: "2.0",
+      changeNote: "改版",
+      fileName: "record-v2.xlsx",
+      extension: "xlsx",
+      byteSize: 2048,
+      sha256: "b".repeat(64),
+      status: "active",
+      quarantineState: "passed",
+      createdAt: NOW,
+    });
+    await client
+      .update(templateVersions)
+      .set({ status: "superseded" })
+      .where(eq(templateVersions.id, VERSION_ID));
+
+    const dashboard = await stats.editorDashboard(EDITOR_ID, NOW);
+    expect(dashboard.templateDownloads[0]).toMatchObject({
+      stableId: "demo-template",
+      downloadCount: 1,
+      downloadUsers: 1,
+    });
+  });
+
   test("identity details are admin-only and limited to recent activity (STAT-06)", async () => {
     const stats = service();
     await expect(stats.listIdentitySearchDetail(EDITOR_ID, 10)).rejects.toThrow(

@@ -8,14 +8,7 @@ import { requirePortalSession } from "../../authorization";
 import { PortalShell } from "../../portal-shell";
 import { purgeIdentityDetailsAction } from "./actions";
 import styles from "./stats.module.css";
-
-function formatDate(value: Date): string {
-  return new Intl.DateTimeFormat("zh-CN", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  }).format(value);
-}
+import { formatDate } from "@/modules/shared/date-format";
 
 export default async function StatsDashboardPage({
   searchParams,

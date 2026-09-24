@@ -320,4 +320,73 @@ describe("template service quarantine", () => {
     ).toBe(false);
     await expect(service.getPublishedTemplate("draft-tpl")).resolves.toBeNull();
   });
+
+  // 线上真实场景：Heat Pipes 的 3 次下载发生在 v1，现已是 superseded，
+  // 详情页却只读 active 版本的计数，于是显示 0。
+  test("template detail reports downloads across every version (FILE-04)", async () => {
+    const client = createDatabaseClient(database);
+    const templateId = "00000000-0000-4000-8000-0000000000t1".replace("t", "e");
+    const oldVersionId = "00000000-0000-4000-8000-0000000000v1".replace(
+      "v",
+      "e",
+    );
+    const activeVersionId = "00000000-0000-4000-8000-0000000000v2".replace(
+      "v",
+      "e",
+    );
+    await client.insert(templates).values({
+      id: templateId,
+      stableId: "history-downloads",
+      name: "历史下载模板",
+      purpose: "演示",
+      usageScenario: "演示",
+      categoryId,
+      contentOwnerId: editorId,
+      status: "published",
+      nextReviewAt: new Date("2027-01-01T00:00:00.000Z"),
+      updatedAt: new Date("2026-09-01T00:00:00.000Z"),
+      createdAt: new Date("2026-08-01T00:00:00.000Z"),
+    });
+    await client.insert(templateVersions).values([
+      {
+        id: oldVersionId,
+        templateId,
+        version: 1,
+        versionLabel: "1.0",
+        changeNote: "初版",
+        fileName: "v1.xlsx",
+        extension: "xlsx",
+        byteSize: 1024,
+        sha256: "c".repeat(64),
+        status: "superseded",
+        quarantineState: "passed",
+        downloadCount: 3,
+        createdAt: new Date("2026-08-01T00:00:00.000Z"),
+      },
+      {
+        id: activeVersionId,
+        templateId,
+        version: 2,
+        versionLabel: "2.0",
+        changeNote: "改版",
+        fileName: "v2.xlsx",
+        extension: "xlsx",
+        byteSize: 2048,
+        sha256: "d".repeat(64),
+        status: "active",
+        quarantineState: "passed",
+        downloadCount: 0,
+        createdAt: new Date("2026-09-01T00:00:00.000Z"),
+      },
+    ]);
+
+    const service = createTemplateService(database, {
+      storage: createDiskFileStorage(directory),
+      scanner: cleanScanner,
+    });
+    const detail = await service.getPublishedTemplate("history-downloads");
+
+    expect(detail?.versionLabel).toBe("2.0");
+    expect(detail?.downloadCount).toBe(3);
+  });
 });

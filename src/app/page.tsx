@@ -15,13 +15,7 @@ import { QuickSearch } from "@/ui/search/quick-search";
 import { requirePortalSession } from "./authorization";
 import styles from "./home.module.css";
 import { PortalShell } from "./portal-shell";
-
-function formatUpdateDate(value: Date): string {
-  return new Intl.DateTimeFormat("zh-CN", {
-    month: "short",
-    day: "numeric",
-  }).format(value);
-}
+import { formatShortDate } from "@/modules/shared/date-format";
 
 export default async function HomePage() {
   const session = await requirePortalSession("/");
@@ -166,8 +160,7 @@ export default async function HomePage() {
                       />
                     </span>
                     <span className={styles.updateMeta}>
-                      {article.topicName} ·{" "}
-                      {formatUpdateDate(article.updatedAt)}
+                      {article.topicName} · {formatShortDate(article.updatedAt)}
                     </span>
                   </Link>
                 </li>

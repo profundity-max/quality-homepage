@@ -6,6 +6,7 @@ import { createContentAuditService } from "@/modules/content-audit";
 import { requirePortalSession } from "../../authorization";
 import { PortalShell } from "../../portal-shell";
 import styles from "./audit.module.css";
+import { formatDateTime } from "@/modules/shared/date-format";
 
 const eventTypeNames: Record<string, string> = {
   "article.publish": "文章发布",
@@ -33,16 +34,6 @@ const eventTypeNames: Record<string, string> = {
   "backup.success": "备份成功",
   "backup.failed": "备份失败",
 };
-
-function formatDateTime(value: Date): string {
-  return new Intl.DateTimeFormat("zh-CN", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(value);
-}
 
 export default async function AuditPage() {
   const session = await requirePortalSession("/manage/audit");

@@ -8,6 +8,7 @@ import { requirePortalSession } from "../../authorization";
 import { PortalShell } from "../../portal-shell";
 import { resolveFeedbackAction } from "./actions";
 import styles from "./feedback.module.css";
+import { formatDateTime } from "@/modules/shared/date-format";
 
 const typeNames = {
   error: "内容错误",
@@ -22,16 +23,6 @@ const statusNames = {
   resolved: "已解决",
   ignored: "忽略",
 } as const;
-
-function formatDate(value: Date): string {
-  return new Intl.DateTimeFormat("zh-CN", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(value);
-}
 
 export default async function FeedbackManagementPage({
   searchParams,
@@ -124,9 +115,9 @@ export default async function FeedbackManagementPage({
                 </div>
                 <p className={styles.description}>{item.description}</p>
                 <p className={styles.meta}>
-                  {item.reporterName} · {formatDate(item.createdAt)}
+                  {item.reporterName} · {formatDateTime(item.createdAt)}
                   {item.handledAt
-                    ? ` · 处理于 ${formatDate(item.handledAt)}`
+                    ? ` · 处理于 ${formatDateTime(item.handledAt)}`
                     : ""}
                   {item.resolutionNote
                     ? ` · 处理说明：${item.resolutionNote}`

@@ -16,6 +16,7 @@ import { requirePortalSession } from "../authorization";
 import { PortalShell } from "../portal-shell";
 import { submitGapNoteAction } from "./actions";
 import styles from "./search.module.css";
+import { formatDate } from "@/modules/shared/date-format";
 
 const typeNames = {
   articles: "文章",
@@ -350,12 +351,4 @@ function ResultGroups({
       ) : null}
     </>
   );
-}
-
-function formatDate(value: Date): string {
-  return new Intl.DateTimeFormat("zh-CN", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  }).format(value);
 }

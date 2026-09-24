@@ -653,6 +653,13 @@ export function createTemplateService(
           .limit(1)
       )[0];
       if (!version) return null;
+      // FILE-04：下载次数按模板汇总所有版本（旧版本被下载过也要算）
+      const [downloadTotals] = await client
+        .select({
+          downloadCount: sql<number>`coalesce(sum(${templateVersions.downloadCount}), 0)`,
+        })
+        .from(templateVersions)
+        .where(eq(templateVersions.templateId, template.id));
       return {
         stableId: template.stableId,
         name: template.name,
@@ -663,7 +670,7 @@ export function createTemplateService(
         extension: version.extension,
         byteSize: version.byteSize,
         software: version.software,
-        downloadCount: version.downloadCount,
+        downloadCount: Number(downloadTotals?.downloadCount ?? 0),
       };
     },
 

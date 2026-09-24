@@ -9,6 +9,7 @@ import { archiveFromListAction, publishFromListAction } from "./actions";
 import { requirePortalSession } from "../../authorization";
 import { PortalShell } from "../../portal-shell";
 import styles from "../manage.module.css";
+import { formatDate } from "@/modules/shared/date-format";
 
 const statusNames = {
   draft: "草稿",
@@ -22,15 +23,6 @@ const filters = [
   { value: "published", label: "已发布" },
   { value: "archived", label: "已归档" },
 ] as const;
-
-function formatDate(value: Date | null): string {
-  if (!value) return "—";
-  return new Intl.DateTimeFormat("zh-CN", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  }).format(value);
-}
 
 export default async function ArticleManagementPage({
   searchParams,

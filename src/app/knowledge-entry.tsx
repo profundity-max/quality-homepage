@@ -14,6 +14,7 @@ import {
   selectKnowledgeSection,
 } from "./knowledge-entry-model";
 import styles from "./knowledge-entry.module.css";
+import { formatDate } from "@/modules/shared/date-format";
 
 // 一级知识入口是常驻导航（IA-01）；即使栏目因无内容被阅读树剪枝，
 // 入口页仍应渲染空态而不是 404。
@@ -21,14 +22,6 @@ const knownEntrySections: Record<string, string> = {
   "quality-knowledge": "品质知识",
   "thermal-knowledge": "散热知识",
 };
-
-function formatDate(value: Date): string {
-  return new Intl.DateTimeFormat("zh-CN", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  }).format(value);
-}
 
 export async function KnowledgeEntryPage({
   sectionStableId,

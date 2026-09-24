@@ -7,6 +7,7 @@ import { requirePortalSession } from "../../authorization";
 import { PortalShell } from "../../portal-shell";
 import { permanentDeleteAction, restoreItemAction } from "./actions";
 import styles from "./recycle-bin.module.css";
+import { formatDate } from "@/modules/shared/date-format";
 
 const typeNames = {
   article: "文章",
@@ -15,14 +16,6 @@ const typeNames = {
   topic: "主题",
   "template-category": "模板分类",
 } as const;
-
-function formatDate(value: Date): string {
-  return new Intl.DateTimeFormat("zh-CN", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  }).format(value);
-}
 
 export default async function RecycleBinPage({
   searchParams,

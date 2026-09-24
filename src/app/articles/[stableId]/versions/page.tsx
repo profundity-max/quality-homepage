@@ -7,16 +7,7 @@ import { requirePortalSession } from "../../../authorization";
 import { PortalShell } from "../../../portal-shell";
 import { archiveArticleAction, restoreVersionAction } from "./actions";
 import styles from "./versions.module.css";
-
-function formatDateTime(value: Date): string {
-  return new Intl.DateTimeFormat("zh-CN", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(value);
-}
+import { formatDateTime } from "@/modules/shared/date-format";
 
 export default async function ArticleVersionsPage({
   params,

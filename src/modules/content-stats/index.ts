@@ -419,23 +419,26 @@ export function createContentStatsService(
           .select({
             stableId: templates.stableId,
             name: templates.name,
-            downloadCount: templateVersions.downloadCount,
+            // 下载次数按模板汇总所有版本：发布新版本不能让历史下载数归零
+            downloadCount: sql<number>`coalesce(sum(${templateVersions.downloadCount}), 0)`,
             downloadUsers: sql<number>`(
                 select count(distinct download_event.user_id)
                 from template_download_events download_event
-                where download_event.template_version_id = ${templateVersions.id}
+                inner join template_versions download_version
+                  on download_version.id = download_event.template_version_id
+                where download_version.template_id = ${templates.id}
               )`,
           })
           .from(templates)
           .innerJoin(
             templateVersions,
-            and(
-              eq(templateVersions.templateId, templates.id),
-              eq(templateVersions.status, "active"),
-            ),
+            eq(templateVersions.templateId, templates.id),
           )
           .where(eq(templates.status, "published"))
-          .orderBy(desc(templateVersions.downloadCount))
+          .groupBy(templates.id)
+          .orderBy(
+            desc(sql`coalesce(sum(${templateVersions.downloadCount}), 0)`),
+          )
           .limit(10),
       ]);
 
@@ -461,7 +464,7 @@ export function createContentStatsService(
         noResultTerms,
         templateDownloads: templateDownloads.map((row) => ({
           ...row,
-          downloadCount: row.downloadCount,
+          downloadCount: Number(row.downloadCount),
           downloadUsers: Number(row.downloadUsers),
         })),
       };

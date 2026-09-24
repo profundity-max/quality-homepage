@@ -11,6 +11,7 @@ import {
   verifyBackupAction,
 } from "./actions";
 import styles from "./backups.module.css";
+import { formatDateTime } from "@/modules/shared/date-format";
 
 const kindNames = { daily: "每日", weekly: "每周", manual: "手动" } as const;
 const statusNames = {
@@ -18,16 +19,6 @@ const statusNames = {
   success: "成功",
   failed: "失败",
 } as const;
-
-function formatDateTime(value: Date): string {
-  return new Intl.DateTimeFormat("zh-CN", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(value);
-}
 
 export default async function BackupsPage({
   searchParams,
