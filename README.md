@@ -48,7 +48,22 @@ npm run test:e2e       # Playwright 端到端测试
 npm run verify         # 完整验证链（format/lint/typecheck/test/build/e2e/compose）
 npm run db:migrate     # 应用数据库迁移
 npm run identity:bootstrap  # 初始化首位管理员
+scripts/deploy-to-server.sh # 一条命令完成：测试 → 服务器备份 → SSH 同步 → 重建容器 → 健康检查
 ```
+
+### 部署到部门 Mac Studio
+
+开发机到 `github.com` 的链路在本网络环境下间歇性超时，而开发机与部署机同处一个局域网，
+因此日常同步走 `scripts/deploy-to-server.sh`（SSH 直推），不依赖 GitHub：
+
+```bash
+scripts/deploy-to-server.sh --dry-run   # 只打印将要执行的步骤，不做任何变更
+scripts/deploy-to-server.sh             # 正式部署
+```
+
+前提：本机已配置指向部署机的 SSH 免密别名（默认 `quality-server`），且已添加 git 远端
+（默认 `qserver`）。远端名、主机别名、部署路径与超时都可用 `Q_NEXUS_DEPLOY_*` 环境变量覆盖，
+详见脚本 `--help`。脚本会拒绝在工作区不干净时部署，并默认在升级前触发一次服务器端加密备份（OPS-10）。
 
 ---
 
