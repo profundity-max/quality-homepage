@@ -53,6 +53,8 @@
 | V3.17 | 2026-10-16 | 环境变更 | 修复部署机（Quality-Server）**定时备份从未成功**的故障，并建立离机备份：① 根因是 macOS TCC 禁止 launchd 任务读取 `~/Documents`，而仓库正位于该目录，导致每日/每周备份每次都 `Operation not permitted` 退出（日志累计 56 次失败、退出码 126，备份目录里只有手工包）；探针实验确认仅把启动脚本移出该目录无效、必须移动文件本身，故把仓库从 `~/Documents/02-Q-Nexus/quality-homepage` 迁到 `~/q-nexus`（`compose.yaml` 已显式 `name: q-nexus`，命名卷复用、数据零影响；迁移后由 launchd 触发 daily 备份产出 94MB 包，`restore.ts` 解密核对通过）；② 两个 plist 补 `EnvironmentVariables.PATH`，否则 launchd 的最小 PATH 找不到 `docker`；③ 开发机新增 `~/.local/bin/qnexus-pull-backups.sh` 与对应 LaunchAgent，每周日把加密包 rsync 到 `~/Q-Nexus-Backups`，满足 BKP-03「备份必须离机」 | — |
 | V3.18 | 2026-10-16 | 小型修改 | 新增 `scripts/deploy-to-server.sh`：把「本机 lint / typecheck / 测试 → 部署机加密备份（OPS-10）→ SSH 直推代码 → `docker compose up --build -d --wait` → 健康检查轮询」串成一条命令。起因是开发机到 `github.com` 的链路间歇性故障（6 次 git 操作仅 1 次成功，失败均为 75 秒 TCP 超时；用 `http.curloptResolve` 固定到可达 IP 仍失败，说明与 DNS/IP 无关），而开发机与部署机在同一局域网，故以 SSH 直推作为主同步通道。脚本默认拒绝脏工作区、支持 `--dry-run` 预览与 `--skip-checks`/`--skip-backup`，远端名、主机别名、部署路径、超时全部走可覆盖的环境变量而不硬编码；新增 `tests/integration/deploy-script.test.ts` 7 个用例（帮助文本、未知选项、脏工作区拒绝、主机不可达拒绝、dry-run 计划内容且不改动仓库、跳过开关、环境变量覆盖） | `v3.18` |
 
+| V3.19 | 2026-10-16 | 小型修改 | 修复运维工具镜像长期未更新：定时备份使用 run --build，部署显式构建 backup/bootstrap，真实验证命令行隔离恢复及审计；离机同步改为周四 13:40 主动拉取，每半小时补拉未完成周任务，失败非零、逐包 SHA-256 校验后才记录成功 | `v3.19` |
+
 ## 每次变更的操作清单
 
 本次未在开发电脑执行正式部署。目标机器升级前请备份数据库与受控文件，并按 [新人路线升级说明](deployment.md#v30-新人路线升级) 在备份副本验证迁移。

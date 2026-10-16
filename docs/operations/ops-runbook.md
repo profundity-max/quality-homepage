@@ -16,27 +16,35 @@ Compose 部署形态下，备份在栈内执行（`backup` 操作服务，内部
 
 ```bash
 # 手动备份（替换 <管理员用户ID>）
-docker compose --profile operations run --rm backup manual <管理员用户ID>
+docker compose --profile operations run --build --rm backup manual <管理员用户ID>
 # 每日/每周任务使用同一命令，把 manual 换成 daily 或 weekly
 # 加密包结构与校验和验证（不写数据库）
-docker compose --profile operations run --rm --entrypoint "npx tsx scripts/restore.ts" backup <备份ID>
+docker compose --profile operations run --build --rm --entrypoint "npx tsx scripts/restore.ts" backup <备份ID>
 # 隔离数据库恢复演练（自动创建并删除临时数据库）
-docker compose --profile operations run --rm --entrypoint "npx tsx scripts/restore.ts" backup <备份ID> --drill
+docker compose --profile operations run --build --rm --entrypoint "npx tsx scripts/restore.ts" backup <备份ID> --drill
 ```
 
 脚本会直接调用 `pg_dump`，把非空数据库转储和受控上传文件一起打包；任一环节失败都会记录失败原因，不生成“成功”的空包。保留策略为 7 份每日 + 8 份每周。备份使用 AES-256-GCM 加密，校验和写入数据库（BKP-02/04/05）。
 
 备份目标：公司服务器或移动硬盘（BKP-03）。配置为 `BACKUP_TARGET_DIR` 指向挂载的目标目录即可；正式上线前必须完成配置。
 
+## 1.1 工具镜像与离机补拉（V3.19）
+
+运维操作必须先从当前代码构建工具镜像：`docker compose --profile operations build backup bootstrap`。只更新 Web 不会自动更新带 `operations` profile 的工具服务。`scripts/run-backup-launchd.sh` 现在使用 `run --build`，部署脚本也显式构建工具镜像，防止旧版 `restore.ts` 忽略 `--drill` 后只校验解密就返回成功。命令行演练应输出「隔离恢复演练通过」，并新增 `backup.restore_drill.success` 审计，不能仅凭退出码或「校验通过」判定数据库可恢复。
+
+开发机使用 `scripts/pull-backups.sh`（安装到 `~/.local/bin/qnexus-pull-backups.sh`），从 `quality-server:/Users/quality/q-nexus/.data/backups/` 拉取到 `~/Q-Nexus-Backups`，只增不删并核对每个加密包的 SHA-256。失败返回非零、记入 `sync.log`，只有完整成功才原子更新 `last-success` 时间戳。
+
+本聊天的 Codex 主动任务每周四 13:40（Asia/Shanghai）拉取；同名本机 LaunchAgent 改为每周四 13:40、登录时及每半小时调用 `--if-due`。后者只检查最近一期周四任务，已完成就退出；离线或电脑休眠时保持待完成，恢复运行并接入公司局域网后补拉。任务需要本机运行、用户登录及 SSH 可达；电脑关机期间不能执行。LaunchAgent 的标准错误保存在 `~/Q-Nexus-Backups/scheduler-error.log`，原每周日触发器已替换，不重复创建任务。
+
 ## 2. 恢复与季度演练（BKP-06）
 
 ```bash
 # Compose 中验证加密包
-docker compose --profile operations run --rm --entrypoint "npx tsx scripts/restore.ts" backup <备份ID>
+docker compose --profile operations run --build --rm --entrypoint "npx tsx scripts/restore.ts" backup <备份ID>
 # 恢复数据库到隔离临时库，核对账号、文章、书目、模板和上传文件数量，随后删除临时库
-docker compose --profile operations run --rm --entrypoint "npx tsx scripts/restore.ts" backup <备份ID> --drill
+docker compose --profile operations run --build --rm --entrypoint "npx tsx scripts/restore.ts" backup <备份ID> --drill
 # 仅在需要检查文件时解包到容器内临时目录；这不等于数据库恢复
-docker compose --profile operations run --rm --entrypoint "npx tsx scripts/restore.ts" backup <备份ID> --apply /tmp/restore-check
+docker compose --profile operations run --build --rm --entrypoint "npx tsx scripts/restore.ts" backup <备份ID> --apply /tmp/restore-check
 ```
 
 管理员也可以在“管理 → 备份与恢复”中点击备份文件名下载对应的原始加密包，或点击“恢复演练”执行相同的隔离数据库核对。浏览器下载不会暴露或打开服务器上的 Finder 路径；部署在远程 Mac Studio 时，本地浏览器无权直接定位服务器文件。网页恢复演练只创建和删除临时数据库，不提供覆盖生产数据库的按钮。

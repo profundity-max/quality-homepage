@@ -136,6 +136,7 @@ fi
 
 # ── 5. 重建容器 ─────────────────────────────────────────────────────────────
 step "重建并启动容器"
+run ssh -o BatchMode=yes "$HOST" "cd '$DEPLOY_DIR' && docker compose --profile operations build backup bootstrap"
 run ssh -o BatchMode=yes "$HOST" "cd '$DEPLOY_DIR' && docker compose up --build -d --wait"
 ok "容器已启动"
 

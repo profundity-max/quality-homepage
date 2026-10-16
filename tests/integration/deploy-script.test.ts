@@ -138,6 +138,9 @@ describe("deploy-to-server command", () => {
     expect(result.output).toContain("[dry-run] npm run test:local");
     expect(result.output).toContain("git push qserver main");
     expect(result.output).toContain("docker compose up --build -d --wait");
+    expect(result.output).toContain(
+      "docker compose --profile operations build backup bootstrap",
+    );
     // 部署前备份（OPS-10）也必须在计划里
     expect(result.output).toContain("run-backup-launchd.sh manual");
     expect(result.output).toContain("dry-run 结束，未产生任何变更");
