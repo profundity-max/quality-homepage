@@ -3,6 +3,15 @@ import { expect, test } from "vitest";
 import { watermarkImageBytes } from "@/modules/content-protection/image-watermark";
 
 const label = "天脉品集 Q-Nexus · 内部资料 · Lou（Lou）· 2026-10-19";
+
+test("images above 64 megapixels still respect the processing bound", async () => {
+  const oversized = Buffer.from(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="8001" height="8000"><rect width="100%" height="100%" fill="white"/></svg>',
+  );
+  await expect(watermarkImageBytes(oversized, label)).rejects.toThrow(
+    /pixel limit/,
+  );
+});
 for (const format of ["png", "jpeg", "webp", "gif"] as const) {
   test(`saved ${format} has changed pixels, preserves dimensions and original bytes`, async () => {
     const original = await sharp({

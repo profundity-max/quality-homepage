@@ -161,6 +161,36 @@ describe("protected uploads HTTP boundary", () => {
     expectPrivate(alternate);
   });
 
+  test("existing 8640×4860 onboarding images remain readable with watermark and original dimensions", async () => {
+    const original = await sharp({
+      create: { width: 8640, height: 4860, channels: 3, background: "white" },
+    })
+      .png()
+      .toBuffer();
+    await writeFile(join(context.directory, `${image.id}.png`), original);
+    await database.query(
+      `insert into articles (id, stable_id, title, summary, body_markdown, primary_topic_id, content_owner_id, next_review_at, status)
+      values ('00000000-0000-4000-8000-0000000000d1', 'large-image', 'Large image', 'Summary', $1, (select id from topics limit 1), $2, now() + interval '30 days', 'published')`,
+      [`![image](${image.url})`, editorId],
+    );
+    const response = await request();
+    expect(response.status).toBe(200);
+    expectPrivate(response);
+    const delivered = Buffer.from(await response.arrayBuffer());
+    expect(await sharp(delivered).metadata()).toMatchObject({
+      width: 8640,
+      height: 4860,
+      format: "png",
+    });
+    expect(delivered.equals(original)).toBe(false);
+    expect(
+      (await createDiskFileStorage(context.directory).read(
+        image.id,
+        "png",
+      ))!.equals(original),
+    ).toBe(true);
+  });
+
   test("editors can preview unreferenced images but cannot read non-image files", async () => {
     context.session = { member: { id: editorId, role: "editor" } };
     expect((await request()).status).toBe(200);
