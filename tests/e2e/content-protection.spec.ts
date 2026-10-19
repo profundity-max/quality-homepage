@@ -99,7 +99,9 @@ test("reader protection covers detail, inline reading and print without blocking
 
 test("editor front-office reading is protected while editing preview stays usable", async ({
   page,
+  context,
 }) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   await login(page, "editor");
   await page.goto("/articles/anova-intro");
   const content = page.locator("[data-content-protection]");
@@ -117,6 +119,15 @@ test("editor front-office reading is protected while editing preview stays usabl
   await page.emulateMedia({ media: "screen" });
   await page.goto("/manage/articles/anova-intro/edit");
   await expect(page.locator("[data-content-protection]")).toHaveCount(0);
+  await page.getByRole("tab", { name: "源码", exact: true }).click();
+  const source = page.getByRole("textbox", { name: "Markdown 源码" });
+  const markdown = await source.inputValue();
+  await source.focus();
+  await source.selectText();
+  await page.keyboard.press("ControlOrMeta+c");
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+    markdown,
+  );
 });
 
 test("mobile watermark repeats above content in both themes without horizontal overflow", async ({

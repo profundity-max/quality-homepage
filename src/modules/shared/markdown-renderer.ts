@@ -1,3 +1,4 @@
+import { protectedImageUrl } from "@/modules/content-protection/image-url";
 import rehypeKatex from "rehype-katex";
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import type { Schema } from "hast-util-sanitize";
@@ -198,6 +199,17 @@ function collectText(node: Element): string {
     .join("");
 }
 
+function protectImageUrls() {
+  return (tree: Root) => {
+    visit(tree, "element", (node) => {
+      const key =
+        node.tagName === "img" ? "src" : node.tagName === "a" ? "href" : null;
+      if (key && typeof node.properties[key] === "string")
+        node.properties[key] = protectedImageUrl(node.properties[key]);
+    });
+  };
+}
+
 const processor = unified()
   .use(remarkParse)
   .use(remarkGfm)
@@ -208,6 +220,7 @@ const processor = unified()
   .use(annotateCallouts)
   .use(annotateHeadings)
   .use(collectHeadings)
+  .use(protectImageUrls)
   .use(rehypeStringify);
 
 export async function renderMarkdown(markdown: string): Promise<string> {

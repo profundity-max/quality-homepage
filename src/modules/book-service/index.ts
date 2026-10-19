@@ -1,3 +1,4 @@
+import { protectedImageUrl } from "@/modules/content-protection/image-url";
 import { randomUUID } from "node:crypto";
 import type { PGlite } from "@electric-sql/pglite";
 import { asc, eq, sql } from "drizzle-orm";
@@ -144,7 +145,9 @@ export function createBookService(database: PGlite | Sql): BookService {
       hasCover: row.coverImageId !== null,
       coverUrl:
         row.coverImageId && row.coverExtension
-          ? `/uploads/${row.coverImageId}.${row.coverExtension}`
+          ? protectedImageUrl(
+              `/uploads/${row.coverImageId}.${row.coverExtension}`,
+            )
           : null,
       recommendedByName: row.recommendedByName ?? null,
     };
