@@ -43,7 +43,7 @@
 - [x] 全量 local tests、lint/typecheck/build、相关浏览器测试；独立 review 并修复必要发现。
 - [x] VERSION=4.0、版本摘要、Excel及保护限制说明。
 - [x] 本地提交；部署前加密备份；SSH推送与部署；健康/页面/图片/水印验收。
-- [ ] 本机 GitHub 推送及 v4.0；工作区干净。
+- [x] 本机 GitHub 推送及 v4.0；工作区干净。
 
 
 ## 执行记录
@@ -57,3 +57,5 @@
 - Final review set-aside items handled: 私有缓存策略和无 CDN 的 Nginx 部署配置复查；手机明暗截图人工检查；全量测试与发布记录由主 Agent 完成。大规模压测属于以上 deferred 项。
 
 - Task 4: 本地 337/337、浏览器最终 5/5、类型/构建通过；部署机三容器健康；HTTP 匿名图片/导出 401；真实 PostgreSQL 图片授权只读验收通过。
+
+- 发布完成：GitHub main 与 v4.0 推送成功，部署前备份已拉取本机并逐包校验。此清单关闭提交仅更新文档；v4.0 标签保留在已验收的发布提交 fbe9726。
