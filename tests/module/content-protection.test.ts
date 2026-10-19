@@ -5,7 +5,7 @@ import {
 } from "@/modules/content-protection";
 
 describe("article protection", () => {
-  test("uses the signed-in member and Shanghai access date, restricting readers only", () => {
+  test("uses the signed-in member and Shanghai access date, restricting every front-office role", () => {
     expect(
       createArticleProtection(
         { displayName: "Lou", username: "lou", role: "reader" },
@@ -21,7 +21,7 @@ describe("article protection", () => {
           { displayName: "编辑", username: "editor", role },
           new Date(),
         ).restrict,
-      ).toBe(false);
+      ).toBe(true);
   });
   test("falls back to username when display name is missing", () => {
     expect(

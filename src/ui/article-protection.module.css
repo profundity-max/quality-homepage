@@ -23,11 +23,13 @@
     background-image: var(--watermark-dark);
   }
 }
-.restricted {
+.restricted,
+.restricted * {
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
 }
 .restricted img {
+  pointer-events: none;
   -webkit-user-drag: none;
 }

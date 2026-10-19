@@ -1,11 +1,15 @@
 import { expect, test, type Page } from "@playwright/test";
 
-async function login(page: Page, role: "member" | "editor") {
+async function login(page: Page, role: "member" | "editor" | "columnadmin") {
   await page.goto("/login");
   await page.getByLabel("用户名").fill(role);
   await page
     .getByLabel("密码", { exact: true })
-    .fill(`${role} secure password`);
+    .fill(
+      role === "columnadmin"
+        ? "column admin secure password"
+        : `${role} secure password`,
+    );
   await page.getByLabel("保持登录").check();
   await page.getByRole("button", { name: "登录", exact: true }).click();
   await expect(page).toHaveURL(/\/$/);
@@ -93,23 +97,23 @@ test("reader protection covers detail, inline reading and print without blocking
   await expect(page.locator("main")).toBeHidden();
 });
 
-test("editor retains copy, print and an unprotected editing preview", async ({
+test("editor front-office reading is protected while editing preview stays usable", async ({
   page,
 }) => {
   await login(page, "editor");
   await page.goto("/articles/anova-intro");
   const content = page.locator("[data-content-protection]");
   await expect(content).toHaveAttribute("data-watermark", /（editor）/);
-  await expect(content).toHaveAttribute("data-restrict-copy", "false");
+  await expect(content).toHaveAttribute("data-restrict-copy", "true");
   expect(
     await content.evaluate((root) => {
       const e = new Event("copy", { bubbles: true, cancelable: true });
       root.dispatchEvent(e);
       return e.defaultPrevented;
     }),
-  ).toBe(false);
+  ).toBe(true);
   await page.emulateMedia({ media: "print" });
-  await expect(page.locator("main")).toBeVisible();
+  await expect(page.locator("main")).toBeHidden();
   await page.emulateMedia({ media: "screen" });
   await page.goto("/manage/articles/anova-intro/edit");
   await expect(page.locator("[data-content-protection]")).toHaveCount(0);
@@ -148,3 +152,39 @@ test("mobile watermark repeats above content in both themes without horizontal o
     ),
   ).toBe(true);
 });
+
+for (const role of ["member", "editor", "columnadmin"] as const) {
+  test(`${role}: actual clipboard excludes article text on detail and topic pages`, async ({
+    page,
+    context,
+  }) => {
+    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+    await login(page, role);
+    for (const url of ["/articles/anova-example", "/quality?topic=anova"]) {
+      await page.goto(url);
+      const content = page.locator("[data-content-protection]").first();
+      await expect(content).toHaveAttribute("data-restrict-copy", "true");
+      // A real keyboard copy must leave clipboard untouched, including a whole-page selection.
+      await page.getByRole("link", { name: "首页", exact: true }).focus();
+      await page.evaluate(async () => {
+        await navigator.clipboard.writeText("clipboard-sentinel");
+      });
+      await content.evaluate((root) => {
+        const range = document.createRange();
+        range.selectNodeContents(root);
+        const selection = window.getSelection()!;
+        selection.removeAllRanges();
+        selection.addRange(range);
+      });
+      await page.keyboard.press("ControlOrMeta+c");
+      expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+        "clipboard-sentinel",
+      );
+      await page.keyboard.press("ControlOrMeta+a");
+      await page.keyboard.press("ControlOrMeta+c");
+      expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+        "clipboard-sentinel",
+      );
+    }
+  });
+}

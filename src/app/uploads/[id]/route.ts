@@ -1,3 +1,5 @@
+import { createArticleProtection } from "@/modules/content-protection";
+import { watermarkImageBytes } from "@/modules/content-protection/image-watermark";
 import { NextResponse } from "next/server";
 
 import { getCurrentSession } from "@/app/session";
@@ -44,13 +46,21 @@ export async function GET(
       return notFound();
     const buffer = await storage.read(fileId, extension);
     if (!buffer) return notFound();
-    return new NextResponse(new Uint8Array(buffer), {
-      headers: {
-        ...privateHeaders,
-        "Content-Type": contentTypes[extension],
-        "X-Content-Type-Options": "nosniff",
+    return new NextResponse(
+      new Uint8Array(
+        await watermarkImageBytes(
+          buffer,
+          createArticleProtection(session.member).watermark,
+        ),
+      ),
+      {
+        headers: {
+          ...privateHeaders,
+          "Content-Type": contentTypes[extension],
+          "X-Content-Type-Options": "nosniff",
+        },
       },
-    });
+    );
   } catch {
     return new NextResponse("Image unavailable", {
       status: 500,

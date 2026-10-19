@@ -1,3 +1,4 @@
+import sharp from "sharp";
 import { PGlite } from "@electric-sql/pglite";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -12,7 +13,14 @@ import { GET } from "@/app/uploads/[id]/route";
 const context = vi.hoisted(() => ({
   database: null as PGlite | null,
   directory: "",
-  session: null as { member: { id: string; role: string } } | null,
+  session: null as {
+    member: {
+      id: string;
+      role: string;
+      username?: string;
+      displayName?: string | null;
+    };
+  } | null,
 }));
 vi.mock("@/app/session", () => ({
   getCurrentSession: async () => context.session,
@@ -44,10 +52,21 @@ describe("protected uploads HTTP boundary", () => {
       createDiskFileStorage(context.directory),
     ).uploadImage(
       editorId,
-      Buffer.from("protected-image-bytes"),
+      await sharp({
+        create: { width: 640, height: 360, channels: 4, background: "white" },
+      })
+        .png()
+        .toBuffer(),
       "private.png",
     );
-    context.session = { member: { id: readerId, role: "reader" } };
+    context.session = {
+      member: {
+        id: readerId,
+        role: "reader",
+        username: "reader",
+        displayName: "阅读者",
+      },
+    };
   });
 
   afterEach(async () => {
@@ -93,7 +112,7 @@ describe("protected uploads HTTP boundary", () => {
     expectPrivate(archived);
   });
 
-  test("published article images return their bytes with private no-store headers", async () => {
+  test("published images contain identity watermark pixels and never return the original", async () => {
     await database.query(
       `insert into articles (id, stable_id, title, summary, body_markdown, primary_topic_id, content_owner_id, next_review_at, status)
       values ('00000000-0000-4000-8000-0000000000d1', 'public', 'Public', 'Summary', $1, (select id from topics limit 1), $2, now() + interval '30 days', 'published')`,
@@ -102,8 +121,30 @@ describe("protected uploads HTTP boundary", () => {
     const response = await request();
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toBe("image/png");
-    expect(await response.text()).toBe("protected-image-bytes");
+    const delivered = Buffer.from(await response.arrayBuffer());
+    const original = await createDiskFileStorage(context.directory).read(
+      image.id,
+      "png",
+    );
+    expect(delivered.equals(original!)).toBe(false);
+    const pixels = await sharp(delivered).removeAlpha().raw().toBuffer();
+    expect(pixels.some((value) => value < 240)).toBe(true);
     expectPrivate(response);
+    const second = await request();
+    expect(Buffer.from(await second.arrayBuffer()).equals(delivered)).toBe(
+      true,
+    );
+    context.session!.member.username = "different-account";
+    const other = await request();
+    expect(Buffer.from(await other.arrayBuffer()).equals(delivered)).toBe(
+      false,
+    );
+    expect(
+      (await createDiskFileStorage(context.directory).read(
+        image.id,
+        "png",
+      ))!.equals(original!),
+    ).toBe(true);
   });
 
   test("book cover references remain readable", async () => {
