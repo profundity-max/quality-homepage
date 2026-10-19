@@ -43,3 +43,39 @@ test("EXIF orientation is retained visually after embedding watermark", async ()
     await sharp(await watermarkImageBytes(original, label)).metadata(),
   ).toMatchObject({ width: 64, height: 640 });
 });
+
+test("watermark behaves as an underprint: dark ink is never washed out and light background carries identity", async () => {
+  const original = await sharp(
+    Buffer.from(
+      '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"><rect width="640" height="360" fill="white"/><rect x="320" width="320" height="360" fill="#101010"/></svg>',
+    ),
+  )
+    .png()
+    .toBuffer();
+  const delivered = await watermarkImageBytes(original, label);
+  const pixels = await sharp(delivered).removeAlpha().raw().toBuffer();
+  let changedBackground = 0;
+  let maxInkDifference = 0;
+  let lightenedInkPixels = 0;
+  for (let y = 0; y < 360; y++)
+    for (let x = 0; x < 640; x++) {
+      const offset = (y * 640 + x) * 3;
+      if (x >= 320) {
+        if (
+          pixels[offset] > 16 ||
+          pixels[offset + 1] > 16 ||
+          pixels[offset + 2] > 16
+        )
+          lightenedInkPixels++;
+        for (let channel = 0; channel < 3; channel++)
+          maxInkDifference = Math.max(
+            maxInkDifference,
+            Math.abs(pixels[offset + channel] - 16),
+          );
+      } else if (pixels[offset] < 255) changedBackground++;
+    }
+  expect(lightenedInkPixels).toBe(0);
+  // libvips alpha rounding may darken a channel by up to three of 255 levels.
+  expect(maxInkDifference).toBeLessThanOrEqual(3);
+  expect(changedBackground).toBeGreaterThan(100);
+});

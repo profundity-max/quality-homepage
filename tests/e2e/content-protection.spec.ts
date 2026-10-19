@@ -130,7 +130,7 @@ test("editor front-office reading is protected while editing preview stays usabl
   );
 });
 
-test("mobile watermark repeats above content in both themes without horizontal overflow", async ({
+test("mobile watermark repeats behind content in both themes without horizontal overflow", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
@@ -141,6 +141,9 @@ test("mobile watermark repeats above content in both themes without horizontal o
     (root) => getComputedStyle(root, "::after").backgroundImage,
   );
   expect(light).toContain("data:image/svg+xml");
+  expect(
+    await content.evaluate((root) => getComputedStyle(root, "::after").zIndex),
+  ).toBe("-1");
   await page.screenshot({
     path: "test-results/content-protection-mobile-light.png",
     fullPage: true,

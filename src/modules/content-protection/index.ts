@@ -35,7 +35,7 @@ function escapeXml(value: string) {
 export function watermarkSvg(
   label: string,
   theme: "light" | "dark",
-  opacity = 0.15,
+  opacity = 0.1,
 ) {
   const prefix = "天脉品集 Q-Nexus · 内部资料";
   const identity = label.slice(prefix.length + 3);
@@ -44,7 +44,7 @@ export function watermarkSvg(
     identity.length > 30
       ? ' textLength="290" lengthAdjust="spacingAndGlyphs"'
       : "";
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="320" height="180" viewBox="0 0 320 180"><g transform="rotate(-22 160 90)" fill="${color}" fill-opacity="${opacity}" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" stroke="white" stroke-opacity="0.65" stroke-width="0.6" paint-order="stroke"><text x="160" y="82">${escapeXml(prefix)}</text><text x="160" y="104"${fit}>${escapeXml(identity)}</text></g></svg>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="320" height="180" viewBox="0 0 320 180"><g transform="rotate(-22 160 90)" fill="${color}" fill-opacity="${opacity}" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" ><text x="160" y="82">${escapeXml(prefix)}</text><text x="160" y="104"${fit}>${escapeXml(identity)}</text></g></svg>`;
   return svg;
 }
 
