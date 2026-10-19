@@ -56,3 +56,22 @@ mark.search-highlight {
   color: inherit;
   border-radius: 3px;
 }
+
+/* 阅读者打印整张阅读页只输出授权提示；SSR 属性即可生效，无需脚本。 */
+@media print {
+  body:has([data-restrict-copy="true"]) {
+    background: white !important;
+    color: #111 !important;
+    min-height: 0;
+  }
+  body:has([data-restrict-copy="true"]) > * {
+    display: none !important;
+  }
+  body:has([data-restrict-copy="true"])::after {
+    content: "内部资料，请联系负责人获取授权副本";
+    display: block;
+    margin: 2cm;
+    color: #111;
+    font-size: 16pt;
+  }
+}

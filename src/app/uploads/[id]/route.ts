@@ -1,42 +1,60 @@
 import { NextResponse } from "next/server";
 
+import { getCurrentSession } from "@/app/session";
+import { getDatabase } from "@/db/database";
 import { createDiskFileStorage } from "@/modules/file-storage";
 import { resolveDataDirectory } from "@/modules/file-storage/configuration";
+import { createImageService } from "@/modules/image-service";
 
-// 图片访问路由：从受控目录读取（EDIT-05、ADR-0002 文件独立保存）。
-// 只允许图片扩展名；未找到返回 404。
+const privateHeaders = { "Cache-Control": "private, no-store", Vary: "Cookie" };
+const contentTypes: Record<string, string> = {
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  gif: "image/gif",
+  webp: "image/webp",
+};
+
+// 受控图片仅在会话、扩展名和当前内容引用授权全部通过后读取。
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
 ): Promise<NextResponse> {
-  const { id } = await params;
-
-  // id 形如 `<uuid>.<ext>`；拆出扩展名后交给存储层校验
-  const match = /^([0-9a-f-]{36})\.([a-z0-9]+)$/.exec(id);
-  if (!match) {
-    return new NextResponse("Not found", { status: 404 });
+  try {
+    const session = await getCurrentSession();
+    if (!session)
+      return new NextResponse("Unauthorized", {
+        status: 401,
+        headers: privateHeaders,
+      });
+    const { id } = await params;
+    const match = /^([0-9a-f-]{36})\.(png|jpe?g|gif|webp)$/.exec(id);
+    const notFound = () =>
+      new NextResponse("Not found", { status: 404, headers: privateHeaders });
+    if (!match) return notFound();
+    const [, fileId, extension] = match;
+    const storage = createDiskFileStorage(resolveDataDirectory());
+    if (
+      !(await createImageService(getDatabase(), storage).canReadImage(
+        session.member.id,
+        fileId,
+        extension,
+      ))
+    )
+      return notFound();
+    const buffer = await storage.read(fileId, extension);
+    if (!buffer) return notFound();
+    return new NextResponse(new Uint8Array(buffer), {
+      headers: {
+        ...privateHeaders,
+        "Content-Type": contentTypes[extension],
+        "X-Content-Type-Options": "nosniff",
+      },
+    });
+  } catch {
+    return new NextResponse("Image unavailable", {
+      status: 500,
+      headers: privateHeaders,
+    });
   }
-  const [, fileId, extension] = match;
-
-  const storage = createDiskFileStorage(resolveDataDirectory());
-  const buffer = await storage.read(fileId, extension);
-  if (!buffer) {
-    return new NextResponse("Not found", { status: 404 });
-  }
-
-  const contentType =
-    extension === "png"
-      ? "image/png"
-      : extension === "jpg" || extension === "jpeg"
-        ? "image/jpeg"
-        : extension === "gif"
-          ? "image/gif"
-          : "image/webp";
-
-  return new NextResponse(new Uint8Array(buffer), {
-    headers: {
-      "Content-Type": contentType,
-      "Cache-Control": "public, max-age=31536000, immutable",
-    },
-  });
 }

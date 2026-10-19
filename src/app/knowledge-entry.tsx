@@ -5,6 +5,9 @@ import { getDatabase } from "@/db/database";
 import { createKnowledgePublishingService } from "@/modules/knowledge-publishing";
 import type { SectionNode, TopicSummary } from "@/modules/knowledge-publishing";
 import { renderMarkdown } from "@/modules/shared/markdown-renderer";
+import { ArticleProtection } from "@/ui/article-protection";
+import { createArticleProtection } from "@/modules/content-protection";
+
 import { ArticleBody } from "@/ui/article-body";
 
 import { requirePortalSession } from "./authorization";
@@ -32,7 +35,8 @@ export async function KnowledgeEntryPage({
   destinationPath: string;
   topicStableId: string | undefined;
 }) {
-  await requirePortalSession(destinationPath);
+  const session = await requirePortalSession(destinationPath);
+  const protection = createArticleProtection(session.member);
 
   const service = createKnowledgePublishingService(getDatabase());
   const tree = await service.listTopicTree();
@@ -124,7 +128,9 @@ export async function KnowledgeEntryPage({
                             打开阅读页（目录 / 收藏 / 反馈）
                           </Link>
                         </p>
-                        <ArticleBody html={article.bodyHtml} />
+                        <ArticleProtection {...protection}>
+                          <ArticleBody html={article.bodyHtml} />
+                        </ArticleProtection>
                       </article>
                     </li>
                   ))}

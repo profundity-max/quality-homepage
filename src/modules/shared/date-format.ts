@@ -54,3 +54,16 @@ export function formatDateTime(value: Date | null | undefined): string {
 export function formatShortDate(value: Date | null | undefined): string {
   return format(shortDateFormatter, value);
 }
+
+/** 上海时区的 YYYY-MM-DD，用于访问身份水印。 */
+export function formatIsoDate(value: Date): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: displayTimeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(value);
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((item) => item.type === type)?.value;
+  return `${part("year")}-${part("month")}-${part("day")}`;
+}

@@ -221,3 +221,21 @@ export async function extractTableOfContents(
   const file = await processor.process(markdown);
   return (file.data.tocEntries as TocEntry[] | undefined) ?? [];
 }
+
+/** 从实际可见的阅读树提取资源引用，供原图访问权限复用；不能另建简化解析器。 */
+export async function extractRenderedResourceUrls(
+  markdown: string,
+): Promise<string[]> {
+  const tree = await processor.run(processor.parse(markdown));
+  const urls = new Set<string>();
+  visit(tree, "element", (node) => {
+    const url =
+      node.tagName === "img"
+        ? node.properties.src
+        : node.tagName === "a"
+          ? node.properties.href
+          : undefined;
+    if (typeof url === "string") urls.add(url);
+  });
+  return [...urls];
+}

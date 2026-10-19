@@ -1,0 +1,33 @@
+.protected {
+  position: relative;
+  isolation: isolate;
+  min-width: 0;
+}
+.protected::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background-image: var(--watermark-light);
+  background-repeat: repeat;
+  background-position: center top;
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
+}
+:global(:root[data-theme="dark"]) .protected::after {
+  background-image: var(--watermark-dark);
+}
+@media (prefers-color-scheme: dark) {
+  :global(:root[data-theme="system"]) .protected::after {
+    background-image: var(--watermark-dark);
+  }
+}
+.restricted {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+.restricted img {
+  -webkit-user-drag: none;
+}

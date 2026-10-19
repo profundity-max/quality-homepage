@@ -14,6 +14,8 @@ const eventTypeNames: Record<string, string> = {
   "article.archive": "文章归档",
   "article.review": "内容复核",
   "article.duplicate": "创建副本",
+  "article.export": "文章导出",
+  "site.export": "全站导出",
   "template.upload": "模板上传",
   "template.publish": "模板发布",
   "template.archive": "模板归档",

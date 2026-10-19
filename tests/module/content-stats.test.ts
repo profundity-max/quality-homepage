@@ -1,6 +1,6 @@
 import { PGlite } from "@electric-sql/pglite";
 import { eq } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect, test } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { migrate } from "@/db/migrate";
 import { createDatabaseClient } from "@/db/client";
@@ -140,6 +140,7 @@ describe("content statistics service", () => {
   });
 
   afterEach(async () => {
+    vi.restoreAllMocks();
     await database.close();
   });
 
@@ -378,6 +379,8 @@ describe("content statistics service", () => {
   });
 
   test("identity details are admin-only and limited to recent activity (STAT-06)", async () => {
+    // 该用例的事件以固定 NOW 为基准，90 天查询窗口也必须使用同一时钟。
+    vi.spyOn(Date, "now").mockReturnValue(NOW.getTime());
     const stats = service();
     await expect(stats.listIdentitySearchDetail(EDITOR_ID, 10)).rejects.toThrow(
       /Administrator/i,

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { getCurrentSession } from "@/app/session";
 import { getDatabase } from "@/db/database";
+import { createContentAuditService } from "@/modules/content-audit";
 import { createContentMigrationService } from "@/modules/content-migration";
 import { createDiskFileStorage } from "@/modules/file-storage";
 import { resolveDataDirectory } from "@/modules/file-storage/configuration";
@@ -19,6 +20,12 @@ export async function GET(): Promise<NextResponse> {
     const buffer = await createContentMigrationService(getDatabase(), {
       storage: createDiskFileStorage(resolveDataDirectory()),
     }).exportFullSite();
+    await createContentAuditService(getDatabase()).record({
+      actorUserId: session.member.id,
+      eventType: "site.export",
+      targetType: "site",
+      targetId: "full",
+    });
     return new NextResponse(new Uint8Array(buffer), {
       headers: {
         "Content-Type": "application/zip",

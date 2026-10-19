@@ -14,6 +14,9 @@ import type { TocEntry } from "@/modules/shared/markdown-renderer";
 
 import { requirePortalSession } from "../../authorization";
 import { PortalShell } from "../../portal-shell";
+import { ArticleProtection } from "@/ui/article-protection";
+import { createArticleProtection } from "@/modules/content-protection";
+
 import { ArticleBody } from "@/ui/article-body";
 import { submitFeedbackAction, toggleFavoriteAction } from "./actions";
 import styles from "./article.module.css";
@@ -263,9 +266,11 @@ export default async function ArticlePage({
               )}
             </nav>
           )}
-          <h1 className={styles.title}>{article.title}</h1>
-          <p className={styles.summary}>{article.summary}</p>
-          <ArticleBody html={bodyHtml} />
+          <ArticleProtection {...createArticleProtection(session.member)}>
+            <h1 className={styles.title}>{article.title}</h1>
+            <p className={styles.summary}>{article.summary}</p>
+            <ArticleBody html={bodyHtml} />
+          </ArticleProtection>
         </article>
 
         <aside className={styles.toc} aria-label="正文目录">
