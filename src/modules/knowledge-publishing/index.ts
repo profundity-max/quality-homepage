@@ -162,7 +162,11 @@ export function createKnowledgePublishingService(
       })
       .from(sections)
       .where(isNull(sections.archivedAt))
-      .orderBy(asc(sections.sortOrder));
+      .orderBy(
+        asc(sections.sortOrder),
+        asc(sections.name),
+        asc(sections.stableId),
+      );
 
     const topicsWithSection = await client
       .select({
@@ -173,7 +177,7 @@ export function createKnowledgePublishingService(
       })
       .from(topics)
       .where(isNull(topics.archivedAt))
-      .orderBy(asc(topics.sortOrder));
+      .orderBy(asc(topics.sortOrder), asc(topics.name), asc(topics.stableId));
 
     const topicIdsWithContent = await client
       .selectDistinct({ topicId: articles.primaryTopicId })

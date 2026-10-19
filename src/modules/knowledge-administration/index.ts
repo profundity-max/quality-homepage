@@ -1,5 +1,5 @@
 import type { PGlite } from "@electric-sql/pglite";
-import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import type { Sql } from "postgres";
 
@@ -123,7 +123,11 @@ export function createKnowledgeAdministrationService(
         archivedAt: sections.archivedAt,
       })
       .from(sections)
-      .orderBy(asc(sections.sortOrder), asc(sections.name));
+      .orderBy(
+        asc(sections.sortOrder),
+        asc(sections.name),
+        asc(sections.stableId),
+      );
 
     const allTopics = await client
       .select({
@@ -135,7 +139,7 @@ export function createKnowledgeAdministrationService(
         archivedAt: topics.archivedAt,
       })
       .from(topics)
-      .orderBy(asc(topics.sortOrder), asc(topics.name));
+      .orderBy(asc(topics.sortOrder), asc(topics.name), asc(topics.stableId));
 
     const publishedCounts = await client
       .select({
@@ -282,13 +286,30 @@ export function createKnowledgeAdministrationService(
 
       const stableId = await uniqueStableId("topic", trimmed);
       const id = randomUUID();
-      await client.insert(topics).values({
-        id,
-        stableId,
-        sectionId: section.id,
-        name: trimmed,
-        sortOrder: 0,
-        createdAt: new Date(),
+      await client.transaction(async (transaction) => {
+        // Serialize creation and movement for this sibling group.
+        await transaction
+          .select({ id: sections.id })
+          .from(sections)
+          .where(eq(sections.id, section.id))
+          .for("update");
+        const [position] = await transaction
+          .select({
+            nextOrder: sql<number>`coalesce(max(${topics.sortOrder}), -1) + 1`,
+          })
+          .from(topics)
+          .where(
+            and(eq(topics.sectionId, section.id), isNull(topics.archivedAt)),
+          );
+        const nextOrder = position.nextOrder;
+        await transaction.insert(topics).values({
+          id,
+          stableId,
+          sectionId: section.id,
+          name: trimmed,
+          sortOrder: nextOrder,
+          createdAt: new Date(),
+        });
       });
       await recordAdminAudit(
         database,
@@ -313,13 +334,30 @@ export function createKnowledgeAdministrationService(
 
       const stableId = await uniqueStableId("section", trimmed);
       const id = randomUUID();
-      await client.insert(sections).values({
-        id,
-        stableId,
-        name: trimmed,
-        parentId: parent.id,
-        sortOrder: 0,
-        createdAt: new Date(),
+      await client.transaction(async (transaction) => {
+        // Serialize creation and movement for this sibling group.
+        await transaction
+          .select({ id: sections.id })
+          .from(sections)
+          .where(eq(sections.id, parent.id))
+          .for("update");
+        const [position] = await transaction
+          .select({
+            nextOrder: sql<number>`coalesce(max(${sections.sortOrder}), -1) + 1`,
+          })
+          .from(sections)
+          .where(
+            and(eq(sections.parentId, parent.id), isNull(sections.archivedAt)),
+          );
+        const nextOrder = position.nextOrder;
+        await transaction.insert(sections).values({
+          id,
+          stableId,
+          name: trimmed,
+          parentId: parent.id,
+          sortOrder: nextOrder,
+          createdAt: new Date(),
+        });
       });
       await recordAdminAudit(
         database,
@@ -389,49 +427,63 @@ export function createKnowledgeAdministrationService(
     stableId: string,
     direction: "up" | "down",
   ) {
-    const current = (
-      await client
+    if (direction !== "up" && direction !== "down")
+      throw new Error("Invalid direction.");
+    await client.transaction(async (transaction) => {
+      const [current] = await transaction
         .select({
           id: table.id,
-          sortOrder: sortOrderColumn,
           parentId: parentColumn,
+          archivedAt: table.archivedAt,
         })
         .from(table)
         .where(eq(stableIdColumn, stableId))
-        .limit(1)
-    )[0];
-    if (!current) throw new Error("Item not found.");
+        .limit(1);
+      if (!current || current.archivedAt) throw new Error("Item not found.");
 
-    const sibling = (
-      await client
-        .select({ id: table.id, sortOrder: sortOrderColumn })
+      // A parent row is a common lock for all moves/creates in this group.
+      // Root sections share a deterministic lock over the root rows instead.
+      await transaction
+        .select({ id: sections.id })
+        .from(sections)
+        .where(
+          current.parentId === null
+            ? isNull(sections.parentId)
+            : eq(sections.id, current.parentId),
+        )
+        .orderBy(asc(sections.id))
+        .for("update");
+      const siblings = await transaction
+        .select({ id: table.id })
         .from(table)
         .where(
           and(
-            direction === "up"
-              ? sql`${sortOrderColumn} < ${current.sortOrder}`
-              : sql`${sortOrderColumn} > ${current.sortOrder}`,
             current.parentId === null
               ? isNull(parentColumn)
               : eq(parentColumn, current.parentId),
+            isNull(table.archivedAt),
           ),
         )
-        .orderBy(
-          direction === "up" ? desc(sortOrderColumn) : asc(sortOrderColumn),
-        )
-        .limit(1)
-    )[0];
-    if (!sibling) return; // 已在边界
-
-    await client.transaction(async (transaction) => {
+        .orderBy(asc(sortOrderColumn), asc(table.name), asc(stableIdColumn))
+        .for("update");
+      const index = siblings.findIndex((row) => row.id === current.id);
+      const next = index + (direction === "up" ? -1 : 1);
+      if (index < 0 || next < 0 || next >= siblings.length) return;
+      [siblings[index], siblings[next]] = [siblings[next], siblings[index]];
+      // Dense, unique positions fix legacy ties as part of the same atomic move.
+      const positions = siblings.map(
+        (row, position) =>
+          sql`when ${table.id} = ${row.id} then ${position}::integer`,
+      );
       await transaction
         .update(table)
-        .set({ sortOrder: sibling.sortOrder })
-        .where(eq(table.id, current.id));
-      await transaction
-        .update(table)
-        .set({ sortOrder: current.sortOrder })
-        .where(eq(table.id, sibling.id));
+        .set({ sortOrder: sql`case ${sql.join(positions, sql` `)} end` })
+        .where(
+          inArray(
+            table.id,
+            siblings.map((row) => row.id),
+          ),
+        );
     });
   }
 

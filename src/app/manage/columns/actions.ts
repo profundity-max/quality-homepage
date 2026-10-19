@@ -14,6 +14,7 @@ const columnsPath = "/manage/columns";
 async function runColumnAction(
   successMessage: string,
   operation: (requestingUserId: string) => Promise<unknown>,
+  anchor?: string,
 ) {
   const session = await requirePortalSession(columnsPath);
   let errorMessage: string | null = null;
@@ -22,9 +23,9 @@ async function runColumnAction(
   } catch (error) {
     errorMessage = columnErrorMessage(error);
   }
-  revalidatePath(columnsPath);
+  revalidatePath("/", "layout");
   redirect(
-    `${columnsPath}?${errorMessage ? "error" : "notice"}=${encodeURIComponent(errorMessage ?? successMessage)}`,
+    `${columnsPath}?${errorMessage ? "error" : "notice"}=${encodeURIComponent(errorMessage ?? successMessage)}${anchor ? `#${encodeURIComponent(anchor)}` : ""}`,
   );
 }
 
@@ -79,24 +80,30 @@ export async function archiveTopicAction(formData: FormData): Promise<void> {
 export async function moveTopicAction(formData: FormData): Promise<void> {
   const stableId = readString(formData, "stableId");
   const direction = readString(formData, "direction") as "up" | "down";
-  await runColumnAction("排序已调整。", (requestingUserId) =>
-    createKnowledgeAdministrationService(getDatabase()).moveTopic(
-      requestingUserId,
-      stableId,
-      direction,
-    ),
+  await runColumnAction(
+    "排序已调整。",
+    (requestingUserId) =>
+      createKnowledgeAdministrationService(getDatabase()).moveTopic(
+        requestingUserId,
+        stableId,
+        direction,
+      ),
+    `topic-${stableId}`,
   );
 }
 
 export async function moveSectionAction(formData: FormData): Promise<void> {
   const stableId = readString(formData, "stableId");
   const direction = readString(formData, "direction") as "up" | "down";
-  await runColumnAction("排序已调整。", (requestingUserId) =>
-    createKnowledgeAdministrationService(getDatabase()).moveSection(
-      requestingUserId,
-      stableId,
-      direction,
-    ),
+  await runColumnAction(
+    "排序已调整。",
+    (requestingUserId) =>
+      createKnowledgeAdministrationService(getDatabase()).moveSection(
+        requestingUserId,
+        stableId,
+        direction,
+      ),
+    `section-${stableId}`,
   );
 }
 

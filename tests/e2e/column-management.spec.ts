@@ -4,6 +4,7 @@ async function loginAsColumnAdmin(page: import("@playwright/test").Page) {
   await page.goto("/login");
   await page.getByLabel("用户名").fill("columnadmin");
   await page.getByLabel("密码").fill("column admin secure password");
+  await page.getByLabel("保持登录").check();
   await page.getByRole("button", { name: "登录" }).click();
   await expect(page).toHaveURL(/\/$/);
 }
@@ -158,4 +159,43 @@ test("editor can maintain columns and topics (permission update)", async ({
     .getByRole("button", { name: "改名" })
     .click();
   await expect(page.getByRole("status")).toContainText("栏目已改名");
+});
+
+test("twelve new topics retain their order and repeated clicks move one row at a time", async ({
+  page,
+}) => {
+  test.setTimeout(90000);
+  await loginAsColumnAdmin(page);
+  await page.goto("/manage/columns");
+  const forms = page.locator(
+    'form:has(input[name="parentStableId"][value="problem-solving"])',
+  );
+  const names = Array.from({ length: 12 }, (_, i) => `排序回归 ${i}`);
+  for (const name of names) {
+    await forms.getByLabel("新主题名称", { exact: true }).fill(name);
+    await forms.getByRole("button", { name: "新增主题", exact: true }).click();
+    await expect(
+      page.getByLabel(`重命名主题 ${name}`, { exact: true }),
+    ).toBeVisible();
+  }
+  const order = () =>
+    page
+      .getByRole("textbox", { name: /^重命名主题 排序回归 / })
+      .evaluateAll((nodes) => nodes.map((n) => (n as HTMLInputElement).value));
+  expect(await order()).toEqual(names);
+  const expected = [...names];
+  for (let step = 0; step < 4; step++) {
+    await page
+      .getByRole("button", { name: "移动主题 排序回归 11 上移", exact: true })
+      .click();
+    const index = expected.indexOf(names[11]);
+    [expected[index - 1], expected[index]] = [
+      expected[index],
+      expected[index - 1],
+    ];
+    await expect.poll(order).toEqual(expected);
+    await expect(page).toHaveURL(/#topic-/);
+  }
+  await page.reload();
+  expect(await order()).toEqual(expected);
 });

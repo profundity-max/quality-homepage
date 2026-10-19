@@ -20,6 +20,7 @@ import {
   renameTopicAction,
 } from "./actions";
 import styles from "../manage.module.css";
+import { MoveButton } from "./move-button";
 
 export default async function ColumnManagementPage({
   searchParams,
@@ -78,7 +79,11 @@ function SectionNodeView({
   depth: number;
 }) {
   return (
-    <div className={styles.columnNode} style={{ marginLeft: depth * 24 }}>
+    <div
+      id={`section-${section.stableId}`}
+      className={styles.columnNode}
+      style={{ marginLeft: depth * 24 }}
+    >
       <div className={styles.columnRow}>
         <span className={styles.columnName}>
           {section.name}
@@ -136,7 +141,11 @@ function SectionNodeView({
 
 function TopicRow({ topic, depth }: { topic: ManagedTopic; depth: number }) {
   return (
-    <div className={styles.columnRow} style={{ marginLeft: depth * 24 }}>
+    <div
+      id={`topic-${topic.stableId}`}
+      className={styles.columnRow}
+      style={{ marginLeft: depth * 24 }}
+    >
       <span className={styles.columnName}>
         {topic.name}
         {topic.archivedAt && <span className={styles.columnBadge}>已归档</span>}
@@ -192,24 +201,12 @@ function MoveButtons({
       <form action={action}>
         <input type="hidden" name="stableId" value={stableId} />
         <input type="hidden" name="direction" value="up" />
-        <button
-          aria-label={`${labelPrefix} 上移`}
-          className={styles.textButton}
-          type="submit"
-        >
-          ↑
-        </button>
+        <MoveButton label={`${labelPrefix} 上移`} direction="up" />
       </form>
       <form action={action}>
         <input type="hidden" name="stableId" value={stableId} />
         <input type="hidden" name="direction" value="down" />
-        <button
-          aria-label={`${labelPrefix} 下移`}
-          className={styles.textButton}
-          type="submit"
-        >
-          ↓
-        </button>
+        <MoveButton label={`${labelPrefix} 下移`} direction="down" />
       </form>
     </>
   );
