@@ -17,6 +17,7 @@ async function runEditorAction(
   successMessage: string,
   operation: (requestingUserId: string) => Promise<{ stableId: string }>,
   fromOnboarding = false,
+  stableId?: string,
 ) {
   const session = await requirePortalSession(editorPath);
   let errorMessage: string | null = null;
@@ -29,10 +30,10 @@ async function runEditorAction(
   revalidatePath(editorPath);
   revalidatePath("/manage/onboarding");
   revalidatePath("/onboarding");
-  revalidatePath("/");
-  if (result) {
+  revalidatePath("/", "layout");
+  if (result || stableId) {
     redirect(
-      `/manage/articles/${result.stableId}/edit?${errorMessage ? "error" : "notice"}=${encodeURIComponent(errorMessage ?? successMessage)}${fromOnboarding ? "&from=onboarding" : ""}`,
+      `/manage/articles/${result?.stableId ?? stableId}/edit?${errorMessage ? "error" : "notice"}=${encodeURIComponent(errorMessage ?? successMessage)}${fromOnboarding ? "&from=onboarding" : ""}`,
     );
   }
   redirect(
@@ -50,8 +51,10 @@ export async function saveDraftAction(formData: FormData): Promise<void> {
         requestingUserId,
         stableId,
         input,
+        readExpectedRevision(formData),
       ),
     readString(formData, "from") === "onboarding",
+    stableId,
   );
 }
 
@@ -65,8 +68,10 @@ export async function publishAction(formData: FormData): Promise<void> {
         requestingUserId,
         stableId,
         input,
+        readExpectedRevision(formData),
       ),
     readString(formData, "from") === "onboarding",
+    stableId,
   );
 }
 
@@ -88,6 +93,13 @@ export async function createDraftAction(formData: FormData): Promise<void> {
     },
     fromOnboarding,
   );
+}
+
+function readExpectedRevision(formData: FormData): Date {
+  const value = new Date(readString(formData, "expectedUpdatedAt"));
+  if (!Number.isFinite(value.getTime()))
+    throw new Error("Save conflict: 缺少文章版本，请重新打开编辑器。");
+  return value;
 }
 
 function readArticleInput(formData: FormData): SaveDraftInput {
@@ -117,6 +129,10 @@ function readArticleInput(formData: FormData): SaveDraftInput {
 
 function editorErrorMessage(error: unknown): string {
   const message = error instanceof Error ? error.message : "";
+  if (/占用|接管/.test(message))
+    return "文章已被其他编辑者占用或接管。当前内容已保留在浏览器，请确认接管后再保存。";
+  if (/conflict/i.test(message))
+    return "文章已在服务器更新，请重新打开并选择需要保留的内容。";
   if (/editor/i.test(message)) return "没有编辑权限。";
   if (/not found/i.test(message)) return "未找到目标文章。";
   if (/必填/i.test(message)) return message;
@@ -149,24 +165,29 @@ export async function publishFromListAction(formData: FormData): Promise<void> {
         "案例文章需要先确认已脱敏，请打开编辑器勾选确认后再发布。",
       );
     }
-    await service.publish(session.member.id, stableId, {
-      title: article.title,
-      summary: article.summary,
-      bodyMarkdown: article.bodyMarkdown,
-      primaryTopicId: article.primaryTopicId,
-      tags: article.tags,
-      aliases: article.aliases,
-      contentOwnerId: article.contentOwnerId,
-      nextReviewAt: article.nextReviewAt,
-      isCaseArticle: article.isCaseArticle,
-    });
+    await service.publish(
+      session.member.id,
+      stableId,
+      {
+        title: article.title,
+        summary: article.summary,
+        bodyMarkdown: article.bodyMarkdown,
+        primaryTopicId: article.primaryTopicId,
+        tags: article.tags,
+        aliases: article.aliases,
+        contentOwnerId: article.contentOwnerId,
+        nextReviewAt: article.nextReviewAt,
+        isCaseArticle: article.isCaseArticle,
+      },
+      article.updatedAt,
+    );
   } catch (error) {
     errorMessage = editorErrorMessage(error);
   }
   revalidatePath(editorPath);
   revalidatePath("/manage/onboarding");
   revalidatePath("/onboarding");
-  revalidatePath("/");
+  revalidatePath("/", "layout");
   const safeReturnTo = returnTo.startsWith("/manage/") ? returnTo : editorPath;
   redirect(
     `${safeReturnTo}?${errorMessage ? "error" : "notice"}=${encodeURIComponent(errorMessage ?? "文章已发布。")}`,
@@ -197,7 +218,7 @@ export async function archiveFromListAction(formData: FormData): Promise<void> {
   revalidatePath("/quality");
   revalidatePath("/thermal");
   revalidatePath("/onboarding");
-  revalidatePath("/");
+  revalidatePath("/", "layout");
   redirect(
     `${editorPath}?${errorMessage ? "error" : "notice"}=${encodeURIComponent(errorMessage ?? "文章已归档。")}`,
   );

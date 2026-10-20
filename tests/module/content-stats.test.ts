@@ -351,6 +351,11 @@ describe("content statistics service", () => {
     });
 
     // 发布 v2：v1 转为 superseded，active 变成没有任何下载的 v2
+    await client
+      .update(templateVersions)
+      .set({ status: "superseded" })
+      .where(eq(templateVersions.id, VERSION_ID));
+
     await client.insert(templateVersions).values({
       id: "00000000-0000-4000-8000-0000000000e3",
       templateId: TEMPLATE_ID,
@@ -365,10 +370,6 @@ describe("content statistics service", () => {
       quarantineState: "passed",
       createdAt: NOW,
     });
-    await client
-      .update(templateVersions)
-      .set({ status: "superseded" })
-      .where(eq(templateVersions.id, VERSION_ID));
 
     const dashboard = await stats.editorDashboard(EDITOR_ID, NOW);
     expect(dashboard.templateDownloads[0]).toMatchObject({

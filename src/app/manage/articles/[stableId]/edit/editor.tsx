@@ -12,11 +12,7 @@ import {
 import type { TocEntry } from "@/modules/shared/markdown-renderer";
 
 import { ArticleBody } from "@/ui/article-body";
-import {
-  autosaveDraftAction,
-  takeOverEditLockAction,
-  uploadImageAction,
-} from "../../upload-actions";
+import { autosaveDraftAction, uploadImageAction } from "../../upload-actions";
 import { createOfflineDraftController } from "@/modules/offline-drafts";
 import styles from "./editor.module.css";
 
@@ -77,14 +73,16 @@ export function Editor({
   const [showLinks, setShowLinks] = useState(false);
   const [previewHtml, setPreviewHtml] = useState<string>("");
   const [toc, setToc] = useState<TocEntry[]>([]);
+  const savingRef = useRef(false);
+  const revisionInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [editingLocked, setEditingLocked] = useState(editingLockedBy !== null);
+  const lockedRef = useRef(editingLockedBy !== null);
+  const conflictRef = useRef(false);
   const [conflictMessage, setConflictMessage] = useState<string | null>(null);
   const [conflictLocalContent, setConflictLocalContent] = useState<string>("");
-  const [conflictServerContent, setConflictServerContent] =
-    useState<string>("");
   const [isOnline, setIsOnline] = useState(true);
   const serverUpdatedAtRef = useRef<Date>(new Date(article.updatedAt));
   const bodyRef = useRef(body);
@@ -141,22 +139,54 @@ export function Editor({
   }
 
   async function runAutosave() {
-    if (!navigator.onLine) return;
-    const formData = new FormData();
-    formData.set("stableId", article.stableId);
-    formData.set("expectedUpdatedAt", serverUpdatedAtRef.current.toISOString());
-    formData.set("title", titleRef.current);
-    formData.set("summary", summaryRef.current);
-    formData.set("bodyMarkdown", bodyRef.current);
-    const result = await autosaveDraftAction(formData);
-    if (result.ok) {
-      serverUpdatedAtRef.current = new Date(result.updatedAt);
-      setLastSavedAt(new Date().toLocaleTimeString("zh-CN"));
-      offlineController().clearLocalDraft();
-    } else if (result.conflict) {
-      setConflictServerContent(body);
-      setConflictLocalContent(body);
-      setConflictMessage("服务器上的内容已被其他人更新。请选择保留哪一份：");
+    if (
+      !article.id ||
+      !navigator.onLine ||
+      savingRef.current ||
+      lockedRef.current ||
+      conflictRef.current
+    )
+      return;
+    savingRef.current = true;
+    try {
+      const formData = new FormData();
+      formData.set("stableId", article.stableId);
+      formData.set(
+        "expectedUpdatedAt",
+        serverUpdatedAtRef.current.toISOString(),
+      );
+      formData.set("title", titleRef.current);
+      formData.set("summary", summaryRef.current);
+      formData.set("bodyMarkdown", bodyRef.current);
+      const result = await autosaveDraftAction(formData);
+      if (result.ok) {
+        serverUpdatedAtRef.current = new Date(result.updatedAt);
+        if (revisionInputRef.current)
+          revisionInputRef.current.value = result.updatedAt;
+        setLastSavedAt(new Date().toLocaleTimeString("zh-CN"));
+        offlineController().clearLocalDraft();
+      } else if (result.conflict) {
+        conflictRef.current = true;
+        offlineController().saveLocalDraft(bodyRef.current);
+        setConflictLocalContent(bodyRef.current);
+        if (result.server) {
+          serverUpdatedAtRef.current = new Date(result.server.updatedAt);
+          if (revisionInputRef.current)
+            revisionInputRef.current.value = result.server.updatedAt;
+          if (result.server.locked) {
+            lockedRef.current = true;
+            setEditingLocked(true);
+          }
+        }
+        setConflictMessage("服务器上的内容已被其他人更新。请选择保留哪一份：");
+      } else {
+        setUploadError(result.error);
+      }
+    } catch {
+      offlineController().saveLocalDraft(bodyRef.current);
+      setUploadError("自动保存未完成，内容已保存在浏览器，请重试。");
+    } finally {
+      savingRef.current = false;
     }
   }
 
@@ -164,12 +194,24 @@ export function Editor({
     const state = offlineController().loadLocalDraft(
       serverUpdatedAtRef.current,
     );
-    if (state.kind === "local-newer") {
-      setConflictServerContent(body);
+    if (
+      state.kind !== "none" &&
+      state.content.replace(/\r\n?/g, "\n") ===
+        article.bodyMarkdown.replace(/\r\n?/g, "\n")
+    ) {
+      offlineController().clearLocalDraft();
+    } else if (state.kind !== "none") {
+      conflictRef.current = true;
       setConflictLocalContent(state.content);
       setConflictMessage("检测到断网期间编辑的内容，是否恢复到编辑器？");
     }
   }
+
+  useEffect(() => {
+    void syncLocalDraft();
+    // Restore a draft only after the user chooses it in the existing conflict dialog.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // 剪贴板粘贴图片（EDIT-05）
   useEffect(() => {
@@ -258,7 +300,7 @@ export function Editor({
 
   return (
     <div className={styles.editor}>
-      {editingLockedBy && (
+      {editingLocked && (
         <div className={styles.lockBanner} role="status">
           <span>该文章正被其他编辑者占用，当前为只读查看。</span>
           <button
@@ -426,8 +468,9 @@ export function Editor({
               className={styles.primaryButton}
               onClick={() => {
                 setBody(conflictLocalContent);
+                bodyRef.current = conflictLocalContent;
+                conflictRef.current = false;
                 setConflictMessage(null);
-                offlineController().clearLocalDraft();
               }}
               type="button"
             >
@@ -436,8 +479,8 @@ export function Editor({
             <button
               className={styles.publishButton}
               onClick={() => {
-                setBody(conflictServerContent);
-                setConflictMessage(null);
+                offlineController().clearLocalDraft();
+                window.location.reload();
               }}
               type="button"
             >
@@ -493,11 +536,23 @@ export function Editor({
                 收起
               </button>
             </div>
-            <form action={publishAction} className={styles.propertyForm}>
+            <form
+              action={publishAction}
+              className={styles.propertyForm}
+              onSubmit={() =>
+                offlineController().saveLocalDraft(bodyRef.current)
+              }
+            >
               {fromOnboarding && (
                 <input type="hidden" name="from" value="onboarding" />
               )}
               <input type="hidden" name="stableId" value={article.stableId} />
+              <input
+                ref={revisionInputRef}
+                type="hidden"
+                name="expectedUpdatedAt"
+                defaultValue={serverUpdatedAtRef.current.toISOString()}
+              />
               <label>
                 标题
                 <input
@@ -595,9 +650,7 @@ export function Editor({
                 <button
                   className={styles.primaryButton}
                   formAction={saveDraftAction}
-                  onClick={() =>
-                    setLastSavedAt(new Date().toLocaleTimeString("zh-CN"))
-                  }
+                  disabled={editingLocked || conflictMessage !== null}
                   type="submit"
                 >
                   保存草稿
@@ -605,6 +658,7 @@ export function Editor({
                 {publishAction ? (
                   <button
                     className={styles.publishButton}
+                    disabled={editingLocked || conflictMessage !== null}
                     onClick={(event) => {
                       // EDIT-08：发布必须在线
                       if (!navigator.onLine) {

@@ -1,15 +1,13 @@
-import type { PGlite } from "@electric-sql/pglite";
 import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
-import type { Sql } from "postgres";
 
-import { createDatabaseClient } from "@/db/client";
+import { createDatabaseClient, type DatabaseConnection } from "@/db/client";
 import { articles, sections, topics } from "@/db/schema";
 import { createContentAuditService } from "@/modules/content-audit";
 import { requireRole } from "@/modules/access";
 
 async function recordAdminAudit(
-  database: PGlite | Sql,
+  database: DatabaseConnection,
   requestingUserId: string,
   eventType: string,
   targetType: "section" | "topic",
@@ -108,7 +106,32 @@ async function assertEditorOrAdministrator(
 }
 
 export function createKnowledgeAdministrationService(
-  database: PGlite | Sql,
+  database: DatabaseConnection,
+): KnowledgeAdministrationService {
+  const client = createDatabaseClient(database);
+  const session = administrationSession(database);
+  const atomic = <T>(
+    operation: (administration: KnowledgeAdministrationService) => Promise<T>,
+  ) => client.transaction((tx) => operation(administrationSession(tx)));
+  return {
+    ...session,
+    renameSection: (...args) =>
+      atomic((administration) => administration.renameSection(...args)),
+    renameTopic: (...args) =>
+      atomic((administration) => administration.renameTopic(...args)),
+    createTopic: (...args) =>
+      atomic((administration) => administration.createTopic(...args)),
+    createSection: (...args) =>
+      atomic((administration) => administration.createSection(...args)),
+    moveTopic: (...args) =>
+      atomic((administration) => administration.moveTopic(...args)),
+    moveSection: (...args) =>
+      atomic((administration) => administration.moveSection(...args)),
+  };
+}
+
+function administrationSession(
+  database: DatabaseConnection,
 ): KnowledgeAdministrationService {
   const client = createDatabaseClient(database);
 

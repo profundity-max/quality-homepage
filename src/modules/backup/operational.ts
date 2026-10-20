@@ -2,7 +2,8 @@ import type { PGlite } from "@electric-sql/pglite";
 import type { Sql } from "postgres";
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { resolve } from "node:path";
+import { dirname, isAbsolute, relative, resolve } from "node:path";
+import { mkdir, writeFile } from "node:fs/promises";
 
 import {
   createBackupService,
@@ -68,6 +69,11 @@ export type OperationalBackupService = {
     requestingUserId: string,
     backupId: string,
   ): Promise<{ fileName: string; payload: Buffer }>;
+  extractBackup(
+    requestingUserId: string,
+    backupId: string,
+    destinationDirectory: string,
+  ): Promise<{ entries: number }>;
   runRestoreDrill(
     requestingUserId: string,
     backupId: string,
@@ -167,6 +173,22 @@ export function createOperationalBackupService(
     return passphrase;
   }
 
+  async function verifiedArchive(requestingUserId: string, backupId: string) {
+    const { payload, checksum } = await service.readBackupFile(
+      requestingUserId,
+      backupId,
+      targetDirectory,
+    );
+    if (createHash("sha256").update(payload).digest("hex") !== checksum) {
+      throw new Error("备份校验和不匹配，不能解包或恢复演练。");
+    }
+    const entries = unzip(decryptBuffer(payload, requirePassphrase()));
+    const dump = entries.get("database.dump");
+    if (!dump || dump.byteLength === 0)
+      throw new Error("备份中缺少有效的 database.dump。");
+    return { entries, dump };
+  }
+
   return {
     configuration() {
       return {
@@ -224,25 +246,34 @@ export function createOperationalBackupService(
       return { fileName, payload };
     },
 
+    async extractBackup(requestingUserId, backupId, destinationDirectory) {
+      const { entries } = await verifiedArchive(requestingUserId, backupId);
+      const root = resolve(destinationDirectory);
+      const files = [...entries].map(([path, content]) => {
+        const destination = resolve(root, path);
+        const inside = relative(root, destination);
+        if (
+          !inside ||
+          inside === ".." ||
+          inside.startsWith("../") ||
+          isAbsolute(inside)
+        )
+          throw new Error("备份包含无效的解包路径。");
+        return { destination, content };
+      });
+      // A new directory prevents following pre-existing symlinks or overwriting restored data.
+      await mkdir(root, { recursive: false });
+      for (const { destination, content } of files) {
+        await mkdir(dirname(destination), { recursive: true });
+        await writeFile(destination, content, { flag: "wx" });
+      }
+      return { entries: files.length };
+    },
+
     async runRestoreDrill(requestingUserId, backupId) {
-      const restorePassphrase = requirePassphrase();
       try {
-        const { payload, checksum } = await service.readBackupFile(
-          requestingUserId,
-          backupId,
-          targetDirectory,
-        );
-        const actualChecksum = createHash("sha256")
-          .update(payload)
-          .digest("hex");
-        if (actualChecksum !== checksum) {
-          throw new Error("备份校验和不匹配，不能执行恢复演练。");
-        }
-        const archiveEntries = unzip(decryptBuffer(payload, restorePassphrase));
-        const databaseDump = archiveEntries.get("database.dump");
-        if (!databaseDump || databaseDump.byteLength === 0) {
-          throw new Error("备份中缺少有效的 database.dump。");
-        }
+        const { entries: archiveEntries, dump: databaseDump } =
+          await verifiedArchive(requestingUserId, backupId);
         const drill = await executeRestoreDrill(databaseDump);
         const uploadedFiles = [...archiveEntries.keys()].filter((entry) =>
           entry.startsWith("data/"),

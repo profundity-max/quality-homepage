@@ -45,7 +45,7 @@ describe("offline draft controller", () => {
     });
   });
 
-  test("ignores a local draft older than the server save", () => {
+  test("preserves a local draft even after the server or edit lock advances", () => {
     const storage = memoryStorage();
     const controller = createOfflineDraftController({
       storage,
@@ -57,7 +57,10 @@ describe("offline draft controller", () => {
     const state = controller.loadLocalDraft(
       new Date("2026-08-18T00:00:00.000Z"),
     );
-    expect(state).toEqual<OfflineDraftState>({ kind: "none" });
+    expect(state).toEqual<OfflineDraftState>({
+      kind: "local-conflict",
+      content: "旧内容",
+    });
   });
 
   test("clears the local draft after a successful sync", () => {

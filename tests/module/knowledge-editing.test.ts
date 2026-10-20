@@ -54,10 +54,16 @@ describe("knowledge editing service", () => {
     expect(created.status).toBe("draft");
     expect(created.title).toBe("草稿标题");
 
-    const saved = await service.saveDraft(editorId, created.stableId, {
-      ...draftInput(),
-      title: "修改后的标题",
-    });
+    const saved = await service.saveDraft(
+      editorId,
+      created.stableId,
+      {
+        ...draftInput(),
+        title: "修改后的标题",
+      },
+      (await service.getArticleForEditing(editorId, created.stableId))
+        .updatedAt,
+    );
     expect(saved.title).toBe("修改后的标题");
   });
 
@@ -74,6 +80,8 @@ describe("knowledge editing service", () => {
         editorId,
         created.stableId,
         draftInput({ title: "案例文章", isCaseArticle: true }),
+        (await service.getArticleForEditing(editorId, created.stableId))
+          .updatedAt,
       ),
     ).rejects.toThrow(/已移除客户|脱敏/);
 
@@ -85,6 +93,8 @@ describe("knowledge editing service", () => {
         isCaseArticle: true,
         desensitizedConfirmed: true,
       }),
+      (await service.getArticleForEditing(editorId, created.stableId))
+        .updatedAt,
     );
     expect(published.status).toBe("published");
   });
@@ -95,15 +105,27 @@ describe("knowledge editing service", () => {
 
     // 缺负责人 → 拒绝
     await expect(
-      service.publish(editorId, created.stableId, {
-        ...draftInput(),
-        contentOwnerId: null,
-      }),
+      service.publish(
+        editorId,
+        created.stableId,
+        {
+          ...draftInput(),
+          contentOwnerId: null,
+        },
+        (await service.getArticleForEditing(editorId, created.stableId))
+          .updatedAt,
+      ),
     ).rejects.toThrow(/content owner|负责人/i);
 
-    const published = await service.publish(editorId, created.stableId, {
-      ...draftInput(),
-    });
+    const published = await service.publish(
+      editorId,
+      created.stableId,
+      {
+        ...draftInput(),
+      },
+      (await service.getArticleForEditing(editorId, created.stableId))
+        .updatedAt,
+    );
     expect(published.status).toBe("published");
     expect(published.publishedAt).not.toBeNull();
   });
@@ -111,7 +133,13 @@ describe("knowledge editing service", () => {
   test("re-publishing archives the previous version into history (VER-02)", async () => {
     const service = createKnowledgeEditingService(database);
     const created = await service.createDraft(editorId, draftInput());
-    await service.publish(editorId, created.stableId, draftInput());
+    await service.publish(
+      editorId,
+      created.stableId,
+      draftInput(),
+      (await service.getArticleForEditing(editorId, created.stableId))
+        .updatedAt,
+    );
 
     // 编辑已发布文章：进入独立草稿，阅读者仍看到已发布版本
     const editing = await service.beginEdit(editorId, created.stableId);
@@ -127,10 +155,16 @@ describe("knowledge editing service", () => {
     expect(versions.every((v) => v.kind === "publish")).toBe(true);
 
     // 再次发布 → 新版本 2
-    await service.publish(editorId, created.stableId, {
-      ...draftInput(),
-      title: "第二版",
-    });
+    await service.publish(
+      editorId,
+      created.stableId,
+      {
+        ...draftInput(),
+        title: "第二版",
+      },
+      (await service.getArticleForEditing(editorId, created.stableId))
+        .updatedAt,
+    );
     const versionsAfter = await client
       .select()
       .from(articleVersions)
@@ -142,12 +176,24 @@ describe("knowledge editing service", () => {
   test("restores a historical version with a required reason (VER-03)", async () => {
     const service = createKnowledgeEditingService(database);
     const created = await service.createDraft(editorId, draftInput());
-    await service.publish(editorId, created.stableId, draftInput());
+    await service.publish(
+      editorId,
+      created.stableId,
+      draftInput(),
+      (await service.getArticleForEditing(editorId, created.stableId))
+        .updatedAt,
+    );
     await service.beginEdit(editorId, created.stableId);
-    await service.publish(editorId, created.stableId, {
-      ...draftInput(),
-      title: "第二版",
-    });
+    await service.publish(
+      editorId,
+      created.stableId,
+      {
+        ...draftInput(),
+        title: "第二版",
+      },
+      (await service.getArticleForEditing(editorId, created.stableId))
+        .updatedAt,
+    );
 
     // 无原因 → 拒绝
     await expect(
@@ -176,7 +222,13 @@ describe("knowledge editing service", () => {
   test("creates a duplicate with a fresh stable id and no stats (VER-06)", async () => {
     const service = createKnowledgeEditingService(database);
     const created = await service.createDraft(editorId, draftInput());
-    await service.publish(editorId, created.stableId, draftInput());
+    await service.publish(
+      editorId,
+      created.stableId,
+      draftInput(),
+      (await service.getArticleForEditing(editorId, created.stableId))
+        .updatedAt,
+    );
 
     const duplicate = await service.duplicateArticle(
       editorId,
@@ -188,16 +240,28 @@ describe("knowledge editing service", () => {
     expect(duplicate.title).toBe("草稿标题");
 
     // 副本可独立发布
-    const published = await service.publish(editorId, duplicate.stableId, {
-      ...draftInput(),
-    });
+    const published = await service.publish(
+      editorId,
+      duplicate.stableId,
+      {
+        ...draftInput(),
+      },
+      (await service.getArticleForEditing(editorId, duplicate.stableId))
+        .updatedAt,
+    );
     expect(published.status).toBe("published");
   });
 
   test("confirm-relevant updates review dates without a new version (GOV-03)", async () => {
     const service = createKnowledgeEditingService(database);
     const created = await service.createDraft(editorId, draftInput());
-    await service.publish(editorId, created.stableId, draftInput());
+    await service.publish(
+      editorId,
+      created.stableId,
+      draftInput(),
+      (await service.getArticleForEditing(editorId, created.stableId))
+        .updatedAt,
+    );
 
     const confirmed = await service.confirmStillValid(
       editorId,
@@ -217,7 +281,13 @@ describe("knowledge editing service", () => {
   test("readers keep seeing the last published version while editing (VER-01)", async () => {
     const service = createKnowledgeEditingService(database);
     const created = await service.createDraft(editorId, draftInput());
-    await service.publish(editorId, created.stableId, draftInput());
+    await service.publish(
+      editorId,
+      created.stableId,
+      draftInput(),
+      (await service.getArticleForEditing(editorId, created.stableId))
+        .updatedAt,
+    );
 
     // 开始编辑：文章转草稿
     await service.beginEdit(editorId, created.stableId);
@@ -298,12 +368,24 @@ describe("knowledge editing service", () => {
   test("lists version history with restore metadata (VER-03)", async () => {
     const service = createKnowledgeEditingService(database);
     const created = await service.createDraft(editorId, draftInput());
-    await service.publish(editorId, created.stableId, draftInput());
+    await service.publish(
+      editorId,
+      created.stableId,
+      draftInput(),
+      (await service.getArticleForEditing(editorId, created.stableId))
+        .updatedAt,
+    );
     await service.beginEdit(editorId, created.stableId);
-    await service.publish(editorId, created.stableId, {
-      ...draftInput(),
-      title: "第二版",
-    });
+    await service.publish(
+      editorId,
+      created.stableId,
+      {
+        ...draftInput(),
+        title: "第二版",
+      },
+      (await service.getArticleForEditing(editorId, created.stableId))
+        .updatedAt,
+    );
 
     const versions = await service.listVersions(editorId, created.stableId);
     expect(versions.map((v) => v.version).sort()).toEqual([1, 2]);
@@ -329,6 +411,8 @@ describe("knowledge editing service", () => {
       editorId,
       created.stableId,
       draftInput({ aliases: ["σ"] }),
+      (await service.getArticleForEditing(editorId, created.stableId))
+        .updatedAt,
     );
     expect(saved.aliases).toEqual(["σ"]);
   });
@@ -347,6 +431,8 @@ describe("knowledge editing service", () => {
       editorId,
       published.stableId,
       draftInput({ title: "管理列表已发布" }),
+      (await service.getArticleForEditing(editorId, published.stableId))
+        .updatedAt,
     );
 
     const all = await service.listArticlesForEditor(editorId);
@@ -372,5 +458,96 @@ describe("knowledge editing service", () => {
       editorUserId: editorId,
     });
     expect(owners.map((owner) => owner.id)).toContain(editorId);
+  });
+});
+
+describe("editing write invariants", () => {
+  let database: PGlite;
+  const other = "00000000-0000-4000-8000-0000000000f2";
+  beforeEach(async () => {
+    database = new PGlite();
+    await migrate(database);
+    await database.query(
+      `insert into users (id,username,normalized_username,password_hash,role,must_change_password) values
+      ($1,'editor','editor','hash','editor',false), ($2,'other','other','hash','editor',false)`,
+      [editorId, other],
+    );
+  });
+  afterEach(async () => {
+    await database.close();
+  });
+  test("takeover revokes the previous editor's save and publish capability", async () => {
+    const service = createKnowledgeEditingService(database);
+    const article = await service.createDraft(editorId, draftInput());
+    await service.acquireEditLock(editorId, article.stableId);
+    await service.takeOverEditLock(other, article.stableId);
+    await expect(
+      service.saveDraft(
+        editorId,
+        article.stableId,
+        { ...draftInput(), title: "unwanted overwrite" },
+        (await service.getArticleForEditing(editorId, article.stableId))
+          .updatedAt,
+      ),
+    ).rejects.toThrow(/占用|接管/);
+    await expect(
+      service.publish(
+        editorId,
+        article.stableId,
+        draftInput(),
+        (await service.getArticleForEditing(editorId, article.stableId))
+          .updatedAt,
+      ),
+    ).rejects.toThrow(/占用|接管/);
+    expect(
+      (await service.getArticleForEditing(other, article.stableId)).title,
+    ).toBe("草稿标题");
+  });
+  test("partial autosave preserves article metadata and rejects reuse of a revision", async () => {
+    const service = createKnowledgeEditingService(database);
+    const article = await service.createDraft(
+      editorId,
+      draftInput({ aliases: ["Sigma"], isCaseArticle: true }),
+    );
+    await service.acquireEditLock(editorId, article.stableId);
+    const saved = await service.saveDraft(
+      editorId,
+      article.stableId,
+      { bodyMarkdown: "Autosaved body" },
+      article.updatedAt,
+    );
+    expect(saved).toMatchObject({
+      bodyMarkdown: "Autosaved body",
+      primaryTopicId: anovaTopicId,
+      contentOwnerId: editorId,
+      aliases: ["Sigma"],
+      isCaseArticle: true,
+      tags: ["统计"],
+      nextReviewAt: article.nextReviewAt,
+    });
+    await expect(
+      service.saveDraft(
+        editorId,
+        article.stableId,
+        { bodyMarkdown: "Stale body" },
+        article.updatedAt,
+      ),
+    ).rejects.toThrow(/conflict/);
+    await expect(
+      service.publish(
+        editorId,
+        article.stableId,
+        { ...draftInput(), desensitizedConfirmed: true },
+        article.updatedAt,
+      ),
+    ).rejects.toThrow(/conflict/);
+    await expect(
+      service.saveDraft(
+        editorId,
+        article.stableId,
+        { bodyMarkdown: "Missing revision" },
+        undefined as unknown as Date,
+      ),
+    ).rejects.toThrow(/conflict/);
   });
 });

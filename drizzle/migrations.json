@@ -15,6 +15,8 @@
     "0012_template_download_count.sql",
     "0013_search_engagement.sql",
     "0014_governance_audit_recycle.sql",
-    "0015_article_based_onboarding.sql"
+    "0015_article_based_onboarding.sql",
+    "0016_readable_article_projection.sql",
+    "0017_single_active_template_version.sql"
   ]
 }

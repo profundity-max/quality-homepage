@@ -46,6 +46,7 @@ export default async function NewArticlePage({
     lastReviewedAt: null,
     nextReviewAt: null,
     publishedAt: null,
+    publishedUpdatedAt: null,
     editingBy: null,
     editingAt: null,
     readCount: 0,

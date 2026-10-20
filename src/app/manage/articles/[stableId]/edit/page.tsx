@@ -25,19 +25,21 @@ export default async function EditArticlePage({
   if (session.member.role === "reader") notFound();
 
   const editing = createKnowledgeEditingService(getDatabase());
-  const article = await editing
+  let article = await editing
     .getArticleForEditing(session.member.id, stableId)
     .catch(() => null);
   if (!article) notFound();
 
-  // EDIT-09：打开编辑器即获取占用；被他人占用时进入只读+接管模式
   let editingLockedBy: string | null = null;
-  if (article.editingBy !== null && article.editingBy !== session.member.id) {
-    editingLockedBy = article.editingBy;
-  } else {
-    await editing
-      .acquireEditLock(session.member.id, stableId)
-      .catch(() => undefined);
+  try {
+    article = await editing.acquireEditLock(session.member.id, stableId);
+  } catch (error) {
+    article = await editing.getArticleForEditing(session.member.id, stableId);
+    if (article.editingBy && article.editingBy !== session.member.id) {
+      editingLockedBy = article.editingBy;
+    } else {
+      throw error;
+    }
   }
 
   const admin = createKnowledgeAdministrationService(getDatabase());
@@ -79,6 +81,7 @@ export default async function EditArticlePage({
           </p>
         )}
         <Editor
+          key={`${article.updatedAt.toISOString()}:${editingLockedBy ?? "editable"}`}
           article={article}
           fromOnboarding={query.from === "onboarding"}
           topics={topics}

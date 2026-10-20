@@ -101,11 +101,16 @@ test("drafts stay private and editing a published article preserves the reader's
   await management.addArticle(editorId, draft.stableId);
   expect(await management.listArticles(editorId)).toHaveLength(7);
   expect(await route.listArticles()).toHaveLength(6);
-  await editing.saveDraft(editorId, original.stableId, {
-    ...original,
-    title: "未发布的新标题",
-    summary: "未发布摘要",
-  });
+  await editing.saveDraft(
+    editorId,
+    original.stableId,
+    {
+      ...original,
+      title: "未发布的新标题",
+      summary: "未发布摘要",
+    },
+    (await editing.getArticleForEditing(editorId, original.stableId)).updatedAt,
+  );
   expect((await route.listArticles())[0]!.title).toBe("入职第一天");
   expect((await route.listArticles())[0]!.summary).toBe(
     "了解部门、岗位与工作环境。",
@@ -169,12 +174,18 @@ test("direct publishing of migrated articles preserves the previous published ve
   await setupEditor();
   const editing = createKnowledgeEditingService(database);
   const [original] = await createOnboardingService(database).listArticles();
-  await editing.publish(editorId, original!.stableId, {
-    ...(await editing.getArticleForEditing(editorId, original!.stableId)),
-    title: "直接发布修改",
-    contentOwnerId: editorId,
-    nextReviewAt: new Date(),
-  });
+  await editing.publish(
+    editorId,
+    original!.stableId,
+    {
+      ...(await editing.getArticleForEditing(editorId, original!.stableId)),
+      title: "直接发布修改",
+      contentOwnerId: editorId,
+      nextReviewAt: new Date(),
+    },
+    (await editing.getArticleForEditing(editorId, original!.stableId))
+      .updatedAt,
+  );
   expect(
     (await editing.listVersions(editorId, original!.stableId))[0]!.title,
   ).toBe(original!.title);

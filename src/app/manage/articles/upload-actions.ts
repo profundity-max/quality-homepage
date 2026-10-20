@@ -50,7 +50,12 @@ export async function uploadImageAction(
 
 export type AutosaveResult =
   | { ok: true; updatedAt: string }
-  | { ok: false; error: string; conflict?: boolean };
+  | {
+      ok: false;
+      error: string;
+      conflict?: boolean;
+      server?: { updatedAt: string; locked: boolean };
+    };
 
 /** 自动保存（EDIT-06）：不重定向，返回 JSON 供编辑器展示保存状态。 */
 export async function autosaveDraftAction(
@@ -59,36 +64,42 @@ export async function autosaveDraftAction(
   const session = await requirePortalSession("/manage/articles");
   const stableId = readString(formData, "stableId");
   const expectedUpdatedAtRaw = readString(formData, "expectedUpdatedAt");
-  const input: SaveDraftInput = {
+  const input: Partial<SaveDraftInput> = {
     title: readString(formData, "title"),
     summary: readString(formData, "summary"),
     bodyMarkdown: readString(formData, "bodyMarkdown"),
-    primaryTopicId: readString(formData, "primaryTopicId"),
-    tags: readString(formData, "tags")
-      .split(",")
-      .map((tag) => tag.trim())
-      .filter(Boolean),
-    contentOwnerId: readString(formData, "contentOwnerId") || null,
-    nextReviewAt: readString(formData, "nextReviewAt")
-      ? new Date(readString(formData, "nextReviewAt"))
-      : null,
   };
+  if (!expectedUpdatedAtRaw)
+    return {
+      ok: false,
+      error: "缺少文章版本，请重新打开编辑器。",
+      conflict: true,
+    };
 
   try {
     const saved = await createKnowledgeEditingService(getDatabase()).saveDraft(
       session.member.id,
       stableId,
       input,
-      expectedUpdatedAtRaw ? new Date(expectedUpdatedAtRaw) : undefined,
+      new Date(expectedUpdatedAtRaw),
     );
     return { ok: true, updatedAt: saved.updatedAt.toISOString() };
   } catch (error) {
     const message = error instanceof Error ? error.message : "";
-    if (/conflict/i.test(message)) {
+    if (/conflict|占用|接管/i.test(message)) {
+      const article = await createKnowledgeEditingService(
+        getDatabase(),
+      ).getArticleForEditing(session.member.id, stableId);
       return {
         ok: false,
-        error: "服务器内容已更新，请选择保留哪一份。",
+        error: "服务器内容或编辑占用已更新，请选择保留哪一份。",
         conflict: true,
+        server: {
+          updatedAt: article.updatedAt.toISOString(),
+          locked:
+            article.editingBy !== null &&
+            article.editingBy !== session.member.id,
+        },
       };
     }
     return { ok: false, error: "自动保存失败。" };

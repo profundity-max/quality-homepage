@@ -41,6 +41,7 @@ export type EditingArticle = {
   lastReviewedAt: Date | null;
   nextReviewAt: Date | null;
   publishedAt: Date | null;
+  publishedUpdatedAt: Date | null;
   editingBy: string | null;
   editingAt: Date | null;
   readCount: number;
@@ -81,13 +82,14 @@ export type KnowledgeEditingService = {
   saveDraft(
     editorUserId: string,
     stableId: string,
-    input: SaveDraftInput,
-    expectedUpdatedAt?: Date,
+    input: Partial<SaveDraftInput>,
+    expectedUpdatedAt: Date,
   ): Promise<EditingArticle>;
   publish(
     editorUserId: string,
     stableId: string,
     input: SaveDraftInput,
+    expectedUpdatedAt: Date,
   ): Promise<EditingArticle>;
   /** 修改已发布文章：已发布快照进历史，文章转为草稿（VER-01）。 */
   beginEdit(editorUserId: string, stableId: string): Promise<EditingArticle>;
@@ -175,6 +177,7 @@ const articleColumns = {
   lastReviewedAt: articles.lastReviewedAt,
   nextReviewAt: articles.nextReviewAt,
   publishedAt: articles.publishedAt,
+  publishedUpdatedAt: articles.publishedUpdatedAt,
   editingBy: articles.editingBy,
   editingAt: articles.editingAt,
   readCount: articles.readCount,
@@ -194,6 +197,33 @@ async function assertEditor(
 export function createKnowledgeEditingService(
   database: DatabaseConnection,
 ): KnowledgeEditingService {
+  const client = createDatabaseClient(database);
+  const session = editingSession(database);
+  const atomic = <T>(
+    operation: (editing: KnowledgeEditingService) => Promise<T>,
+  ) => client.transaction((tx) => operation(editingSession(tx)));
+  return {
+    ...session,
+    createDraft: (...args) => atomic((editing) => editing.createDraft(...args)),
+    saveDraft: (...args) => atomic((editing) => editing.saveDraft(...args)),
+    publish: (...args) => atomic((editing) => editing.publish(...args)),
+    beginEdit: (...args) => atomic((editing) => editing.beginEdit(...args)),
+    restoreVersion: (...args) =>
+      atomic((editing) => editing.restoreVersion(...args)),
+    duplicateArticle: (...args) =>
+      atomic((editing) => editing.duplicateArticle(...args)),
+    acquireEditLock: (...args) =>
+      atomic((editing) => editing.acquireEditLock(...args)),
+    releaseEditLock: (...args) =>
+      atomic((editing) => editing.releaseEditLock(...args)),
+    takeOverEditLock: (...args) =>
+      atomic((editing) => editing.takeOverEditLock(...args)),
+    confirmStillValid: (...args) =>
+      atomic((editing) => editing.confirmStillValid(...args)),
+  };
+}
+
+function editingSession(database: DatabaseConnection): KnowledgeEditingService {
   const client = createDatabaseClient(database);
 
   async function aliasesFor(articleId: string): Promise<string[]> {
@@ -232,9 +262,37 @@ export function createKnowledgeEditingService(
         .from(articles)
         .where(eq(articles.stableId, stableId))
         .limit(1)
+        .for("update")
     )[0];
     if (!row) return undefined;
     return { ...row, aliases: await aliasesFor(row.id) };
+  }
+
+  function assertWritable(
+    current: EditingArticle,
+    actorId: string,
+    expectedUpdatedAt?: Date,
+  ) {
+    if (current.status === "archived")
+      throw new Error("已归档文章不能编辑，请先恢复。");
+    if (current.editingBy && current.editingBy !== actorId) {
+      throw new Error("文章已被其他编辑者占用或接管，请重新打开编辑器。");
+    }
+    if (
+      expectedUpdatedAt &&
+      (!Number.isFinite(expectedUpdatedAt.getTime()) ||
+        current.updatedAt.getTime() !== expectedUpdatedAt.getTime())
+    ) {
+      throw new Error(
+        "Save conflict: the article changed on the server; reload and choose which version to keep.",
+      );
+    }
+  }
+
+  function assertRevision(expectedUpdatedAt: Date | undefined) {
+    if (!expectedUpdatedAt || !Number.isFinite(expectedUpdatedAt.getTime())) {
+      throw new Error("Save conflict: 缺少有效文章版本，请重新打开编辑器。");
+    }
   }
 
   async function latestVersion(articleId: string): Promise<number> {
@@ -281,6 +339,8 @@ export function createKnowledgeEditingService(
       bodyMarkdown: current.bodyMarkdown,
       primaryTopicId: current.primaryTopicId,
       tags: current.tags,
+      aliases: current.aliases,
+      sourceUpdatedAt: current.publishedUpdatedAt ?? current.updatedAt,
       contentOwnerId: current.contentOwnerId,
       lastReviewedAt: current.lastReviewedAt,
       nextReviewAt: current.nextReviewAt,
@@ -296,6 +356,7 @@ export function createKnowledgeEditingService(
       status: "draft" | "published" | "archived";
       lastReviewedAt: Date | null;
       publishedAt: Date | null;
+      publishedUpdatedAt: Date;
       contentOwnerId: string | null;
     }> = {},
   ): Promise<EditingArticle> {
@@ -310,7 +371,12 @@ export function createKnowledgeEditingService(
         contentOwnerId: input.contentOwnerId,
         nextReviewAt: input.nextReviewAt,
         isCaseArticle: input.isCaseArticle ?? false,
-        updatedAt: new Date(),
+        updatedAt: new Date(
+          Math.max(
+            Date.now(),
+            (await findArticle(stableId))!.updatedAt.getTime() + 1,
+          ),
+        ),
         ...patch,
       })
       .where(eq(articles.stableId, stableId))
@@ -354,30 +420,23 @@ export function createKnowledgeEditingService(
       const current = await findArticle(stableId);
       if (!current) throw new Error("Article not found.");
 
-      // EDIT-07：乐观并发——期望版本与服务器版本不符即冲突，
-      // 禁止静默覆盖（他人已保存过）
-      if (
-        expectedUpdatedAt &&
-        current.updatedAt.getTime() !== expectedUpdatedAt.getTime()
-      ) {
-        throw new Error(
-          "Save conflict: the article changed on the server; " +
-            "reload and choose which version to keep.",
-        );
-      }
-
-      // 手动保存和自动保存都可直接进入草稿，必须先保留阅读者可见版本。
+      assertWritable(current, editorUserId, expectedUpdatedAt);
+      assertRevision(expectedUpdatedAt);
+      const updatedInput: SaveDraftInput = { ...current, ...input };
       if (current.status === "published")
         await snapshotPublished(current, editorUserId);
-      return writeArticle(stableId, input, { status: "draft" });
+      return writeArticle(stableId, updatedInput, { status: "draft" });
     },
 
-    async publish(editorUserId, stableId, input) {
+    async publish(editorUserId, stableId, input, expectedUpdatedAt) {
       await assertEditor(client, editorUserId);
-      await validatePublishInput(input);
-
       const current = await findArticle(stableId);
       if (!current) throw new Error("Article not found.");
+
+      assertWritable(current, editorUserId, expectedUpdatedAt);
+      assertRevision(expectedUpdatedAt);
+      input = { ...current, ...input };
+      await validatePublishInput(input);
 
       // 首次发布：写入 version 1（当前内容即第一版）。
       // 后续发布（VER-02）：旧版本已由 beginEdit 快照进历史，此处只更新内容。
@@ -395,6 +454,8 @@ export function createKnowledgeEditingService(
           bodyMarkdown: input.bodyMarkdown,
           primaryTopicId: input.primaryTopicId,
           tags: input.tags,
+          aliases: input.aliases ?? [],
+          sourceUpdatedAt: new Date(),
           contentOwnerId: input.contentOwnerId,
           lastReviewedAt: current.lastReviewedAt,
           nextReviewAt: input.nextReviewAt,
@@ -406,6 +467,7 @@ export function createKnowledgeEditingService(
       const result = await writeArticle(stableId, input, {
         status: "published",
         publishedAt: current.publishedAt ?? new Date(),
+        publishedUpdatedAt: new Date(),
         lastReviewedAt: null,
       });
       await recordAudit(
@@ -426,6 +488,7 @@ export function createKnowledgeEditingService(
       await assertEditor(client, editorUserId);
       const current = await findArticle(stableId);
       if (!current) throw new Error("Article not found.");
+      assertWritable(current, editorUserId);
       if (current.status !== "published") {
         // 草稿直接编辑
         return current;
@@ -452,6 +515,7 @@ export function createKnowledgeEditingService(
 
       const current = await findArticle(stableId);
       if (!current) throw new Error("Article not found.");
+      assertWritable(current, editorUserId);
       const target = (
         await client
           .select()
@@ -466,6 +530,10 @@ export function createKnowledgeEditingService(
       )[0];
       if (!target) throw new Error("Version not found.");
 
+      // Restoring history also opens a working copy; preserve the current release first.
+      if (current.status === "published")
+        await snapshotPublished(current, editorUserId);
+
       // VER-03：恢复写回文章内容，并记录恢复行（带原因）
       const nextVersion = (await latestVersion(current.id)) + 1;
       await client.insert(articleVersions).values({
@@ -478,6 +546,8 @@ export function createKnowledgeEditingService(
         bodyMarkdown: target.bodyMarkdown,
         primaryTopicId: target.primaryTopicId,
         tags: target.tags,
+        aliases: target.aliases,
+        sourceUpdatedAt: target.sourceUpdatedAt,
         contentOwnerId: target.contentOwnerId,
         lastReviewedAt: target.lastReviewedAt,
         nextReviewAt: target.nextReviewAt,
@@ -511,6 +581,7 @@ export function createKnowledgeEditingService(
         })
         .where(eq(articles.stableId, stableId))
         .returning(articleColumns);
+      await writeAliases(current.id, target.aliases);
       const updated = rows[0]!;
       return { ...updated, aliases: await aliasesFor(updated.id) };
     },
@@ -654,9 +725,18 @@ export function createKnowledgeEditingService(
 
     async takeOverEditLock(editorUserId, stableId) {
       await assertEditor(client, editorUserId);
+      const current = await findArticle(stableId);
+      if (!current) throw new Error("Article not found.");
       const rows = await client
         .update(articles)
-        .set({ editingBy: editorUserId, editingAt: new Date() })
+        .set({
+          editingBy: editorUserId,
+          editingAt: new Date(),
+          publishedUpdatedAt: current.publishedUpdatedAt ?? current.updatedAt,
+          updatedAt: new Date(
+            Math.max(Date.now(), current.updatedAt.getTime() + 1),
+          ),
+        })
         .where(eq(articles.stableId, stableId))
         .returning(articleColumns);
       const row = rows[0];
@@ -679,6 +759,7 @@ export function createKnowledgeEditingService(
         .set({
           lastReviewedAt: now,
           nextReviewAt: nextReview,
+          publishedUpdatedAt: article.publishedUpdatedAt ?? article.updatedAt,
           updatedAt: now,
         })
         .where(eq(articles.stableId, stableId))

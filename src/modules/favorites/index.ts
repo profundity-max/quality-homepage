@@ -1,10 +1,11 @@
+import { readableArticles as articles } from "@/modules/knowledge-publishing";
 import { randomUUID } from "node:crypto";
 import type { PGlite } from "@electric-sql/pglite";
 import { and, desc, eq, or, sql } from "drizzle-orm";
 import type { Sql } from "postgres";
 
 import { createDatabaseClient } from "@/db/client";
-import { articleFavorites, articles, sections, topics } from "@/db/schema";
+import { articleFavorites, sections, topics } from "@/db/schema";
 
 export type FavoriteArticle = {
   stableId: string;

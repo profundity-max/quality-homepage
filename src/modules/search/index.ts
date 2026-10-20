@@ -1,3 +1,4 @@
+import { readableArticles as articles } from "@/modules/knowledge-publishing";
 import { randomUUID } from "node:crypto";
 import type { PGlite } from "@electric-sql/pglite";
 import {
@@ -15,8 +16,6 @@ import type { Sql } from "postgres";
 
 import { createDatabaseClient } from "@/db/client";
 import {
-  articleAliases,
-  articles,
   bookCategories,
   books,
   searchAggregates,
@@ -206,9 +205,8 @@ export function createSearchService(database: PGlite | Sql): SearchService {
         sql`${topics.name} ilike ${containsPattern(token)}`,
         sql`${articles.tags}::text ilike ${containsPattern(token)}`,
         sql`exists (
-          select 1 from article_aliases alias_row
-          where alias_row.article_id = ${articles.id}
-            and alias_row.alias ilike ${containsPattern(token)}
+          select 1 from unnest(${articles.aliases}) as published_alias(value)
+          where published_alias.value ilike ${containsPattern(token)}
         )`,
       ]),
     );
@@ -244,7 +242,7 @@ export function createSearchService(database: PGlite | Sql): SearchService {
       ...tokenConditions,
       sectionId ? eq(topics.sectionId, sectionId) : undefined,
       sql`exists (
-        select 1 from articles visible_article
+        select 1 from readable_articles visible_article
         where visible_article.primary_topic_id = ${topics.id}
           and (
             visible_article.status = 'published'
@@ -314,6 +312,7 @@ export function createSearchService(database: PGlite | Sql): SearchService {
         title: articles.title,
         summary: articles.summary,
         bodyMarkdown: articles.bodyMarkdown,
+        aliases: articles.aliases,
         topicName: topics.name,
         topicStableId: topics.stableId,
         sectionName: sections.name,
@@ -333,26 +332,9 @@ export function createSearchService(database: PGlite | Sql): SearchService {
       .orderBy(desc(articles.updatedAt))
       .limit(hardResultLimit);
 
-    const ids = rows.map((row) => row.id);
-    const aliasRows = ids.length
-      ? await client
-          .select({
-            articleId: articleAliases.articleId,
-            alias: articleAliases.alias,
-          })
-          .from(articleAliases)
-          .where(inArray(articleAliases.articleId, ids))
-      : [];
-    const aliasesByArticle = new Map<string, string[]>();
-    for (const aliasRow of aliasRows) {
-      const list = aliasesByArticle.get(aliasRow.articleId) ?? [];
-      list.push(aliasRow.alias);
-      aliasesByArticle.set(aliasRow.articleId, list);
-    }
-
     const ranked = rows
       .map((row) => {
-        const aliases = aliasesByArticle.get(row.id) ?? [];
+        const aliases = row.aliases;
         const score = tokens.reduce((total, token) => {
           const fields = [
             row.title,
@@ -744,9 +726,9 @@ export function createSearchService(database: PGlite | Sql): SearchService {
       const topicAliasRows = await client
         .select({ alias: topicAliases.alias })
         .from(topicAliases);
-      const articleAliasRows = await client
-        .select({ alias: articleAliases.alias })
-        .from(articleAliases);
+      const articleAliasRows = (
+        await client.select({ aliases: articles.aliases }).from(articles)
+      ).flatMap((row) => row.aliases.map((alias) => ({ alias })));
       const aliases = Array.from(
         new Set([
           ...topicAliasRows.map((row) => row.alias),

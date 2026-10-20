@@ -1,9 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
-import type { PGlite } from "@electric-sql/pglite";
 import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
-import type { Sql } from "postgres";
 
-import { createDatabaseClient } from "@/db/client";
+import { createDatabaseClient, type DatabaseConnection } from "@/db/client";
 import { templateCategories, templateVersions, templates } from "@/db/schema";
 import { createContentAuditService } from "@/modules/content-audit";
 import type { FileStorage } from "@/modules/file-storage";
@@ -158,7 +156,39 @@ async function assertEditor(
 }
 
 export function createTemplateService(
-  database: PGlite | Sql,
+  database: DatabaseConnection,
+  dependencies: { storage: FileStorage; scanner: FileScanner },
+  options: { maxFileBytes?: number } = {},
+): TemplateService {
+  const client = createDatabaseClient(database);
+  const session = templateSession(database, dependencies, options);
+  return {
+    ...session,
+    publishTemplateVersion: (actorId, versionId) =>
+      client.transaction(async (tx) => {
+        const [version] = await tx
+          .select({ templateId: templateVersions.templateId })
+          .from(templateVersions)
+          .where(eq(templateVersions.id, versionId))
+          .limit(1);
+        if (!version) throw new Error("Version not found.");
+        // Serializes all publications for this template, not just one version row.
+        await tx
+          .select({ id: templates.id })
+          .from(templates)
+          .where(eq(templates.id, version.templateId))
+          .for("update");
+        return templateSession(
+          tx,
+          dependencies,
+          options,
+        ).publishTemplateVersion(actorId, versionId);
+      }),
+  };
+}
+
+function templateSession(
+  database: DatabaseConnection,
   dependencies: { storage: FileStorage; scanner: FileScanner },
   options: { maxFileBytes?: number } = {},
 ): TemplateService {

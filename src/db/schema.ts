@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import {
   bigint,
   boolean,
@@ -137,6 +138,9 @@ export const articles = pgTable(
     lastReviewedAt: timestamp("last_reviewed_at", { withTimezone: true }),
     nextReviewAt: timestamp("next_review_at", { withTimezone: true }),
     publishedAt: timestamp("published_at", { withTimezone: true }),
+    publishedUpdatedAt: timestamp("published_updated_at", {
+      withTimezone: true,
+    }),
     editingBy: uuid("editing_by").references(() => users.id),
     editingAt: timestamp("editing_at", { withTimezone: true }),
     readCount: integer("read_count").notNull().default(0),
@@ -197,6 +201,8 @@ export const articleVersions = pgTable(
       .notNull()
       .references(() => topics.id),
     tags: text("tags").array().notNull().default([]),
+    aliases: text("aliases").array().notNull().default([]),
+    sourceUpdatedAt: timestamp("source_updated_at", { withTimezone: true }),
     contentOwnerId: uuid("content_owner_id").references(() => users.id),
     lastReviewedAt: timestamp("last_reviewed_at", { withTimezone: true }),
     nextReviewAt: timestamp("next_review_at", { withTimezone: true }),
@@ -333,6 +339,9 @@ export const templateVersions = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
   },
   (table) => [
+    uniqueIndex("template_versions_one_active_idx")
+      .on(table.templateId)
+      .where(sql`${table.status} = 'active'`),
     uniqueIndex("template_versions_template_id_version_idx").on(
       table.templateId,
       table.version,

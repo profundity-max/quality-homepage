@@ -80,19 +80,36 @@ test("image upload inserts a controlled-directory link", async ({ page }) => {
   );
 });
 
-test("autosave runs after edits and shows the saved time", async ({ page }) => {
-  await loginAsEditor(page);
+test("autosave persists the body and preserves article properties without manual save", async ({
+  page,
+}) => {
+  await page.clock.install();
+  await page.goto("/login");
+  await page.getByLabel("用户名").fill("editor");
+  await page.getByLabel("密码").fill("editor secure password");
+  await page.getByLabel("保持登录").check();
+  await page.getByRole("button", { name: "登录" }).click();
+  await expect(page).toHaveURL(/\/$/);
   await page.goto("/manage/articles/edit-fixture/edit");
-
+  const topic = await page.locator('[name="primaryTopicId"]').inputValue();
+  const owner = await page.locator('[name="contentOwnerId"]').inputValue();
   await page.getByRole("tab", { name: "源码" }).click();
   const source = page.getByLabel("Markdown 源码");
   const original = await source.inputValue();
-  await source.fill(original + "\n\n自动保存测试段落");
-
-  // 等待自动保存定时器（30s）——为测试缩短等待：直接触发一次手动保存
-  await page.getByRole("button", { name: "属性" }).click();
-  await page.getByRole("button", { name: "保存草稿" }).click();
+  const content = `自动保存回归 ${Date.now()}`;
+  await source.fill(content);
+  await page.clock.fastForward(31_000);
   await expect(page.getByText(/最后保存：/)).toBeVisible();
+  await page.reload();
+  await page.getByRole("tab", { name: "源码" }).click();
+  await expect(page.getByLabel("Markdown 源码")).toHaveValue(content);
+  await expect(page.locator('[name="primaryTopicId"]')).toHaveValue(topic);
+  await expect(page.locator('[name="contentOwnerId"]')).toHaveValue(owner);
+  await page.getByLabel("Markdown 源码").fill(original);
+  await page.getByRole("button", { name: "保存草稿" }).click();
+  await expect(
+    page.getByRole("status").filter({ hasText: "草稿已保存。" }),
+  ).toBeVisible();
 });
 
 test("offline draft is kept in the browser and recovered on reconnect", async ({

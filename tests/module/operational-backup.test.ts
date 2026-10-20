@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 
+import { createContentAuditService } from "@/modules/content-audit";
 import { migrate } from "@/db/migrate";
 import { createDatabaseClient } from "@/db/client";
 import { users } from "@/db/schema";
@@ -163,5 +164,73 @@ describe("operational backup", () => {
     expect(isCompleteBackup({ checksumOk: true, databaseEntrySize: 1 })).toBe(
       true,
     );
+  });
+  test("extraction uses the same verified backup and refuses corrupted bytes", async () => {
+    const service = createOperationalBackupService(database, {
+      BACKUP_PASSPHRASE: "operational-backup-test-passphrase",
+      BACKUP_TARGET_DIR: join(rootDirectory, "backups"),
+      Q_NEXUS_DATA_DIR: join(rootDirectory, "data"),
+      Q_NEXUS_E2E: "1",
+    });
+    const record = await service.runBackup(ADMIN_ID, "manual");
+    const destination = join(rootDirectory, "extracted");
+    await service.extractBackup(ADMIN_ID, record.id, destination);
+    expect(await readFile(join(destination, "data", "cover.png"))).toEqual(
+      Buffer.from([1, 2, 3]),
+    );
+    expect(
+      (await readFile(join(destination, "database.dump"))).byteLength,
+    ).toBeGreaterThan(0);
+    await writeFile(
+      join(rootDirectory, "backups", record.target),
+      Buffer.from("corrupt"),
+    );
+    await expect(
+      service.extractBackup(
+        ADMIN_ID,
+        record.id,
+        join(rootDirectory, "rejected"),
+      ),
+    ).rejects.toThrow(/校验/);
+  });
+  test("restore drill rejects corrupted input before running commands and records the failure", async () => {
+    let executed = false;
+    const service = createOperationalBackupService(
+      database,
+      {
+        BACKUP_PASSPHRASE: "operational-backup-test-passphrase",
+        BACKUP_TARGET_DIR: join(rootDirectory, "backups"),
+        Q_NEXUS_DATA_DIR: join(rootDirectory, "data"),
+        Q_NEXUS_E2E: "1",
+      },
+      {
+        runRestoreDrill: async () => {
+          executed = true;
+          return {
+            databaseName: "unused",
+            counts: { users: 0, articles: 0, books: 0, templates: 0 },
+          };
+        },
+      },
+    );
+    const record = await service.runBackup(ADMIN_ID, "manual");
+    await writeFile(
+      join(rootDirectory, "backups", record.target),
+      Buffer.from("corrupt"),
+    );
+    await expect(service.runRestoreDrill(ADMIN_ID, record.id)).rejects.toThrow(
+      /校验/,
+    );
+    expect(executed).toBe(false);
+    expect(
+      await createContentAuditService(database).listAuditEvents(ADMIN_ID, {
+        eventType: "backup.restore_drill.failed",
+      }),
+    ).toEqual([expect.objectContaining({ targetId: record.id })]);
+    expect(
+      await createContentAuditService(database).listAuditEvents(ADMIN_ID, {
+        eventType: "backup.restore_drill.success",
+      }),
+    ).toEqual([]);
   });
 });

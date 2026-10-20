@@ -1,6 +1,6 @@
 export type OfflineDraftState =
   | { kind: "none" }
-  | { kind: "local-newer"; content: string };
+  | { kind: "local-newer" | "local-conflict"; content: string };
 
 export type OfflineDraftController = {
   saveLocalDraft(content: string): void;
@@ -10,7 +10,7 @@ export type OfflineDraftController = {
 
 /**
  * 离线临时草稿（EDIT-06/07）：断网时内容存 localStorage（带时间戳），
- * 恢复联网后与服务器版本比较——本地更新则提示恢复，否则丢弃。
+ * 恢复联网后与服务器版本比较——本地更新则提示恢复，服务器较新时仍保留内容供人工选择。
  */
 export function createOfflineDraftController({
   storage,
@@ -34,10 +34,15 @@ export function createOfflineDraftController({
     try {
       const parsed = JSON.parse(raw) as { content: string; savedAt: string };
       const localSavedAt = new Date(parsed.savedAt);
+      if (
+        typeof parsed.content !== "string" ||
+        !Number.isFinite(localSavedAt.getTime())
+      )
+        return { kind: "none" };
       if (localSavedAt.getTime() > serverUpdatedAt.getTime()) {
         return { kind: "local-newer", content: parsed.content };
       }
-      return { kind: "none" };
+      return { kind: "local-conflict", content: parsed.content };
     } catch {
       return { kind: "none" };
     }

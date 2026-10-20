@@ -1,3 +1,4 @@
+import { readableArticles as articles } from "./read-model";
 import type { PGlite } from "@electric-sql/pglite";
 import { and, asc, desc, eq, isNull, ne, or, sql } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
@@ -5,13 +6,13 @@ import type { Sql } from "postgres";
 
 import { createDatabaseClient } from "@/db/client";
 import {
-  articleVersions,
-  articles,
-  articleAliases,
+  articles as articleRecords,
   sections,
   topics,
   users,
 } from "@/db/schema";
+
+export { readableArticles } from "./read-model";
 
 export type TopicSummary = {
   id: string;
@@ -98,9 +99,9 @@ export type KnowledgePublishingService = {
   listTopicTree(): Promise<SectionNode[]>;
   /** 主题下的已发布文章，按更新时间倒序。 */
   listArticlesByTopic(topicId: string): Promise<ArticleSummary[]>;
-  /** 主题页内联阅读：该主题下已发布文章，含正文（草稿与归档不进入阅读侧）。 */
+  /** 主题页内联阅读：该主题下已发布文章，含正文（编辑中的已发布文章保留发布快照）。 */
   listTopicArticlesForReading(topicId: string): Promise<TopicReadingArticle[]>;
-  /** 仅返回已发布版本（VER-02 读取侧）；草稿与归档返回 null。 */
+  /** 仅返回已发布版本（VER-02 读取侧）；从未发布的草稿与归档返回 null。 */
   getPublishedArticleByStableId(
     stableId: string,
   ): Promise<PublishedArticle | null>;
@@ -239,8 +240,7 @@ export function createKnowledgePublishingService(
     },
 
     async listTopicArticlesForReading(topicId) {
-      // 只取 status=published：编辑中的文章（草稿工作区）绝不进入阅读侧，
-      // 与 listArticlesByTopic 的口径保持一致。
+      // The reading projection includes the last published version during editing.
       return client
         .select({
           id: articles.id,
@@ -265,31 +265,7 @@ export function createKnowledgePublishingService(
     },
 
     async getPublishedArticleByStableId(stableId) {
-      // VER-01 读侧：已发布文章进入编辑（转草稿）期间，阅读者仍应看到
-      // 最后发布的版本（验收 §6「编辑已发布文章时，阅读者继续看到旧发布版本」）。
-      const articleRow = (
-        await client
-          .select({
-            id: articles.id,
-            stableId: articles.stableId,
-            status: articles.status,
-            publishedAt: articles.publishedAt,
-            updatedAt: articles.updatedAt,
-          })
-          .from(articles)
-          .where(eq(articles.stableId, stableId))
-          .limit(1)
-      )[0];
-      if (!articleRow) return null;
-
-      const isPublished = articleRow.status === "published";
-      const editingInProgress =
-        articleRow.status === "draft" && articleRow.publishedAt !== null;
-      // 已归档文章不在此入口展示（归档说明页由 T8 处理）
-      if (articleRow.status === "archived") return null;
-      if (!isPublished && !editingInProgress) return null;
-
-      const rows = await client
+      const [row] = await client
         .select({
           id: articles.id,
           stableId: articles.stableId,
@@ -300,14 +276,14 @@ export function createKnowledgePublishingService(
           topicStableId: topics.stableId,
           sectionName: sections.name,
           tags: articles.tags,
-          ownerDisplayName: sql<string>`coalesce(
-            ${users.displayName}, ${users.username}
-          )`,
+          aliases: articles.aliases,
+          ownerDisplayName: sql<string>`coalesce(${users.displayName}, ${users.username}, '')`,
           readCount: articles.readCount,
           updatedAt: articles.updatedAt,
           lastReviewedAt: articles.lastReviewedAt,
           nextReviewAt: articles.nextReviewAt,
           publishedAt: articles.publishedAt,
+          editingInProgress: articles.editingInProgress,
         })
         .from(articles)
         .innerJoin(topics, eq(articles.primaryTopicId, topics.id))
@@ -315,65 +291,7 @@ export function createKnowledgePublishingService(
         .leftJoin(users, eq(articles.contentOwnerId, users.id))
         .where(eq(articles.stableId, stableId))
         .limit(1);
-      const row = rows[0];
-      if (!row) return null;
-
-      // 编辑中：内容取文章行（草稿工作区）会泄露未发布草稿 →
-      // 改取最后一次发布的版本快照（article_versions 中 kind=publish 的最新行）。
-      let display = { ...row };
-      if (editingInProgress) {
-        const lastPublished = (
-          await client
-            .select({
-              title: articleVersions.title,
-              summary: articleVersions.summary,
-              bodyMarkdown: articleVersions.bodyMarkdown,
-              primaryTopicId: articleVersions.primaryTopicId,
-              tags: articleVersions.tags,
-              contentOwnerId: articleVersions.contentOwnerId,
-              lastReviewedAt: articleVersions.lastReviewedAt,
-              nextReviewAt: articleVersions.nextReviewAt,
-            })
-            .from(articleVersions)
-            .where(
-              and(
-                eq(articleVersions.articleId, articleRow.id),
-                eq(articleVersions.kind, "publish"),
-              ),
-            )
-            .orderBy(desc(articleVersions.version))
-            .limit(1)
-        )[0];
-        if (lastPublished) {
-          display = { ...display, ...lastPublished };
-        }
-      }
-
-      const aliasRows = await client
-        .select({ alias: articleAliases.alias })
-        .from(articleAliases)
-        .where(eq(articleAliases.articleId, display.id))
-        .orderBy(asc(articleAliases.alias));
-
-      return {
-        id: display.id,
-        stableId: display.stableId,
-        title: display.title,
-        summary: display.summary,
-        bodyMarkdown: display.bodyMarkdown,
-        topicName: display.topicName,
-        topicStableId: display.topicStableId,
-        sectionName: display.sectionName,
-        tags: display.tags,
-        aliases: aliasRows.map((aliasRow) => aliasRow.alias),
-        ownerDisplayName: display.ownerDisplayName,
-        updatedAt: display.updatedAt,
-        lastReviewedAt: display.lastReviewedAt,
-        nextReviewAt: display.nextReviewAt,
-        publishedAt: display.publishedAt,
-        readCount: display.readCount,
-        editingInProgress,
-      };
+      return row ?? null;
     },
 
     async listDueReviews(limit) {
@@ -403,20 +321,20 @@ export function createKnowledgePublishingService(
       const row = (
         await client
           .select({
-            stableId: articles.stableId,
-            title: articles.title,
-            summary: articles.summary,
+            stableId: articleRecords.stableId,
+            title: articleRecords.title,
+            summary: articleRecords.summary,
             ownerDisplayName: sql<string>`coalesce(
               ${users.displayName}, ${users.username}
             )`,
-            archivedAt: articles.updatedAt,
+            archivedAt: articleRecords.updatedAt,
           })
-          .from(articles)
-          .leftJoin(users, eq(articles.contentOwnerId, users.id))
+          .from(articleRecords)
+          .leftJoin(users, eq(articleRecords.contentOwnerId, users.id))
           .where(
             and(
-              eq(articles.stableId, stableId),
-              eq(articles.status, "archived"),
+              eq(articleRecords.stableId, stableId),
+              eq(articleRecords.status, "archived"),
             ),
           )
           .limit(1)
@@ -474,9 +392,14 @@ export function createKnowledgePublishingService(
 
     async recordRead(stableId) {
       await client
-        .update(articles)
-        .set({ readCount: sql`${articles.readCount} + 1` })
-        .where(and(eq(articles.stableId, stableId), publishedWhere));
+        .update(articleRecords)
+        .set({ readCount: sql`${articleRecords.readCount} + 1` })
+        .where(
+          and(
+            eq(articleRecords.stableId, stableId),
+            sql`exists (select 1 from readable_articles where id = ${articleRecords.id})`,
+          ),
+        );
     },
 
     async getAdjacentArticles(stableId) {

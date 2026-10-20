@@ -55,7 +55,8 @@ test("home shows real knowledge entries and recent updates", async ({
   const updates = page.getByRole("region", { name: "最近更新" });
   await expect(updates).toContainText("ANOVA 实例");
   await expect(updates).toContainText("ANOVA 入门");
-  await expect(updates).toContainText("SPC 基础");
+  // Other scenarios may have published newer articles; only the five latest releases belong here.
+  await expect(updates.getByRole("link")).toHaveCount(5);
 });
 
 test("recent updates link to the reading page", async ({ page }) => {

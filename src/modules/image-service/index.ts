@@ -1,15 +1,10 @@
+import { readableArticles as articles } from "@/modules/knowledge-publishing";
 import { createHash } from "node:crypto";
 import type { PGlite } from "@electric-sql/pglite";
 import type { Sql } from "postgres";
-import { and, eq, isNotNull, isNull, or, sql } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { createDatabaseClient } from "@/db/client";
-import {
-  articles,
-  articleVersions,
-  books,
-  imageAssets,
-  users,
-} from "@/db/schema";
+import { books, imageAssets, users } from "@/db/schema";
 import type { FileStorage, SavedFile } from "@/modules/file-storage";
 import { requireRole } from "@/modules/access";
 import { extractRenderedResourceUrls } from "@/modules/shared/markdown-renderer";
@@ -93,31 +88,10 @@ export function createImageService(
         .limit(1);
       if (cover) return true;
 
-      // 已发布文章的正文直接可读；进入草稿编辑后，仅最后的 publish 快照可读。
-      // 不追溯被当前版本移除的旧图片，缺失发布快照时不回退到未发布草稿。
-      const readableBody = sql<
-        string | null
-      >`case when ${articles.status} = 'published'
-        then ${articles.bodyMarkdown} else (
-          select ${articleVersions.bodyMarkdown} from ${articleVersions}
-          where ${articleVersions.articleId} = "articles"."id" and ${articleVersions.kind} = 'publish'
-          order by ${articleVersions.version} desc limit 1
-        ) end`;
       const candidates = await client
-        .select({ bodyMarkdown: readableBody })
+        .select({ bodyMarkdown: articles.bodyMarkdown })
         .from(articles)
-        .where(
-          and(
-            or(
-              eq(articles.status, "published"),
-              and(
-                eq(articles.status, "draft"),
-                isNotNull(articles.publishedAt),
-              ),
-            ),
-            sql`${readableBody} like ${`%${imageId}%`}`,
-          ),
-        );
+        .where(sql`${articles.bodyMarkdown} like ${`%${imageId}%`}`);
       for (const row of candidates) {
         if (
           row.bodyMarkdown &&

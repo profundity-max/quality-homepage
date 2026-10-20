@@ -1,9 +1,7 @@
-import type { PGlite } from "@electric-sql/pglite";
 import { and, desc, eq, isNotNull, sql } from "drizzle-orm";
-import type { Sql } from "postgres";
 
 import { requireRole } from "@/modules/access";
-import { createDatabaseClient } from "@/db/client";
+import { createDatabaseClient, type DatabaseConnection } from "@/db/client";
 import { createContentAuditService } from "@/modules/content-audit";
 import {
   articleAliases,
@@ -84,7 +82,44 @@ function afterRetention(instant: Date): Date {
   return new Date(instant.getTime() - retentionDays * dayMs);
 }
 
-export function createArchivalService(database: PGlite | Sql): ArchivalService {
+export function createArchivalService(
+  database: DatabaseConnection,
+): ArchivalService {
+  const client = createDatabaseClient(database);
+  const session = archivalSession(database);
+  const atomic = <T>(
+    target: ArchivalTarget,
+    operation: (archival: ArchivalService) => Promise<T>,
+  ) =>
+    client.transaction(async (tx) => {
+      const table = {
+        article: articles,
+        template: templates,
+        section: sections,
+        topic: topics,
+        "template-category": templateCategories,
+      }[target.type];
+      await tx
+        .select({ id: table.id })
+        .from(table)
+        .where(eq(table.stableId, target.stableId))
+        .for("update");
+      return operation(archivalSession(tx));
+    });
+  return {
+    ...session,
+    archive: (actor, target, ...args) =>
+      atomic(target, (archival) => archival.archive(actor, target, ...args)),
+    restore: (actor, target) =>
+      atomic(target, (archival) => archival.restore(actor, target)),
+    permanentlyDelete: (actor, target, input) =>
+      atomic(target, (archival) =>
+        archival.permanentlyDelete(actor, target, input),
+      ),
+  };
+}
+
+function archivalSession(database: DatabaseConnection): ArchivalService {
   const client = createDatabaseClient(database);
   const audit = createContentAuditService(database);
 
