@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ReadingTracker } from "@/ui/reading-tracker";
 import { notFound } from "next/navigation";
 
 import { getDatabase } from "@/db/database";
@@ -98,6 +99,7 @@ export async function KnowledgeEntryPage({
         </aside>
 
         <section className={styles.content}>
+          <ReadingTracker />
           {/* 栏目名与主题名已经由顶部导航和左侧分类树表达，
               这里只给屏幕阅读器保留结构，正文直接铺开（IA-01 精简）。 */}
           <h1 className={styles.visuallyHidden}>{section.name}</h1>
@@ -110,6 +112,7 @@ export async function KnowledgeEntryPage({
                     <li key={article.id}>
                       <article
                         className={styles.article}
+                        data-reading-article={article.id}
                         aria-label={`文章 ${article.title}`}
                       >
                         <h3 className={styles.visuallyHidden}>

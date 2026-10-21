@@ -17,6 +17,7 @@
     "0014_governance_audit_recycle.sql",
     "0015_article_based_onboarding.sql",
     "0016_readable_article_projection.sql",
-    "0017_single_active_template_version.sql"
+    "0017_single_active_template_version.sql",
+    "0018_learning_statistics.sql"
   ]
 }

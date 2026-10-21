@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 
 import { getDatabase } from "@/db/database";
+import { retentionCutoff } from "@/modules/learning-stats/retention";
 import { createContentStatsService } from "@/modules/content-stats";
 
 import { requirePortalSession } from "../../authorization";
@@ -11,7 +12,7 @@ const statsPath = "/manage/stats";
 
 export async function purgeIdentityDetailsAction() {
   const session = await requirePortalSession(statsPath);
-  const before = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+  const before = retentionCutoff();
   let notice = "身份化明细已清理，聚合统计保留。";
   try {
     const summary = await createContentStatsService(

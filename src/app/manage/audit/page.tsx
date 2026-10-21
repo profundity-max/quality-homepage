@@ -20,6 +20,7 @@ const eventTypeNames: Record<string, string> = {
   "template.publish": "模板发布",
   "template.archive": "模板归档",
   "template.download": "模板下载",
+  "learning-statistics-export": "人员学习汇总导出",
   "section.create": "创建栏目",
   "section.rename": "栏目改名",
   "section.archive": "栏目归档",
@@ -82,29 +83,31 @@ export default async function AuditPage() {
           )}
         </section>
 
-        <section className={styles.card} aria-label="身份审计">
-          <h2>身份与账号审计（最近 {identityEvents.length} 条）</h2>
-          {identityEvents.length === 0 ? (
-            <p className={styles.empty}>暂无身份审计事件。</p>
-          ) : (
-            <ul className={styles.list}>
-              {identityEvents.map((event, index) => (
-                <li
-                  key={`${event.occurredAt.getTime()}-${index}`}
-                  className={styles.item}
-                >
-                  <span className={styles.type}>
-                    {event.eventType} · {event.outcome}
-                  </span>
-                  <span className={styles.meta}>
-                    {event.actorName ?? "系统"} ·{" "}
-                    {formatDateTime(event.occurredAt)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+        {session.member.role === "administrator" ? (
+          <section className={styles.card} aria-label="身份审计">
+            <h2>身份与账号审计（最近 {identityEvents.length} 条）</h2>
+            {identityEvents.length === 0 ? (
+              <p className={styles.empty}>暂无身份审计事件。</p>
+            ) : (
+              <ul className={styles.list}>
+                {identityEvents.map((event, index) => (
+                  <li
+                    key={`${event.occurredAt.getTime()}-${index}`}
+                    className={styles.item}
+                  >
+                    <span className={styles.type}>
+                      {event.eventType} · {event.outcome}
+                    </span>
+                    <span className={styles.meta}>
+                      {event.actorName ?? "系统"} ·{" "}
+                      {formatDateTime(event.occurredAt)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        ) : null}
       </main>
     </PortalShell>
   );

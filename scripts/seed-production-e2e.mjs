@@ -42,7 +42,19 @@ try {
         'reader', false
       )
   `;
-  process.stdout.write("Deterministic E2E accounts seeded.\n");
+  await database`
+    insert into articles (
+      id, stable_id, title, summary, body_markdown, primary_topic_id,
+      content_owner_id, status, published_at, next_review_at, created_at, updated_at
+    ) select ${randomUUID()}, 'learning-http-fixture', 'Learning HTTP fixture',
+      'Standalone proxy reading verification', '# Reading fixture',
+      '00000000-0000-4000-8000-000000000c04', id, 'published', now(),
+      now() + interval '30 days', now(), now()
+    from users where normalized_username = 'admin'
+  `;
+  process.stdout.write(
+    "Deterministic E2E accounts and reading fixture seeded.\n",
+  );
 } finally {
   await database.end();
 }

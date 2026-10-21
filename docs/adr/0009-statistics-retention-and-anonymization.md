@@ -1,6 +1,6 @@
 # ADR 0009: Statistics retention and anonymization
 
-- Status: Accepted
+- Status: Superseded in part by ADR 0012 (2026-10-21; administrator access, two-year learning retention, named summary export)
 - Date: 2026-08-19
 - Related: STAT-01/03/06/08/09/11, SEARCH-07, FILE-04
 

@@ -116,4 +116,31 @@ describe("content audit service", () => {
       serviceInstance.listAuditEvents(READER_ID, {}),
     ).rejects.toThrow(/Editor privileges/i);
   });
+
+  test("learning identity details remain admin-only through the audit interface", async () => {
+    const audit = service();
+    for (const eventType of [
+      "template.download",
+      "learning-statistics-export",
+      "article.publish",
+    ]) {
+      await audit.record({
+        actorUserId: READER_ID,
+        eventType,
+        targetType: "template",
+      });
+    }
+    expect(
+      (await audit.listAuditEvents(EDITOR_ID)).map((e) => e.eventType),
+    ).toEqual(["article.publish"]);
+    expect(
+      await audit.listAuditEvents(EDITOR_ID, {
+        eventType: "template.download",
+      }),
+    ).toHaveLength(0);
+    expect(await audit.listAuditEvents(ADMIN_ID)).toHaveLength(3);
+    await expect(audit.listIdentityAuditEvents(EDITOR_ID)).rejects.toThrow(
+      /Administrator/i,
+    );
+  });
 });

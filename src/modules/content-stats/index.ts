@@ -4,6 +4,10 @@ import { and, desc, eq, gte, lt, or, sql } from "drizzle-orm";
 import type { Sql } from "postgres";
 
 import { createDatabaseClient } from "@/db/client";
+import {
+  purgeExpiredStats,
+  retentionCutoff,
+} from "@/modules/learning-stats/retention";
 import { requireRole } from "@/modules/access";
 import {
   articles,
@@ -118,13 +122,6 @@ const visibleArticleCondition = or(
   and(eq(articles.status, "draft"), sql`${articles.publishedAt} is not null`),
 );
 
-async function assertEditor(
-  client: ReturnType<typeof createDatabaseClient>,
-  requestingUserId: string,
-): Promise<void> {
-  return requireRole(client, requestingUserId, "editor");
-}
-
 async function assertAdministrator(
   client: ReturnType<typeof createDatabaseClient>,
   requestingUserId: string,
@@ -139,6 +136,15 @@ export function createContentStatsService(
 
   return {
     async recordArticleRead({ articleId, userId, instant = new Date() }) {
+      const [member] = await client
+        .select({
+          disabledAt: users.disabledAt,
+          excluded: users.excludeFromLearningStats,
+        })
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
+      if (!member || member.disabledAt || member.excluded) return false;
       const article = (
         await client
           .select({ id: articles.id })
@@ -226,6 +232,15 @@ export function createContentStatsService(
       userId,
       instant = new Date(),
     }) {
+      const [member] = await client
+        .select({
+          disabledAt: users.disabledAt,
+          excluded: users.excludeFromLearningStats,
+        })
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
+      if (!member || member.disabledAt || member.excluded) return;
       await client.transaction(async (transaction) => {
         await transaction.insert(templateDownloadEvents).values({
           id: randomUUID(),
@@ -279,7 +294,7 @@ export function createContentStatsService(
     },
 
     async editorDashboard(requestingUserId, instant = new Date()) {
-      await assertEditor(client, requestingUserId);
+      await assertAdministrator(client, requestingUserId);
       const now = instant;
 
       const [
@@ -482,7 +497,7 @@ export function createContentStatsService(
         })
         .from(searchEvents)
         .leftJoin(users, eq(searchEvents.userId, users.id))
-        .where(gte(searchEvents.createdAt, new Date(Date.now() - 90 * dayMs)))
+        .where(gte(searchEvents.createdAt, retentionCutoff()))
         .orderBy(desc(searchEvents.createdAt))
         .limit(limit);
       return rows.map((row) => ({ ...row }));
@@ -500,7 +515,7 @@ export function createContentStatsService(
         .from(articleReadEvents)
         .innerJoin(articles, eq(articleReadEvents.articleId, articles.id))
         .leftJoin(users, eq(articleReadEvents.userId, users.id))
-        .where(gte(articleReadEvents.readAt, new Date(Date.now() - 90 * dayMs)))
+        .where(gte(articleReadEvents.readAt, retentionCutoff()))
         .orderBy(desc(articleReadEvents.readAt))
         .limit(limit);
       return rows.map((row) => ({ ...row }));
@@ -508,38 +523,11 @@ export function createContentStatsService(
 
     async purgeIdentityDetails(requestingUserId, before) {
       await assertAdministrator(client, requestingUserId);
-      let purgedReadEvents = 0;
-      let purgedSearchEvents = 0;
-      let purgedDownloadEvents = 0;
-
-      await client.transaction(async (transaction) => {
-        const readDeleted = await transaction
-          .delete(articleReadEvents)
-          .where(lt(articleReadEvents.readAt, before))
-          .returning({ id: articleReadEvents.id });
-        const searchDeleted = await transaction
-          .delete(searchEvents)
-          .where(lt(searchEvents.createdAt, before))
-          .returning({ id: searchEvents.id });
-        const downloadDeleted = await transaction
-          .delete(templateDownloadEvents)
-          .where(lt(templateDownloadEvents.downloadedAt, before))
-          .returning({ id: templateDownloadEvents.id });
-
-        purgedReadEvents = readDeleted.length;
-        purgedSearchEvents = searchDeleted.length;
-        purgedDownloadEvents = downloadDeleted.length;
-      });
-
-      return {
-        purgedReadEvents,
-        purgedSearchEvents,
-        purgedDownloadEvents,
-      };
+      return purgeExpiredStats(database, before);
     },
 
     async exportAggregateStats(requestingUserId) {
-      await assertEditor(client, requestingUserId);
+      await assertAdministrator(client, requestingUserId);
       const [articleRows, templateRows] = await Promise.all([
         client
           .select({

@@ -88,6 +88,10 @@ export function createContentAuditService(
       { eventType, actorUserId, limit = 100 } = {},
     ) {
       await assertEditorOrAdmin(client, requestingUserId);
+      const [actor] = await client
+        .select({ role: users.role })
+        .from(users)
+        .where(eq(users.id, requestingUserId));
       const rows = await client
         .select({
           id: contentAuditEvents.id,
@@ -106,6 +110,9 @@ export function createContentAuditService(
         .leftJoin(users, eq(contentAuditEvents.actorUserId, users.id))
         .where(
           and(
+            actor.role !== "administrator"
+              ? sql`${contentAuditEvents.eventType} not in ('template.download', 'learning-statistics-export')`
+              : undefined,
             eventType ? eq(contentAuditEvents.eventType, eventType) : undefined,
             actorUserId
               ? eq(contentAuditEvents.actorUserId, actorUserId)
@@ -124,7 +131,7 @@ export function createContentAuditService(
     },
 
     async listIdentityAuditEvents(requestingUserId, limit = 50) {
-      await assertEditorOrAdmin(client, requestingUserId);
+      await requireRole(client, requestingUserId, "administrator");
       const rows = await client
         .select({
           eventType: identityAuditEvents.eventType,

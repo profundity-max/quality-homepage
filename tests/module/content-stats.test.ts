@@ -318,7 +318,7 @@ describe("content statistics service", () => {
       instant: NOW,
     });
 
-    const dashboard = await stats.editorDashboard(EDITOR_ID, NOW);
+    const dashboard = await stats.editorDashboard(ADMIN_ID, NOW);
     expect(dashboard.hotArticles[0]?.stableId).toBe("anova-intro");
     expect(dashboard.highReachArticles.length).toBeGreaterThan(0);
     expect(dashboard.growingArticles.length).toBeGreaterThan(0);
@@ -371,7 +371,7 @@ describe("content statistics service", () => {
       createdAt: NOW,
     });
 
-    const dashboard = await stats.editorDashboard(EDITOR_ID, NOW);
+    const dashboard = await stats.editorDashboard(ADMIN_ID, NOW);
     expect(dashboard.templateDownloads[0]).toMatchObject({
       stableId: "demo-template",
       downloadCount: 1,
@@ -427,7 +427,7 @@ describe("content statistics service", () => {
     await stats.recordArticleRead({
       articleId: ARTICLE_ID,
       userId: READER_ID,
-      instant: daysAgo(120),
+      instant: daysAgo(800),
     });
     await stats.recordArticleRead({
       articleId: ARTICLE_ID,
@@ -441,7 +441,7 @@ describe("content statistics service", () => {
         userId: READER_ID,
         query: "旧词",
         hasResults: false,
-        createdAt: daysAgo(120),
+        createdAt: daysAgo(800),
       });
     await createDatabaseClient(database)
       .insert(searchAggregates)
@@ -449,10 +449,10 @@ describe("content statistics service", () => {
         query: "旧词",
         hasResults: false,
         searchCount: 1,
-        lastSearchedAt: daysAgo(120),
+        lastSearchedAt: daysAgo(800),
       });
 
-    const summary = await stats.purgeIdentityDetails(ADMIN_ID, daysAgo(90));
+    const summary = await stats.purgeIdentityDetails(ADMIN_ID, daysAgo(730));
     expect(summary.purgedReadEvents).toBe(1);
     expect(summary.purgedSearchEvents).toBe(1);
 
@@ -481,7 +481,13 @@ describe("content statistics service", () => {
       userId: READER_ID,
       instant: NOW,
     });
-    const csv = await stats.exportAggregateStats(EDITOR_ID);
+    await expect(stats.exportAggregateStats(EDITOR_ID)).rejects.toThrow(
+      /Administrator/i,
+    );
+    await expect(stats.editorDashboard(EDITOR_ID)).rejects.toThrow(
+      /Administrator/i,
+    );
+    const csv = await stats.exportAggregateStats(ADMIN_ID);
     expect(csv).toContain("类型,稳定标识,名称");
     expect(csv).toContain("文章,anova-intro,ANOVA 入门");
     expect(csv).not.toContain("reader");

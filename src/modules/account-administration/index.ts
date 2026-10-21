@@ -30,6 +30,7 @@ export interface ManagedMember {
   displayName: string | null;
   role: Role;
   enabled: boolean;
+  excludeFromLearningStats: boolean;
   locked: boolean;
   lockedUntil: Date | null;
 }
@@ -56,6 +57,7 @@ export function createAccountAdministrationModule({
           displayName: users.displayName,
           role: users.role,
           disabledAt: users.disabledAt,
+          excludeFromLearningStats: users.excludeFromLearningStats,
           lockedUntil: users.lockedUntil,
         })
         .from(users)
@@ -66,6 +68,7 @@ export function createAccountAdministrationModule({
         displayName: member.displayName,
         role: member.role,
         enabled: member.disabledAt === null,
+        excludeFromLearningStats: member.excludeFromLearningStats,
         locked: member.lockedUntil !== null && member.lockedUntil > currentTime,
         lockedUntil: member.lockedUntil,
       }));
@@ -281,6 +284,67 @@ export function createAccountAdministrationModule({
           "account-disablement",
           occurredAt,
           {},
+        );
+      });
+    },
+
+    async restoreMember(input: {
+      requestingUserId: UserId;
+      userId: string;
+    }): Promise<void> {
+      const occurredAt = now();
+      await client.transaction(async (transaction) => {
+        await lockAccountAdministrationWrites(transaction);
+        await assertAdministrator(transaction, input.requestingUserId);
+        const restored = await transaction
+          .update(users)
+          .set({ disabledAt: null })
+          .where(
+            and(
+              eq(users.id, input.userId),
+              sql`${users.disabledAt} is not null`,
+            ),
+          )
+          .returning({ id: users.id });
+        if (!restored[0]) throw new Error("Account is not disabled.");
+        // Restoring an identity never revives sessions revoked on disablement.
+        await recordAudit(
+          transaction,
+          input.requestingUserId,
+          input.userId,
+          "account-restoration",
+          occurredAt,
+          {},
+        );
+      });
+    },
+
+    async setLearningStatsExclusion(input: {
+      requestingUserId: UserId;
+      userId: string;
+      excluded: boolean;
+    }): Promise<void> {
+      const occurredAt = now();
+      await client.transaction(async (transaction) => {
+        await lockAccountAdministrationWrites(transaction);
+        await assertAdministrator(transaction, input.requestingUserId);
+        const targets = await transaction
+          .select({ excluded: users.excludeFromLearningStats })
+          .from(users)
+          .where(eq(users.id, input.userId))
+          .limit(1);
+        if (!targets[0]) throw new Error("Account not found.");
+        await transaction
+          .update(users)
+          .set({ excludeFromLearningStats: input.excluded })
+          .where(eq(users.id, input.userId));
+        await recordAudit(
+          transaction,
+          input.requestingUserId,
+          input.userId,
+          "account-statistics-exclusion",
+          occurredAt,
+          { from: String(targets[0].excluded), to: String(input.excluded) },
         );
       });
     },

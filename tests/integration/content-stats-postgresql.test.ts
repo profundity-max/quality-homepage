@@ -81,7 +81,7 @@ describe("content statistics on PostgreSQL 17", () => {
         tags: ["统计"],
         contentOwnerId: EDITOR_ID,
         status: "published",
-        publishedAt: daysAgo(120),
+        publishedAt: daysAgo(800),
         nextReviewAt: new Date(NOW.getTime() + 30 * 24 * 60 * 60 * 1000),
         updatedAt: daysAgo(2),
         createdAt: daysAgo(130),
@@ -106,7 +106,7 @@ describe("content statistics on PostgreSQL 17", () => {
     await createContentStatsService(database).recordArticleRead({
       articleId: "00000000-0000-4000-8000-0000000000d3",
       userId: READER_ID,
-      instant: daysAgo(100),
+      instant: daysAgo(800),
     });
   });
 
@@ -147,7 +147,7 @@ describe("content statistics on PostgreSQL 17", () => {
 
   test("builds the editor dashboard with date-filtered aggregates (STAT-04)", async () => {
     const stats = createContentStatsService(database);
-    const dashboard = await stats.editorDashboard(EDITOR_ID, NOW);
+    const dashboard = await stats.editorDashboard(ADMIN_ID, NOW);
 
     expect(dashboard.longUnreadArticles.map((row) => row.stableId)).toContain(
       "old-unread",
@@ -159,7 +159,7 @@ describe("content statistics on PostgreSQL 17", () => {
 
   test("purges identity details before the retention boundary (STAT-11)", async () => {
     const stats = createContentStatsService(database);
-    const summary = await stats.purgeIdentityDetails(ADMIN_ID, daysAgo(90));
+    const summary = await stats.purgeIdentityDetails(ADMIN_ID, daysAgo(730));
 
     // 只清理保留期外的那一条，最近这条（NOW）保留
     expect(summary.purgedReadEvents).toBe(1);

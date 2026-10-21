@@ -13,6 +13,8 @@ import {
   createMemberAction,
   disableMemberAction,
   resetPasswordAction,
+  restoreMemberAction,
+  setLearningStatsExclusionAction,
   unlockMemberAction,
   updateMemberIdentityAction,
 } from "./actions";
@@ -46,7 +48,7 @@ export default async function AccountManagementPage({
             <div>
               <p className={styles.eyebrow}>品集｜Q Nexus · 门户管理</p>
               <h1>内容管理</h1>
-              <p>维护新人路线、栏目、模板与书单，处理反馈并查看内容统计。</p>
+              <p>维护新人路线、栏目、模板与书单，处理内容反馈。</p>
             </div>
           </header>
           <section className={styles.panel} aria-label="内容管理入口">
@@ -58,7 +60,6 @@ export default async function AccountManagementPage({
               <Link href="/manage/templates">模板管理</Link>
               <Link href="/manage/books">书单管理</Link>
               <Link href="/manage/feedback">内容反馈处理</Link>
-              <Link href="/manage/stats">内容统计</Link>
               <Link href="/manage/import">内容导入</Link>
             </div>
           </section>
@@ -97,7 +98,7 @@ export default async function AccountManagementPage({
               <Link href="/manage/templates">模板管理</Link>
               <Link href="/manage/books">书单管理</Link>
               <Link href="/manage/feedback">内容反馈处理</Link>
-              <Link href="/manage/stats">内容统计</Link>
+              <Link href="/manage/stats">学习统计</Link>
               <Link href="/manage/recycle-bin">回收站</Link>
               <Link href="/manage/import">内容导入</Link>
               <Link href="/manage/export">内容导出</Link>
@@ -200,7 +201,12 @@ export default async function AccountManagementPage({
                     </div>
                     <div>
                       <dt>状态</dt>
-                      <dd>{member.enabled ? "已启用" : "已禁用"}</dd>
+                      <dd>
+                        {member.enabled ? "已启用" : "已禁用"}
+                        {member.excludeFromLearningStats
+                          ? " · 测试账号（已排除学习统计）"
+                          : ""}
+                      </dd>
                     </div>
                     <div>
                       <dt>登录</dt>
@@ -274,7 +280,27 @@ export default async function AccountManagementPage({
                         禁用 {member.username}
                       </button>
                     </form>
-                  ) : null}
+                  ) : (
+                    <form action={restoreMemberAction}>
+                      <input type="hidden" name="userId" value={member.id} />
+                      <button type="submit">
+                        恢复 {member.username} 的账号
+                      </button>
+                    </form>
+                  )}
+                  <form action={setLearningStatsExclusionAction}>
+                    <input type="hidden" name="userId" value={member.id} />
+                    <input
+                      type="hidden"
+                      name="excluded"
+                      value={member.excludeFromLearningStats ? "false" : "true"}
+                    />
+                    <button type="submit">
+                      {member.excludeFromLearningStats
+                        ? "纳入学习统计"
+                        : "标记为测试账号"}
+                    </button>
+                  </form>
                 </div>
               </article>
             ))}

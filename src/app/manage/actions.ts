@@ -81,6 +81,34 @@ export async function disableMemberAction(formData: FormData): Promise<void> {
   );
 }
 
+export async function restoreMemberAction(formData: FormData): Promise<void> {
+  const userId = readString(formData, "userId");
+  await runManagementAction(
+    "账号已恢复，请重新登录；历史记录保留。",
+    (requestingUserId) =>
+      getAccountAdministrationModule().restoreMember({
+        requestingUserId,
+        userId,
+      }),
+  );
+}
+
+export async function setLearningStatsExclusionAction(
+  formData: FormData,
+): Promise<void> {
+  const userId = readString(formData, "userId");
+  const excluded = readString(formData, "excluded") === "true";
+  await runManagementAction(
+    excluded ? "测试账号已排除学习统计。" : "账号已纳入学习统计。",
+    (requestingUserId) =>
+      getAccountAdministrationModule().setLearningStatsExclusion({
+        requestingUserId,
+        userId,
+        excluded,
+      }),
+  );
+}
+
 export async function changeRoleAction(formData: FormData): Promise<void> {
   const userId = readString(formData, "userId");
   const role = readString(formData, "role") as Role;

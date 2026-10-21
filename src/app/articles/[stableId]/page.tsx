@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { getDatabase } from "@/db/database";
-import { createContentStatsService } from "@/modules/content-stats";
+import { ReadingTracker } from "@/ui/reading-tracker";
 import { createFavoritesService } from "@/modules/favorites";
 import { createKnowledgePublishingService } from "@/modules/knowledge-publishing";
 import { createOnboardingService } from "@/modules/onboarding";
@@ -105,17 +105,7 @@ export default async function ArticlePage({
   const isEditorOrAdmin =
     session.member.role === "editor" || session.member.role === "administrator";
 
-  // 阅读计数：仅阅读者计入（编辑预览与自动化访问不计入，STAT-02）
-  // 同一用户 30 分钟内重复打开同一文章只计一次（STAT-01）
-  const countedThisRead =
-    !isEditorOrAdmin &&
-    (await createContentStatsService(getDatabase()).recordArticleRead({
-      articleId: article.id,
-      userId: session.member.id,
-    }));
-
-  // 阅读次数展示：加上本次记录（若已去重或为编辑者则不加）
-  const displayedReadCount = article.readCount + (countedThisRead ? 1 : 0);
+  const displayedReadCount = article.readCount;
 
   return (
     <PortalShell currentPath={`/articles/${stableId}`}>
@@ -240,7 +230,8 @@ export default async function ArticlePage({
           </details>
         </aside>
 
-        <article className={styles.article}>
+        <article className={styles.article} data-reading-article={article.id}>
+          <ReadingTracker />
           {query.from === "onboarding" && (
             <nav
               aria-label="新人路线阅读导航"

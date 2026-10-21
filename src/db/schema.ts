@@ -27,6 +27,9 @@ export const users = pgTable(
     passwordHash: text("password_hash").notNull(),
     role: text("role").$type<Role>().notNull(),
     mustChangePassword: boolean("must_change_password").notNull().default(true),
+    excludeFromLearningStats: boolean("exclude_from_learning_stats")
+      .notNull()
+      .default(false),
     disabledAt: timestamp("disabled_at", { withTimezone: true }),
     failedLoginAttempts: integer("failed_login_attempts").notNull().default(0),
     lockedUntil: timestamp("locked_until", { withTimezone: true }),
@@ -594,3 +597,66 @@ export const knowledgeSchema = {
   articleVersions,
   imageAssets,
 };
+
+export const learningStatsConfig = pgTable("learning_stats_config", {
+  key: text("key").primaryKey(),
+  startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
+});
+export const learningReadSessions = pgTable(
+  "learning_read_sessions",
+  {
+    id: uuid("id").primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    articleId: uuid("article_id")
+      .notNull()
+      .references(() => articles.id, { onDelete: "cascade" }),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
+    lastHeartbeatAt: timestamp("last_heartbeat_at", {
+      withTimezone: true,
+    }).notNull(),
+    activeSeconds: integer("active_seconds").notNull().default(0),
+    qualifiedAt: timestamp("qualified_at", { withTimezone: true }),
+  },
+  (t) => [
+    index("learning_read_sessions_user_article_idx").on(
+      t.userId,
+      t.articleId,
+      t.startedAt,
+    ),
+  ],
+);
+export const learningReadTicks = pgTable(
+  "learning_read_ticks",
+  {
+    id: uuid("id").primaryKey(),
+    sessionId: uuid("session_id")
+      .notNull()
+      .references(() => learningReadSessions.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    articleId: uuid("article_id")
+      .notNull()
+      .references(() => articles.id, { onDelete: "cascade" }),
+    occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull(),
+    seconds: integer("seconds").notNull(),
+  },
+  (t) => [index("learning_read_ticks_occurred_at_idx").on(t.occurredAt)],
+);
+// One lease per user makes concurrent browser tabs share a single server clock.
+export const learningReadingLeases = pgTable("learning_reading_leases", {
+  userId: uuid("user_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  tabId: uuid("tab_id").notNull(),
+  articleId: uuid("article_id")
+    .notNull()
+    .references(() => articles.id, { onDelete: "cascade" }),
+  lastHeartbeatAt: timestamp("last_heartbeat_at", {
+    withTimezone: true,
+  }).notNull(),
+  sequence: integer("sequence").notNull(),
+  active: boolean("active").notNull(),
+});
