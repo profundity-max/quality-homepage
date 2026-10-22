@@ -122,15 +122,19 @@ export default async function StatsDashboardPage({
     <PortalShell currentPath="/manage/stats">
       <main id="main-content" tabIndex={-1} className={styles.layout}>
         <header className={styles.header}>
-          <p className={styles.eyebrow}>品集｜Q Nexus · 门户管理 · 仅管理员</p>
-          <h1>学习统计</h1>
-          <p className={styles.purpose}>
-            学习参与记录仅作为培养与评优辅助，不能证明学习成效。各指标独立展示，不合成学习分。
-          </p>
-          <p className={styles.note}>
-            实名学习记录保留两年；包括编辑者、管理员与停用账号，显式标记的测试账号除外。当前收藏数不受日期范围限制，不提供个人收藏清单。
-          </p>
-          <Link href="/manage">账户管理与测试账号排除</Link>
+          <div>
+            <h1>学习统计</h1>
+            <p className={styles.purpose}>
+              学习参与记录仅作培养与评优辅助，不代表学习成效。
+            </p>
+          </div>
+          <a
+            className={styles.exportLink}
+            href={`/api/stats/people-export?${query}`}
+            download
+          >
+            导出人员汇总 Excel
+          </a>
         </header>
         {notice ? (
           <p role="status" className={styles.notice}>
@@ -221,27 +225,35 @@ export default async function StatsDashboardPage({
           <button type="submit">应用筛选</button>
           <Link href={`/manage/stats?view=${view}`}>重置筛选</Link>
         </form>
-        <p className={styles.note}>
-          统计范围：{report.range.from} 至 {report.range.to}
-          （上海时区，含结束日期）。人员排序除姓名外按指标降序。无活动的正式成员仍列出。
-        </p>
-        <p className={styles.collection}>
-          有效阅读与活跃阅读时长采集起点：
-          {report.collectedSince
-            ? formatDateTime(report.collectedSince)
-            : "尚未开始采集"}
-          。采集前的历史数据不补记为零；跨采集起点的区间仅包含起点后的已采集部分。
-        </p>
+        <div className={styles.contextBar}>
+          <span>
+            统计范围：{report.range.from} 至 {report.range.to}（上海时区）
+          </span>
+          <span>
+            采集起点：
+            {report.collectedSince
+              ? formatDateTime(report.collectedSince)
+              : "尚未开始采集"}
+          </span>
+          <details>
+            <summary>统计口径</summary>
+            <p>
+              实名学习记录保留两年；包括编辑者、管理员与停用账号，显式标记的测试账号除外。当前收藏数不受日期范围限制，不提供个人收藏清单。无活动的正式成员仍列出。
+            </p>
+            <p>
+              有效阅读与活跃时长采集前的历史数据不补记为零；跨采集起点的区间仅包含起点后的已采集部分。日期范围包含结束日期，人员排序除姓名外按指标降序。
+            </p>
+            <Link href="/manage">账户管理与测试账号排除</Link>
+          </details>
+        </div>
         {view === "overview" ? (
           <>
             <section aria-label="参与总览" className={styles.metrics}>
               {[
                 ["活跃人数", metric(report.overview.activeUsers)],
-                ["文章访问次数", metric(report.overview.visits)],
                 ["有效阅读次数", metric(report.overview.effectiveReads)],
                 ["活跃阅读时长", duration(report.overview.activeSeconds)],
                 ["模板下载次数", metric(report.overview.downloads)],
-                ["成功登录次数", metric(report.overview.logins)],
               ].map(([title, value]) => (
                 <div key={title} className={styles.metric}>
                   <span>{title}</span>
@@ -249,8 +261,51 @@ export default async function StatsDashboardPage({
                 </div>
               ))}
             </section>
+            <p className={styles.note}>
+              文章访问次数 {metric(report.overview.visits)} · 成功登录次数{" "}
+              {metric(report.overview.logins)} · 当前收藏数不受日期范围限制
+            </p>
             <section className={styles.card}>
-              <h2>每日参与趋势</h2>
+              <div className={styles.sectionHeader}>
+                <h2>人员参与记录</h2>
+                <Link href={href({ view: "people" })}>查看全部人员</Link>
+              </div>
+              <DataTable
+                label="人员参与记录"
+                headers={[
+                  "姓名",
+                  "活跃天数",
+                  "有效阅读篇数",
+                  "活跃阅读时长",
+                  "成功登录次数",
+                  "下载次数",
+                  "当前收藏数",
+                ]}
+                rows={report.people.slice(0, 6).map((person) => [
+                  <Link
+                    key={person.id}
+                    href={detailLink({ userId: person.id })}
+                  >
+                    {person.name}
+                  </Link>,
+                  metric(person.activeDays),
+                  metric(person.effectiveArticles),
+                  duration(person.activeSeconds),
+                  metric(person.logins),
+                  metric(person.downloads),
+                  metric(person.favorites),
+                ])}
+              />
+              <p className={styles.note}>
+                当前排序：
+                {sorts.find(
+                  ([key]) => key === (filter.sort || "activeDays"),
+                )?.[1] ?? "活跃天数"}{" "}
+                · 各指标独立展示，不合成学习分
+              </p>
+            </section>
+            <details className={styles.card}>
+              <summary>每日参与趋势</summary>
               <p className={styles.note}>
                 按实际上海日期展示每日数据；无活动日期保留为零。
               </p>
@@ -271,7 +326,7 @@ export default async function StatsDashboardPage({
                   metric(row.downloads),
                 ])}
               />
-            </section>
+            </details>
           </>
         ) : null}
         {view === "people" ? (
@@ -525,13 +580,6 @@ export default async function StatsDashboardPage({
           />
         </section>
         <section className={styles.tools} aria-label="统计工具">
-          <a
-            className={styles.exportLink}
-            href={`/api/stats/people-export?${query}`}
-            download
-          >
-            导出人员汇总 Excel
-          </a>
           <a href="/api/stats/export" download>
             导出不含身份的聚合统计 CSV
           </a>

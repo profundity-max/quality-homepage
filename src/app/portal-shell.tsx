@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AdminShell } from "./manage/admin-shell";
 
 import { logoutAction } from "./actions";
 import styles from "./portal-shell.module.css";
@@ -28,6 +29,18 @@ export async function PortalShell({
   const canManage =
     session?.member.role === "editor" ||
     session?.member.role === "administrator";
+  if (currentPath.startsWith("/manage") && canManage && session) {
+    return (
+      <AdminShell
+        currentPath={currentPath}
+        name={session.member.displayName || session.member.username}
+        administrator={session.member.role === "administrator"}
+        theme={currentTheme}
+      >
+        {children}
+      </AdminShell>
+    );
+  }
   return (
     <>
       <a className={styles.skipLink} href="#main-content">

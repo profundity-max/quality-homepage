@@ -152,9 +152,10 @@ test("identity lifecycle protects lockout, sessions, revocation, and disabled ac
   await expect(page).toHaveURL(/\/$/);
 
   await page.goto("/manage");
-  const administratorCard = page
-    .getByRole("article")
-    .filter({ hasText: "@admin" });
+  const administratorCard = page.getByRole("row").filter({ hasText: "@admin" });
+  await administratorCard
+    .getByRole("button", { name: "更多", exact: true })
+    .click();
   await administratorCard.getByRole("button", { name: "禁用 admin" }).click();
   await expect(
     page.getByText("不能禁用当前登录账号。", { exact: true }),
@@ -163,8 +164,11 @@ test("identity lifecycle protects lockout, sessions, revocation, and disabled ac
   // 降级应成功），使 admin 成为最后一位有效管理员后再断言拒绝降级。
   try {
     const columnAdminCard = page
-      .getByRole("article")
+      .getByRole("row")
       .filter({ hasText: "@columnadmin" });
+    await columnAdminCard
+      .getByRole("button", { name: "编辑", exact: true })
+      .click();
     await columnAdminCard
       .getByLabel("调整 columnadmin 的角色")
       .selectOption("reader");
@@ -172,6 +176,9 @@ test("identity lifecycle protects lockout, sessions, revocation, and disabled ac
     // Server Action 重定向完成后页面才会渲染最新角色状态；
     // 等待导航落地，避免下一次提交落在未完成的旧页面上。
     await expect(page).toHaveURL(/\/manage\?notice=/);
+    await administratorCard
+      .getByRole("button", { name: "编辑", exact: true })
+      .click();
     await administratorCard
       .getByLabel("调整 admin 的角色")
       .selectOption("reader");
@@ -183,8 +190,11 @@ test("identity lifecycle protects lockout, sessions, revocation, and disabled ac
     // 无论断言是否失败都恢复 columnadmin：它是后续 e2e 共用的管理员 fixture，
     // 若以 reader 留在库里，会连锁击溃栏目管理、管理端 UI、导出等全部用例。
     const restoreCard = page
-      .getByRole("article")
+      .getByRole("row")
       .filter({ hasText: "@columnadmin" });
+    await restoreCard
+      .getByRole("button", { name: "编辑", exact: true })
+      .click();
     await restoreCard
       .getByLabel("调整 columnadmin 的角色")
       .selectOption("administrator");
@@ -192,7 +202,8 @@ test("identity lifecycle protects lockout, sessions, revocation, and disabled ac
     await expect(page.getByText("账号角色已更新。")).toBeVisible();
   }
 
-  const createAccountRegion = page.getByRole("region", {
+  await page.getByRole("button", { name: "新建账号" }).click();
+  const createAccountRegion = page.getByRole("dialog", {
     name: "创建账号",
   });
   await createAccountRegion.getByLabel("用户名").fill("managed-member");
@@ -231,8 +242,9 @@ test("identity lifecycle protects lockout, sessions, revocation, and disabled ac
 
   await page.goto("/manage");
   const managedCard = page
-    .getByRole("article")
+    .getByRole("row")
     .filter({ hasText: "@managed-member" });
+  await managedCard.getByRole("button", { name: "编辑", exact: true }).click();
   await managedCard
     .getByLabel("调整 managed-member 的角色")
     .selectOption("editor");
@@ -246,6 +258,7 @@ test("identity lifecycle protects lockout, sessions, revocation, and disabled ac
   ).toBeVisible();
 
   await page.goto("/manage");
+  await managedCard.getByRole("button", { name: "更多", exact: true }).click();
   await managedCard
     .getByLabel("重置 managed-member 的临时密码")
     .fill("reset managed password");
@@ -274,6 +287,7 @@ test("identity lifecycle protects lockout, sessions, revocation, and disabled ac
     managedPage.getByText("登录尝试过多，账号已暂时锁定，请稍后再试。"),
   ).toBeVisible();
   await page.goto("/manage");
+  await managedCard.getByRole("button", { name: "更多", exact: true }).click();
   await managedCard
     .getByRole("button", { name: "解除 managed-member 的锁定" })
     .click();
@@ -284,6 +298,7 @@ test("identity lifecycle protects lockout, sessions, revocation, and disabled ac
   await managedPage.getByRole("button", { name: "登录" }).click();
   await expect(managedPage).toHaveURL(/\/change-password$/);
   await page.goto("/manage");
+  await managedCard.getByRole("button", { name: "更多", exact: true }).click();
   await managedCard
     .getByRole("button", { name: "禁用 managed-member" })
     .click();
@@ -372,7 +387,8 @@ test("identity lifecycle protects lockout, sessions, revocation, and disabled ac
   await page.goto("/manage");
   await expect(page.getByRole("heading", { name: "账户管理" })).toBeVisible();
 
-  const mobileAccountRegion = page.getByRole("region", { name: "创建账号" });
+  await page.getByRole("button", { name: "新建账号" }).click();
+  const mobileAccountRegion = page.getByRole("dialog", { name: "创建账号" });
   await mobileAccountRegion.getByLabel("用户名").fill("mobile-member");
   await mobileAccountRegion.getByLabel("显示名称").fill("移动品质成员");
   await mobileAccountRegion
@@ -442,12 +458,18 @@ test("identity lifecycle protects lockout, sessions, revocation, and disabled ac
 
   await page.goto("/manage");
   const mobileMemberCard = page
-    .getByRole("article")
+    .getByRole("row")
     .filter({ hasText: "@mobile-member" });
+  await mobileMemberCard
+    .getByRole("button", { name: "更多", exact: true })
+    .click();
   await mobileMemberCard
     .getByRole("button", { name: "解除 mobile-member 的锁定" })
     .click();
   await expect(page.getByText("账号已解除锁定。")).toBeVisible();
+  await mobileMemberCard
+    .getByRole("button", { name: "编辑", exact: true })
+    .click();
   await mobileMemberCard
     .getByLabel("调整 mobile-member 的角色")
     .selectOption("editor");
@@ -497,7 +519,8 @@ test("administrator renames an account and its display name from the account lis
   await expect(page).toHaveURL(/\/$/);
 
   await page.goto("/manage");
-  const createForm = page.getByRole("region", { name: "创建账号" });
+  await page.getByRole("button", { name: "新建账号" }).click();
+  const createForm = page.getByRole("dialog", { name: "创建账号" });
   await createForm.getByLabel("用户名").fill("rename-target");
   await createForm.getByLabel("显示名称").fill("待改名账号");
   await createForm
@@ -509,17 +532,14 @@ test("administrator renames an account and its display name from the account lis
   await createForm.getByRole("button", { name: "创建账号" }).click();
   await expect(page.getByText("账号已创建。")).toBeVisible();
 
-  const card = page
-    .getByRole("heading", { name: "待改名账号" })
-    .locator("xpath=ancestor::article");
+  const card = page.getByRole("row").filter({ hasText: "@rename-target" });
+  await card.getByRole("button", { name: "编辑", exact: true }).click();
   await card.getByLabel("修改 rename-target 的用户名").fill("Lou-Test");
   await card.getByLabel("修改 rename-target 的显示名称").fill("Lou 测试");
   await card.getByRole("button", { name: "保存用户名与名称" }).click();
   await expect(page.getByText("账号用户名/显示名称已更新。")).toBeVisible();
 
-  const renamed = page
-    .getByRole("heading", { name: "Lou 测试" })
-    .locator("xpath=ancestor::article");
+  const renamed = page.getByRole("row").filter({ hasText: "@Lou-Test" });
   await expect(renamed).toContainText("@Lou-Test");
 
   // 密码没变：用新用户名（大小写不敏感）+ 原临时密码仍能登录，并进入首次改密页

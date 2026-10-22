@@ -109,10 +109,11 @@ test("management page shows due reviews and confirms still valid (GOV-02/03)", a
   page,
 }) => {
   await loginAsColumnAdmin(page);
-  await page.goto("/manage");
+  await page.goto("/manage/articles");
+  await page.getByText(/^待复核内容（/).click();
 
   // 待复核区块包含 anova-intro（seed 中复核已到期）
-  const reviews = page.getByLabel("待复核内容");
+  const reviews = page.locator("details").filter({ hasText: "待复核内容" });
   await expect(reviews).toContainText("ANOVA 入门");
 
   // 确认仍然有效 → 区块更新

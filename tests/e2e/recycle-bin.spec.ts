@@ -23,15 +23,20 @@ test("editor archives an article; admin restores it from the recycle bin (DEL-01
   await expect(
     page.getByRole("heading", { level: 1, name: "回收站" }),
   ).toBeVisible();
-  await expect(page.getByText(/ANOVA/).first()).toBeVisible();
-  await expect(page.getByText("归档于")).toBeVisible();
+  const archivedArticle = page
+    .getByText("ANOVA 入门", { exact: true })
+    .locator("xpath=ancestor::li");
+  await expect(archivedArticle).toBeVisible();
+  await expect(archivedArticle.getByText("归档于")).toBeVisible();
   // 刚归档未满 30 天：永久删除禁用并显示剩余保留期
-  await expect(page.getByRole("button", { name: "永久删除" })).toBeDisabled();
-  await expect(page.getByText(/剩余保留期/)).toBeVisible();
+  await expect(
+    archivedArticle.getByRole("button", { name: "永久删除" }),
+  ).toBeDisabled();
+  await expect(archivedArticle.getByText(/剩余保留期/)).toBeVisible();
 
-  await page.getByRole("button", { name: "恢复" }).click();
+  await archivedArticle.getByRole("button", { name: "恢复" }).click();
   await expect(page.getByRole("status")).toContainText("已恢复");
-  await expect(page.getByText("回收站暂无文章。")).toBeVisible();
+  await expect(archivedArticle).toHaveCount(0);
 });
 
 test("admin can immediately purge a never-published draft with a reason (DEL-02)", async ({
@@ -62,8 +67,9 @@ test("admin can immediately purge a never-published draft with a reason (DEL-02)
 
   await page.goto("/manage/articles");
   const row = page
-    .getByText("回收站立即清理验证")
-    .locator("xpath=ancestor::li");
+    .getByText("回收站立即清理验证", { exact: true })
+    .locator("xpath=ancestor::tr");
+  await row.getByRole("button", { name: "更多", exact: true }).click();
   await row.getByLabel("归档文章 回收站立即清理验证 的原因").fill("测试内容");
   await row.getByRole("button", { name: "归档", exact: true }).click();
   await expect(page.getByRole("status")).toContainText("文章已归档。");

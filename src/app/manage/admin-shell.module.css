@@ -1,0 +1,232 @@
+.shell {
+  --admin-primary: #1d4ed8;
+  --admin-primary-text: #fff;
+  min-height: 100vh;
+  font-size: 14px;
+}
+.sidebar {
+  position: fixed;
+  inset: 0 auto 0 0;
+  width: 224px;
+  display: flex;
+  flex-direction: column;
+  background: #152238;
+  color: #e5ebf3;
+  z-index: 30;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  min-height: 72px;
+  padding: 0 22px;
+  color: white;
+  text-decoration: none;
+  font-size: 21px;
+  font-weight: 700;
+  border-bottom: 1px solid #304057;
+  white-space: nowrap;
+}
+.navigation {
+  overflow-y: auto;
+  padding: 10px 10px 20px;
+}
+.group {
+  margin: 12px 0 22px;
+}
+.group h2 {
+  margin: 0 14px 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #a9b8cd;
+}
+.group a {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 7px;
+  color: #d9e2ef;
+  text-decoration: none;
+  line-height: 1.5;
+}
+.group a:hover {
+  background: #253a58;
+}
+.group a[aria-current] {
+  background: #234b8c;
+  color: #fff;
+  font-weight: 600;
+}
+.group svg {
+  flex-shrink: 0;
+}
+.returnLink {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: auto 14px 0;
+  padding: 18px 10px;
+  border-top: 1px solid #304057;
+  color: #e5ebf3;
+  text-decoration: none;
+}
+.workspace {
+  margin-left: 224px;
+  min-width: 0;
+}
+.topbar {
+  min-height: 72px;
+  padding: 12px 32px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-divider);
+}
+.breadcrumb,
+.tools {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.breadcrumb > :first-child {
+  color: var(--color-text-secondary);
+}
+.tools {
+  gap: 12px;
+}
+.tools button {
+  background: none;
+  border: 0;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-size: 13px;
+}
+.identity {
+  line-height: 1.4;
+  text-align: right;
+  max-width: 160px;
+  overflow-wrap: anywhere;
+}
+.identity small {
+  display: block;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+.footer {
+  padding: 20px 32px;
+  color: var(--color-text-secondary);
+  border-top: 1px solid var(--color-divider);
+  font-size: 12px;
+}
+.mobileNav {
+  display: none;
+}
+.skip {
+  position: fixed;
+  top: -100px;
+  left: 16px;
+  z-index: 100;
+  padding: 10px 16px;
+  background: var(--color-surface);
+}
+.skip:focus {
+  top: 12px;
+}
+@media (max-width: 800px) {
+  .sidebar {
+    display: none;
+  }
+  .workspace {
+    margin-left: 0;
+  }
+  .topbar {
+    padding: 12px 20px;
+  }
+  .identity {
+    display: none;
+  }
+  .breadcrumb {
+    gap: 8px;
+  }
+  .tools {
+    gap: 4px;
+  }
+  .mobileNav {
+    display: block;
+    margin: 12px 20px 0;
+    padding: 10px 14px;
+    background: #152238;
+    color: #e5ebf3;
+    border-radius: 8px;
+  }
+  .mobileNav summary {
+    cursor: pointer;
+    min-height: 24px;
+  }
+  .mobileNav a {
+    color: #e5ebf3;
+  }
+  .mobileNav nav {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .mobileNav .group {
+    margin-bottom: 0;
+  }
+  .mobileNav .group a {
+    padding: 10px 0;
+  }
+  .footer {
+    padding: 20px;
+  }
+}
+
+/* Common framing for the remaining console pages with their own CSS modules. */
+.workspace > main {
+  min-width: 0;
+  width: auto;
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 28px 32px 64px;
+}
+.workspace > main > header h1 {
+  font-size: 30px;
+  line-height: 1.3;
+  font-weight: 650;
+  letter-spacing: -0.03em;
+  margin: 0 0 6px;
+}
+.workspace > main > header {
+  margin-bottom: 24px;
+}
+.workspace > main > header > p:first-child:has(+ h1),
+.workspace > main > header > div > p:first-child:has(+ h1) {
+  display: none;
+}
+@media (max-width: 800px) {
+  .workspace > main {
+    padding: 24px 20px 48px;
+  }
+  .workspace > main > header h1 {
+    font-size: 28px;
+  }
+}
+.shell {
+  --admin-positive: #047857;
+}
+:global([data-theme="dark"]) .shell {
+  --admin-positive: #6ee7b7;
+}
+@media (prefers-color-scheme: dark) {
+  :global([data-theme="system"]) .shell {
+    --admin-positive: #6ee7b7;
+  }
+}
+.workspace.editorWorkspace > main {
+  padding: 0;
+  max-width: none;
+}

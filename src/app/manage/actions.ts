@@ -128,6 +128,7 @@ async function runManagementAction(
       ReturnType<typeof requirePortalSession>
     >["member"]["id"],
   ) => Promise<void>,
+  returnTo = managementPath,
 ) {
   const session = await requirePortalSession(managementPath);
   let errorMessage: string | null = null;
@@ -137,8 +138,9 @@ async function runManagementAction(
     errorMessage = managementErrorMessage(error);
   }
   revalidatePath(managementPath);
+  revalidatePath("/manage/articles");
   redirect(
-    `${managementPath}?${errorMessage ? "error" : "notice"}=${encodeURIComponent(errorMessage ?? successMessage)}`,
+    `${returnTo}?${errorMessage ? "error" : "notice"}=${encodeURIComponent(errorMessage ?? successMessage)}`,
   );
 }
 
@@ -162,10 +164,16 @@ function readString(formData: FormData, name: string): string {
 
 export async function confirmReviewAction(formData: FormData): Promise<void> {
   const stableId = readString(formData, "stableId");
-  await runManagementAction("内容复核已更新。", async (requestingUserId) => {
-    await createKnowledgeEditingService(getDatabase()).confirmStillValid(
-      requestingUserId,
-      stableId,
-    );
-  });
+  await runManagementAction(
+    "内容复核已更新。",
+    async (requestingUserId) => {
+      await createKnowledgeEditingService(getDatabase()).confirmStillValid(
+        requestingUserId,
+        stableId,
+      );
+    },
+    readString(formData, "returnTo") === "/manage/articles"
+      ? "/manage/articles"
+      : managementPath,
+  );
 }

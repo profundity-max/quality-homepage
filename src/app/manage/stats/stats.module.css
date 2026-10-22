@@ -1,11 +1,16 @@
 .layout {
-  padding: clamp(28px, 4vw, 64px) clamp(16px, 4vw, 64px) 100px;
-  max-width: 1560px;
   margin: 0 auto;
   min-width: 0;
+  padding: 28px 32px 64px;
+  max-width: 1600px;
+  font-size: 14px;
 }
 .header {
-  margin-bottom: 28px;
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 24px;
 }
 .eyebrow {
   color: var(--color-text-secondary);
@@ -13,10 +18,11 @@
   font-size: 0.85rem;
 }
 .header h1 {
-  margin: 8px 0 16px;
-  font-size: clamp(2rem, 4vw, 3rem);
-  font-weight: 500;
-  letter-spacing: -0.04em;
+  font-size: 30px;
+  font-weight: 650;
+  line-height: 1.3;
+  letter-spacing: -0.03em;
+  margin: 0 0 6px;
 }
 .layout a {
   color: var(--color-link);
@@ -61,15 +67,15 @@
   display: flex;
   flex-wrap: wrap;
   align-items: end;
-  gap: 14px;
+  gap: 12px;
 }
 .filters label {
   display: grid;
-  gap: 8px;
   font-size: 0.85rem;
   color: var(--color-text-secondary);
-  min-width: 140px;
   max-width: 100%;
+  min-width: 120px;
+  gap: 6px;
 }
 .filters input,
 .filters select {
@@ -95,38 +101,44 @@
   cursor: pointer;
 }
 .filters > a {
-  padding: 12px 0;
+  padding: 8px 0;
 }
 .metrics {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
-  margin-top: 24px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0;
+  margin-top: 0;
+  padding: 20px 0;
+  background: var(--color-surface);
+  border: 1px solid var(--color-divider);
+  border-radius: 8px;
 }
 .metric {
   display: grid;
-  gap: 12px;
-  padding: 22px;
-  border: 1px solid var(--color-divider);
-  border-radius: 12px;
   background: var(--color-surface);
+  padding: 0 24px;
+  border: 0;
+  border-right: 1px solid var(--color-divider);
+  border-radius: 0;
+  gap: 4px;
 }
 .metric span {
   color: var(--color-text-secondary);
   font-size: 0.9rem;
 }
 .metric strong {
-  font-size: clamp(1.3rem, 2.5vw, 2rem);
-  font-weight: 500;
+  font-size: 28px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
 }
 .card {
-  margin-top: 24px;
-  padding: 22px;
   border: 1px solid var(--color-divider);
-  border-radius: 14px;
   background: var(--color-surface);
   min-width: 0;
   scroll-margin-top: 80px;
+  margin-top: 20px;
+  padding: 20px;
+  border-radius: 8px;
 }
 .card h2 {
   margin: 0 0 14px;
@@ -139,25 +151,26 @@
 .tableWrap {
   overflow-x: auto;
   max-width: 100%;
-  border: 1px solid var(--color-divider);
-  border-radius: 8px;
+  border: 0;
+  border-radius: 0;
 }
 .tableWrap table {
   border-collapse: collapse;
   width: 100%;
-  font-size: 0.85rem;
   text-align: left;
+  font-size: 15px;
 }
 .tableWrap th,
 .tableWrap td {
   border-bottom: 1px solid var(--color-divider);
-  padding: 12px 14px;
   line-height: 1.6;
   white-space: nowrap;
+  padding: 12px 14px;
 }
 .tableWrap th {
   color: var(--color-text-secondary);
   font-weight: 500;
+  background: var(--color-surface-muted);
 }
 .tableWrap tr:last-child td {
   border-bottom: 0;
@@ -194,9 +207,10 @@
   flex-wrap: wrap;
   align-items: center;
   margin-top: 24px;
-  padding: 22px;
   border: 1px dashed var(--color-divider);
-  border-radius: 14px;
+  padding: 20px;
+  border-style: solid;
+  border-radius: 8px;
 }
 .tools .note {
   width: 100%;
@@ -204,12 +218,16 @@
 }
 .exportLink {
   display: inline-flex;
-  min-height: 44px;
   align-items: center;
   padding: 0 16px;
-  border: 1px solid var(--color-accent);
   border-radius: 8px;
   text-decoration: none;
+  background: var(--admin-primary);
+  color: white !important;
+  border: 0;
+  min-height: 40px;
+  white-space: nowrap;
+  font-weight: 600;
 }
 .purgeButton {
   color: var(--color-warning);
@@ -242,5 +260,106 @@
   }
   .metric {
     padding: 16px;
+  }
+}
+.purpose {
+  padding: 0;
+  margin: 0;
+  border: 0;
+  max-width: 72ch;
+}
+.filters input,
+.filters select,
+.filters button {
+  min-height: 40px;
+}
+.contextBar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  align-items: center;
+  padding: 10px 14px;
+  margin: 16px 0;
+  border-radius: 6px;
+  background: var(--color-surface-muted);
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+.contextBar details {
+  flex-basis: 100%;
+}
+.contextBar summary {
+  color: var(--color-link);
+  cursor: pointer;
+}
+.contextBar details p {
+  max-width: 100ch;
+  font-size: 13px;
+}
+.metric:last-child {
+  border-right: 0;
+}
+.card > summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 16px;
+}
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.sectionHeader h2 {
+  margin: 0;
+}
+.tableWrap a {
+  text-decoration: none;
+}
+@media (max-width: 800px) {
+  .layout {
+    padding: 24px 20px 48px;
+  }
+  .header {
+    flex-wrap: wrap;
+  }
+  .metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px 0;
+  }
+  .metric {
+    padding: 0 16px;
+  }
+  .metric:nth-child(2) {
+    border: 0;
+  }
+  .metric strong {
+    font-size: 24px;
+  }
+  .contextBar {
+    align-items: start;
+    flex-direction: column;
+  }
+  .card {
+    padding: 16px;
+  }
+  .filters label {
+    width: calc(50% - 6px);
+  }
+  .header h1 {
+    font-size: 28px;
+  }
+}
+.contextBar details {
+  flex-basis: auto;
+}
+.contextBar details[open] {
+  flex-basis: 100%;
+}
+@media (min-width: 801px) {
+  .card .tableWrap th,
+  .card .tableWrap td {
+    padding: 10px 14px;
   }
 }

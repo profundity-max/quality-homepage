@@ -36,11 +36,12 @@ test("administrator can explore overview, people, content and filtered details",
   await expect(
     page.getByRole("heading", { level: 1, name: "学习统计" }),
   ).toBeVisible();
+  await page.getByText("统计口径", { exact: true }).click();
   await expect(
     page.getByText("实名学习记录保留两年", { exact: false }),
   ).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: "每日参与趋势" }),
+    page.locator("summary").filter({ hasText: "每日参与趋势" }),
   ).toBeVisible();
   await page.getByRole("link", { name: "人员", exact: true }).click();
   await expect(page).toHaveURL(/view=people/);
@@ -142,6 +143,6 @@ test("invalid custom date ranges show a repairable filter instead of a server er
   await page.getByRole("button", { name: "应用筛选", exact: true }).click();
   await expect(page.getByRole("alert")).toHaveCount(0);
   await expect(
-    page.getByRole("heading", { name: "每日参与趋势" }),
+    page.locator("summary").filter({ hasText: "每日参与趋势" }),
   ).toBeVisible();
 });

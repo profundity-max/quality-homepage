@@ -56,7 +56,7 @@ test("editor maintains an article from the manage entry (list → new draft with
     page.getByRole("heading", { level: 1, name: "文章管理" }),
   ).toBeVisible();
   await expect(page.getByRole("link", { name: "新建文章" })).toBeVisible();
-  await expect(page.getByText("ANOVA 入门")).toBeVisible();
+  await expect(page.getByText("ANOVA 入门", { exact: true })).toBeVisible();
 
   // 新建草稿
   await page.getByRole("link", { name: "新建文章" }).click();
@@ -81,12 +81,14 @@ test("editor maintains an article from the manage entry (list → new draft with
 
   // 草稿出现在管理列表（状态筛选中可见）
   await page.goto("/manage/articles?status=draft");
-  await expect(page.getByText("编辑者维护测试文章")).toBeVisible();
+  await expect(
+    page.getByText("编辑者维护测试文章", { exact: true }),
+  ).toBeVisible();
 
   // 重新打开：别名与负责人回填正确
   await page
-    .getByText("编辑者维护测试文章")
-    .locator("xpath=ancestor::li")
+    .getByText("编辑者维护测试文章", { exact: true })
+    .locator("xpath=ancestor::tr")
     .getByRole("link", { name: "编辑" })
     .click();
   await page.getByRole("button", { name: "属性" }).click();
@@ -107,7 +109,9 @@ test("editor publishes a draft straight from the article list, without opening t
   });
 
   await page.goto("/manage/articles?status=draft");
-  const row = page.getByText("列表发布验证文章").locator("xpath=ancestor::li");
+  const row = page
+    .getByText("列表发布验证文章", { exact: true })
+    .locator("xpath=ancestor::tr");
   await expect(row).toContainText("草稿");
   const editHref = await row
     .getByRole("link", { name: "编辑" })
@@ -123,11 +127,13 @@ test("editor publishes a draft straight from the article list, without opening t
 
   // 发布后离开草稿箱：草稿筛选看不到，已发布筛选能看到
   await page.goto("/manage/articles?status=draft");
-  await expect(page.getByText("列表发布验证文章")).toHaveCount(0);
+  await expect(page.getByText("列表发布验证文章", { exact: true })).toHaveCount(
+    0,
+  );
   await page.goto("/manage/articles?status=published");
   const publishedRow = page
-    .getByText("列表发布验证文章")
-    .locator("xpath=ancestor::li");
+    .getByText("列表发布验证文章", { exact: true })
+    .locator("xpath=ancestor::tr");
   await expect(publishedRow).toContainText("已发布");
   await expect(
     publishedRow.getByRole("button", { name: "发布", exact: true }),
@@ -142,8 +148,8 @@ test("editor publishes a draft straight from the article list, without opening t
   // 收尾：把验证文章退回草稿，避免影响首页“最近更新”等依赖种子的用例
   await page.goto("/manage/articles?status=published");
   await page
-    .getByText("列表发布验证文章")
-    .locator("xpath=ancestor::li")
+    .getByText("列表发布验证文章", { exact: true })
+    .locator("xpath=ancestor::tr")
     .getByRole("link", { name: "编辑" })
     .click();
   await page.getByRole("button", { name: "属性" }).click();
@@ -164,7 +170,9 @@ test("publishing from the list reports missing required fields instead of silent
   });
 
   await page.goto("/manage/articles?status=draft");
-  const row = page.getByText("列表发布缺项文章").locator("xpath=ancestor::li");
+  const row = page
+    .getByText("列表发布缺项文章", { exact: true })
+    .locator("xpath=ancestor::tr");
   await row.getByRole("button", { name: "发布", exact: true }).click();
   await expect(
     page.getByRole("alert").filter({ hasText: "发布缺少必填项" }),
@@ -173,7 +181,9 @@ test("publishing from the list reports missing required fields instead of silent
 
   // 校验失败不改变状态：仍在草稿列表
   await page.goto("/manage/articles?status=draft");
-  await expect(page.getByText("列表发布缺项文章")).toBeVisible();
+  await expect(
+    page.getByText("列表发布缺项文章", { exact: true }),
+  ).toBeVisible();
 });
 
 test("editor archives a test article from the list: it leaves the reading side and admin can restore it", async ({
@@ -189,8 +199,8 @@ test("editor archives a test article from the list: it leaves the reading side a
   // 先发布，才能验证归档后阅读侧不再展示
   await page.goto("/manage/articles?status=draft");
   const draftRow = page
-    .getByText("列表归档验证文章")
-    .locator("xpath=ancestor::li");
+    .getByText("列表归档验证文章", { exact: true })
+    .locator("xpath=ancestor::tr");
   const editHref = await draftRow
     .getByRole("link", { name: "编辑" })
     .getAttribute("href");
@@ -208,7 +218,10 @@ test("editor archives a test article from the list: it leaves the reading side a
 
   // 列表页归档：填写原因后立即生效
   await page.goto("/manage/articles");
-  const row = page.getByText("列表归档验证文章").locator("xpath=ancestor::li");
+  const row = page
+    .getByText("列表归档验证文章", { exact: true })
+    .locator("xpath=ancestor::tr");
+  await row.getByRole("button", { name: "更多", exact: true }).click();
   await row.getByLabel("归档文章 列表归档验证文章 的原因").fill("临时测试内容");
   // 行内归档表单在窄屏也不能撑出横向滚动
   await page.setViewportSize({ width: 390, height: 844 });
@@ -224,14 +237,16 @@ test("editor archives a test article from the list: it leaves the reading side a
   // 归档后：管理列表归到「已归档」，阅读侧不再展示，旧链接给归档说明
   await page.goto("/manage/articles?status=archived");
   const archivedRow = page
-    .getByText("列表归档验证文章")
-    .locator("xpath=ancestor::li");
+    .getByText("列表归档验证文章", { exact: true })
+    .locator("xpath=ancestor::tr");
   await expect(archivedRow).toContainText("已归档");
   await expect(
     archivedRow.getByLabel("归档文章 列表归档验证文章 的原因"),
   ).toHaveCount(0);
   await page.goto("/quality?topic=anova");
-  await expect(page.getByText("列表归档验证文章")).toHaveCount(0);
+  await expect(page.getByText("列表归档验证文章", { exact: true })).toHaveCount(
+    0,
+  );
   await page.goto(`/articles/${stableId}`);
   await expect(page.getByText("该文章已归档，正文不再展示。")).toBeVisible();
 
@@ -240,7 +255,7 @@ test("editor archives a test article from the list: it leaves the reading side a
   await login(page, "columnadmin", "column admin secure password");
   await page.goto("/manage/recycle-bin?type=article");
   const trashed = page
-    .getByText("列表归档验证文章")
+    .getByText("列表归档验证文章", { exact: true })
     .locator("xpath=ancestor::li");
   await expect(trashed).toContainText("归档于");
   await expect(
@@ -248,13 +263,17 @@ test("editor archives a test article from the list: it leaves the reading side a
   ).toBeDisabled();
   await trashed.getByRole("button", { name: "恢复" }).click();
   await expect(page.getByRole("status")).toContainText("已恢复");
-  await expect(page.getByText("列表归档验证文章")).toHaveCount(0);
+  await expect(page.getByText("列表归档验证文章", { exact: true })).toHaveCount(
+    0,
+  );
 
   // 收尾：恢复回来的是草稿，回到草稿箱不影响任何阅读入口
   await page.getByRole("button", { name: "退出登录" }).click();
   await loginAsEditor(page);
   await page.goto("/manage/articles?status=draft");
-  await expect(page.getByText("列表归档验证文章")).toBeVisible();
+  await expect(
+    page.getByText("列表归档验证文章", { exact: true }),
+  ).toBeVisible();
 });
 
 test("reader cannot reach article management", async ({ page }) => {
