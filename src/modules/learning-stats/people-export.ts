@@ -9,7 +9,7 @@ export async function exportLearningPeople(
   actorId: string,
   filter: StatsFilter,
 ) {
-  const report = await createLearningReportService(database).getReport(
+  const report = await createLearningReportService(database).getPeopleReport(
     actorId,
     filter,
   );

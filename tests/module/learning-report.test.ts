@@ -1,6 +1,6 @@
 import { PGlite } from "@electric-sql/pglite";
 import { randomUUID } from "node:crypto";
-import { afterEach, beforeEach, expect, test } from "vitest";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { createDatabaseClient } from "@/db/client";
 import { migrate } from "@/db/migrate";
 import {
@@ -533,4 +533,38 @@ test("cross-midnight qualification and ticks reconcile with details without addi
     ),
   ).toBe(30);
   expect(report.details.reads.filter((r) => r.qualified)).toHaveLength(2);
+});
+
+test("people-only report agrees with the full report without loading article or template bodies", async () => {
+  await createDatabaseClient(database).insert(identityAuditEvents).values({
+    id: randomUUID(),
+    actorUserId: reader,
+    subjectUserId: reader,
+    eventType: "login",
+    outcome: "success",
+    metadata: {},
+    occurredAt: now,
+  });
+  const service = createLearningReportService(database);
+  const full = await service.getReport(admin, { q: "张", sort: "name" }, now);
+  const queries = vi.spyOn(database, "query");
+  const people = await service.getPeopleReport(
+    admin,
+    { q: "张", sort: "name" },
+    now,
+  );
+  expect(people).toEqual({
+    range: full.range,
+    collectedSince: full.collectedSince,
+    people: full.people,
+  });
+  expect(people.people[0].logins).toBe(1);
+  expect(queries.mock.calls.some(([sql]) => /from "users"/.test(sql))).toBe(
+    true,
+  );
+  expect(
+    queries.mock.calls
+      .map(([sql]) => sql)
+      .some((s) => /from "articles"|from "templates"/.test(s)),
+  ).toBe(false);
 });

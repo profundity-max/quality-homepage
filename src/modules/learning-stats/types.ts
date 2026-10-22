@@ -93,3 +93,8 @@ export type LearningReport = {
     logins: { id: string; userId: string; name: string; occurredAt: Date }[];
   };
 };
+
+export type PeopleReport = Pick<
+  LearningReport,
+  "range" | "collectedSince" | "people"
+>;

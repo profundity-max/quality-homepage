@@ -14,6 +14,7 @@ import type { TocEntry } from "@/modules/shared/markdown-renderer";
 import { ArticleBody } from "@/ui/article-body";
 import { autosaveDraftAction, uploadImageAction } from "../../upload-actions";
 import { createOfflineDraftController } from "@/modules/offline-drafts";
+import { createDraftSession } from "@/modules/offline-drafts/session";
 import styles from "./editor.module.css";
 
 type EditorMode = "preview" | "source" | "split";
@@ -73,16 +74,15 @@ export function Editor({
   const [showLinks, setShowLinks] = useState(false);
   const [previewHtml, setPreviewHtml] = useState<string>("");
   const [toc, setToc] = useState<TocEntry[]>([]);
-  const savingRef = useRef(false);
+  const draftSessionRef = useRef<ReturnType<typeof createDraftSession> | null>(
+    null,
+  );
   const revisionInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [editingLocked, setEditingLocked] = useState(editingLockedBy !== null);
-  const lockedRef = useRef(editingLockedBy !== null);
-  const conflictRef = useRef(false);
   const [conflictMessage, setConflictMessage] = useState<string | null>(null);
-  const [conflictLocalContent, setConflictLocalContent] = useState<string>("");
   const [isOnline, setIsOnline] = useState(true);
   const serverUpdatedAtRef = useRef<Date>(new Date(article.updatedAt));
   const bodyRef = useRef(body);
@@ -97,121 +97,82 @@ export function Editor({
     void refreshPreview(body);
   }, [body]);
 
-  // 自动保存（EDIT-06）：正文变化后 30 秒无操作则保存
+  // The module owns saving/recovery; this adapter samples the editor and displays results.
   useEffect(() => {
-    const timer = setInterval(() => {
-      if (navigator.onLine && bodyRef.current !== article.bodyMarkdown) {
-        void runAutosave();
-      }
-    }, 30_000);
-    return () => clearInterval(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // 离线检测（EDIT-06/07）
-  useEffect(() => {
-    function onOnline() {
-      setIsOnline(true);
-      void syncLocalDraft();
-    }
-    function onOffline() {
-      setIsOnline(false);
-      // 直接读 textarea 当前值（避免 React 渲染滞后）
-      const textarea = textareaRef.current;
-      const content = textarea ? textarea.value : bodyRef.current;
-      offlineController().saveLocalDraft(content);
-    }
-    window.addEventListener("online", onOnline);
-    window.addEventListener("offline", onOffline);
-    return () => {
-      window.removeEventListener("online", onOnline);
-      window.removeEventListener("offline", onOffline);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  function offlineController() {
-    return createOfflineDraftController({
-      storage: window.localStorage,
-      key: `draft:${article.stableId}`,
-      now: () => new Date(),
-    });
-  }
-
-  async function runAutosave() {
-    if (
-      !article.id ||
-      !navigator.onLine ||
-      savingRef.current ||
-      lockedRef.current ||
-      conflictRef.current
-    )
-      return;
-    savingRef.current = true;
-    try {
-      const formData = new FormData();
-      formData.set("stableId", article.stableId);
-      formData.set(
-        "expectedUpdatedAt",
-        serverUpdatedAtRef.current.toISOString(),
-      );
-      formData.set("title", titleRef.current);
-      formData.set("summary", summaryRef.current);
-      formData.set("bodyMarkdown", bodyRef.current);
-      const result = await autosaveDraftAction(formData);
-      if (result.ok) {
-        serverUpdatedAtRef.current = new Date(result.updatedAt);
+    const session = createDraftSession({
+      initial: {
+        title: article.title,
+        summary: article.summary,
+        bodyMarkdown: article.bodyMarkdown,
+      },
+      revision: new Date(article.updatedAt).toISOString(),
+      locked: editingLockedBy !== null,
+      online: navigator.onLine,
+      drafts: createOfflineDraftController({
+        storage: {
+          getItem: (key) => window.localStorage.getItem(key),
+          setItem: (key, value) => window.localStorage.setItem(key, value),
+          removeItem: (key) => window.localStorage.removeItem(key),
+        },
+        key: `draft:${article.stableId}`,
+        now: () => new Date(),
+      }),
+      readContent: () => ({
+        title: titleRef.current,
+        summary: summaryRef.current,
+        bodyMarkdown: textareaRef.current?.value ?? bodyRef.current,
+      }),
+      save: (input) => {
+        const formData = new FormData();
+        formData.set("stableId", article.stableId);
+        for (const [key, value] of Object.entries(input))
+          formData.set(key, value);
+        return autosaveDraftAction(formData);
+      },
+      onChange: (state) => {
+        serverUpdatedAtRef.current = new Date(state.revision);
         if (revisionInputRef.current)
-          revisionInputRef.current.value = result.updatedAt;
-        setLastSavedAt(new Date().toLocaleTimeString("zh-CN"));
-        offlineController().clearLocalDraft();
-      } else if (result.conflict) {
-        conflictRef.current = true;
-        offlineController().saveLocalDraft(bodyRef.current);
-        setConflictLocalContent(bodyRef.current);
-        if (result.server) {
-          serverUpdatedAtRef.current = new Date(result.server.updatedAt);
-          if (revisionInputRef.current)
-            revisionInputRef.current.value = result.server.updatedAt;
-          if (result.server.locked) {
-            lockedRef.current = true;
-            setEditingLocked(true);
-          }
-        }
-        setConflictMessage("服务器上的内容已被其他人更新。请选择保留哪一份：");
-      } else {
-        setUploadError(result.error);
-      }
-    } catch {
-      offlineController().saveLocalDraft(bodyRef.current);
-      setUploadError("自动保存未完成，内容已保存在浏览器，请重试。");
-    } finally {
-      savingRef.current = false;
-    }
-  }
-
-  async function syncLocalDraft() {
-    const state = offlineController().loadLocalDraft(
-      serverUpdatedAtRef.current,
-    );
-    if (
-      state.kind !== "none" &&
-      state.content.replace(/\r\n?/g, "\n") ===
-        article.bodyMarkdown.replace(/\r\n?/g, "\n")
-    ) {
-      offlineController().clearLocalDraft();
-    } else if (state.kind !== "none") {
-      conflictRef.current = true;
-      setConflictLocalContent(state.content);
-      setConflictMessage("检测到断网期间编辑的内容，是否恢复到编辑器？");
-    }
-  }
-
-  useEffect(() => {
-    void syncLocalDraft();
-    // Restore a draft only after the user chooses it in the existing conflict dialog.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+          revisionInputRef.current.value = state.revision;
+        setEditingLocked(state.locked);
+        setIsOnline(state.online);
+        if (state.lastSavedAt)
+          setLastSavedAt(state.lastSavedAt.toLocaleTimeString("zh-CN"));
+        if (state.error) setUploadError(state.error);
+        setConflictMessage(
+          state.conflict
+            ? state.conflict.reason === "local"
+              ? "检测到断网期间编辑的内容，是否恢复到编辑器？"
+              : "服务器上的内容已被其他人更新。请选择保留哪一份："
+            : null,
+        );
+      },
+    });
+    draftSessionRef.current = session;
+    const online = () => session.online();
+    const offline = () => session.offline();
+    const leaving = () => session.capture();
+    window.addEventListener("online", online);
+    window.addEventListener("offline", offline);
+    window.addEventListener("pagehide", leaving);
+    const timer = window.setInterval(() => void session.autosave(), 30_000);
+    session.recover();
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("online", online);
+      window.removeEventListener("offline", offline);
+      window.removeEventListener("pagehide", leaving);
+      session.dispose();
+      draftSessionRef.current = null;
+    };
+  }, [
+    article.id,
+    article.stableId,
+    article.updatedAt,
+    article.title,
+    article.summary,
+    article.bodyMarkdown,
+    editingLockedBy,
+  ]);
 
   // 剪贴板粘贴图片（EDIT-05）
   useEffect(() => {
@@ -467,10 +428,11 @@ export function Editor({
             <button
               className={styles.primaryButton}
               onClick={() => {
-                setBody(conflictLocalContent);
-                bodyRef.current = conflictLocalContent;
-                conflictRef.current = false;
-                setConflictMessage(null);
+                const content = draftSessionRef.current?.chooseLocal();
+                if (content !== undefined) {
+                  setBody(content);
+                  bodyRef.current = content;
+                }
               }}
               type="button"
             >
@@ -479,8 +441,8 @@ export function Editor({
             <button
               className={styles.publishButton}
               onClick={() => {
-                offlineController().clearLocalDraft();
-                window.location.reload();
+                if (draftSessionRef.current?.discardLocal())
+                  window.location.reload();
               }}
               type="button"
             >
@@ -539,9 +501,7 @@ export function Editor({
             <form
               action={publishAction}
               className={styles.propertyForm}
-              onSubmit={() =>
-                offlineController().saveLocalDraft(bodyRef.current)
-              }
+              onSubmit={() => draftSessionRef.current?.capture()}
             >
               {fromOnboarding && (
                 <input type="hidden" name="from" value="onboarding" />

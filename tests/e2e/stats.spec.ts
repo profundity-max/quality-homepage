@@ -129,7 +129,9 @@ test("invalid custom date ranges show a repairable filter instead of a server er
   ]) {
     const response = await page.goto(`/manage/stats?period=custom&${dates}`);
     expect(response?.status()).toBe(200);
-    await expect(page.getByRole("alert")).toContainText("日期筛选未应用");
+    await expect(
+      page.getByRole("alert").filter({ hasText: "日期筛选未应用" }),
+    ).toBeVisible();
     await expect(
       page.getByRole("button", { name: "应用筛选", exact: true }),
     ).toBeVisible();

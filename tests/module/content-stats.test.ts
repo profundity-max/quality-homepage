@@ -493,4 +493,16 @@ describe("content statistics service", () => {
     expect(csv).not.toContain("reader");
     expect(csv).not.toContain(READER_ID);
   });
+  test("knowledge gaps are independently readable only by an administrator", async () => {
+    const stats = createContentStatsService(database);
+    const expected = (await stats.editorDashboard(ADMIN_ID, NOW)).noResultTerms;
+    const queries = vi.spyOn(database, "query");
+    expect(await stats.listKnowledgeGaps(ADMIN_ID)).toEqual(expected);
+    expect(
+      queries.mock.calls.some(([sql]) =>
+        /from "articles"|from "template_versions"/.test(sql),
+      ),
+    ).toBe(false);
+    await expect(stats.listKnowledgeGaps(EDITOR_ID)).rejects.toThrow();
+  });
 });

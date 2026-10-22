@@ -87,6 +87,9 @@ export type PurgeSummary = {
 };
 
 export type ContentStatsService = {
+  listKnowledgeGaps(
+    requestingUserId: string,
+  ): Promise<EditorDashboard["noResultTerms"]>;
   recordArticleRead(input: {
     articleId: string;
     userId: string;
@@ -133,8 +136,23 @@ export function createContentStatsService(
   database: PGlite | Sql,
 ): ContentStatsService {
   const client = createDatabaseClient(database);
+  const readKnowledgeGaps = () =>
+    client
+      .select({
+        query: searchAggregates.query,
+        count: searchAggregates.searchCount,
+        lastSearchedAt: searchAggregates.lastSearchedAt,
+      })
+      .from(searchAggregates)
+      .where(eq(searchAggregates.hasResults, false))
+      .orderBy(desc(searchAggregates.searchCount))
+      .limit(20);
 
   return {
+    async listKnowledgeGaps(requestingUserId) {
+      await assertAdministrator(client, requestingUserId);
+      return readKnowledgeGaps();
+    },
     async recordArticleRead({ articleId, userId, instant = new Date() }) {
       const [member] = await client
         .select({
@@ -420,16 +438,7 @@ export function createContentStatsService(
           .groupBy(articles.id)
           .orderBy(desc(sql`count(*)`))
           .limit(10),
-        client
-          .select({
-            query: searchAggregates.query,
-            count: searchAggregates.searchCount,
-            lastSearchedAt: searchAggregates.lastSearchedAt,
-          })
-          .from(searchAggregates)
-          .where(eq(searchAggregates.hasResults, false))
-          .orderBy(desc(searchAggregates.searchCount))
-          .limit(20),
+        readKnowledgeGaps(),
         client
           .select({
             stableId: templates.stableId,

@@ -86,9 +86,9 @@ export default async function StatsDashboardPage({
     session.member.id,
     appliedFilter,
   );
-  const dashboard = await createContentStatsService(
+  const knowledgeGaps = await createContentStatsService(
     getDatabase(),
-  ).editorDashboard(session.member.id);
+  ).listKnowledgeGaps(session.member.id);
   const rawView = Array.isArray(params.view) ? params.view[0] : params.view;
   const view =
     rawView === "people" || rawView === "content" ? rawView : "overview";
@@ -517,7 +517,7 @@ export default async function StatsDashboardPage({
           <DataTable
             label="知识缺口"
             headers={["搜索词", "次数", "最近搜索"]}
-            rows={dashboard.noResultTerms.map((term) => [
+            rows={knowledgeGaps.map((term) => [
               term.query,
               metric(term.count),
               formatDateTime(term.lastSearchedAt),

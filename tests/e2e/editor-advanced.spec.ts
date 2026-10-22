@@ -140,3 +140,35 @@ test("offline draft is kept in the browser and recovered on reconnect", async ({
   await page.getByRole("button", { name: "保留我的版本" }).click();
   await expect(source).toHaveValue("断网时写的内容");
 });
+
+test("opening the editor offline preserves an existing recovery draft", async ({
+  page,
+}) => {
+  await loginAsEditor(page);
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "onLine", {
+      configurable: true,
+      get: () => false,
+    });
+    localStorage.setItem(
+      "draft:edit-fixture",
+      JSON.stringify({
+        content: "Preexisting offline work must survive",
+        savedAt: new Date().toISOString(),
+      }),
+    );
+  });
+  await page.goto("/manage/articles/edit-fixture/edit");
+  await expect(page.getByText(/离线中/)).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "版本冲突" })).toBeVisible();
+  await page.getByRole("button", { name: "保留我的版本" }).click();
+  await page.getByRole("tab", { name: "源码" }).click();
+  await expect(page.getByLabel("Markdown 源码")).toHaveValue(
+    "Preexisting offline work must survive",
+  );
+  expect(
+    await page.evaluate(
+      () => JSON.parse(localStorage.getItem("draft:edit-fixture")!).content,
+    ),
+  ).toBe("Preexisting offline work must survive");
+});

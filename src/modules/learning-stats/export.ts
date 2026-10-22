@@ -1,6 +1,6 @@
 import { zipFiles } from "@/modules/markdown-package";
 import { formatDateTime, formatIsoDate } from "@/modules/shared/date-format";
-import type { LearningReport } from "./types";
+import type { PeopleReport } from "./types";
 
 function xml(value: string): string {
   return value
@@ -12,7 +12,7 @@ function xml(value: string): string {
 }
 
 /** All text uses inline strings; user-controlled values can never become formulas. */
-export function buildPeopleWorkbook(report: LearningReport): Buffer {
+export function buildPeopleWorkbook(report: PeopleReport): Buffer {
   const metric = (value: number | null) => value ?? "未采集";
   const timestamp = (value: Date | null) =>
     value ? formatDateTime(value) : "—";
