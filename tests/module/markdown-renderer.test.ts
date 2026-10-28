@@ -6,6 +6,33 @@ import {
 } from "@/modules/shared/markdown-renderer";
 
 describe("markdown renderer", () => {
+  test("wide tables retain alignment inside a keyboard reachable scroll region", async () => {
+    const html = await renderMarkdown(
+      "| 名称 | 数值 |\n| :--- | ---: |\n| 样本 | 12.4 |\n",
+    );
+    expect(html).toContain('class="table-scroll"');
+    expect(html).toContain('tabindex="0"');
+    expect(html).toContain('align="right"');
+    expect(html).toContain("12.4");
+  });
+  test("preserves trusted math geometry and hides duplicate visual math from readers", async () => {
+    const html = await renderMarkdown(
+      "$$\n\\sum_i n_i(\\bar{x}_i-\\bar{x})^2\n$$",
+    );
+    expect(html).toContain('aria-hidden="true"');
+    expect(html).toMatch(/style="[^"]*(height|top|vertical-align)/);
+    expect(html).toContain("<math");
+    expect(html).toContain("katex-display");
+  });
+
+  test("math rendering does not authorize HTML styling or executable links", async () => {
+    const html = await renderMarkdown(
+      '<span style="position:fixed" onclick="alert(1)">unsafe</span>\n\n$\\href{javascript:alert(1)}{x}$',
+    );
+    expect(html).not.toContain("position:fixed");
+    expect(html).not.toContain("onclick=");
+    expect(html).not.toContain('href="javascript:');
+  });
   test("renders headings, emphasis, lists, links, code blocks and tables", async () => {
     const html = await renderMarkdown(`# 标题一
 
@@ -146,7 +173,7 @@ $$\\sigma = \\sqrt{\\frac{\\sum (x_i - \\bar{x})^2}{n}}$$`,
     );
 
     expect(html).toContain('class="katex"');
-    expect(html).not.toContain("https://");
-    expect(html).not.toContain("http://");
+    // XML namespace identifiers are not network requests.
+    expect(html).not.toMatch(/(?:src|href)="https?:\/\//);
   });
 });

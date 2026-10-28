@@ -18,6 +18,7 @@ import {
   templateCategories,
   templateVersions,
   templates,
+  topics,
   users,
 } from "../src/db/schema";
 import { resolveE2EDataDirectory } from "./e2e-seed-guard";
@@ -149,11 +150,11 @@ try {
       "",
       "总平方和分解公式：",
       "",
-      "$$SS_{total} = SS_{between} + SS_{within}$$",
+      "$$\nSS_{total} = SS_{between} + SS_{within}\n$$",
       "",
       "组间平方和：",
       "",
-      "$$SS_{between} = \\sum n_i (\\bar{x}_i - \\bar{x})^2$$",
+      "$$\nSS_{between} = \\sum n_i (\\bar{x}_i - \\bar{x})^2\n$$",
       "",
       "## 代码实现",
       "",
@@ -201,10 +202,46 @@ try {
     "sigma-basics",
     "标准差与正态分布",
     "σ、Sigma 与分布的关系",
-    "## σ 的意义\n\n标准差衡量数据的离散程度。",
+    [
+      "## σ 的意义\n\n标准差衡量数据的离散程度。",
+      "## 宽内容回归样本",
+      [
+        `| ${Array.from({ length: 16 }, (_, i) => `测量值${i + 1}`).join(" | ")} |`,
+        `| ${Array.from({ length: 16 }, () => "---:").join(" | ")} |`,
+        `| ${Array.from({ length: 16 }, (_, i) => (123456.78 + i).toFixed(2)).join(" | ")} |`,
+      ].join("\n"),
+      "$$\n" +
+        Array.from({ length: 24 }, (_, i) => `x_{${i + 1}}`).join(" + ") +
+        "\n$$",
+      ...["info", "tip", "important", "warning", "example", "formula"].map(
+        (type) =>
+          `> [!${type}] ${type} 回归样本\n> 用于验证浅深主题与正文排版。`,
+      ),
+    ].join("\n\n"),
     sigmaTopicId,
     2,
   );
+  if (process.env.Q_NEXUS_E2E_READING_FIXTURES === "1") {
+    // Reading-template regression only: no production content is created.
+    const thermalTopicId = "00000000-0000-4000-8000-000000000c99";
+    await client.insert(topics).values({
+      id: thermalTopicId,
+      stableId: "thermal-reading-fixture",
+      sectionId: "00000000-0000-4000-8000-0000000000b7",
+      name: "传热基础",
+      sortOrder: 0,
+      createdAt: now,
+    });
+    await published(
+      "00000000-0000-4000-8000-0000000000d9",
+      "thermal-reading-fixture",
+      "在复杂设备中理解热阻与温升：从测量边界到工程决策的完整阅读样本",
+      "用于验证长标题、散热主题入口与紧凑导航。",
+      "## 热阻与温升\n\n先明确测量边界，再比较热阻。\n\n```mermaid\nthis is not a valid diagram\n```",
+      thermalTopicId,
+      20,
+    );
+  }
   await client.insert(articleAliases).values({
     id: "00000000-0000-4000-8000-000000000e01",
     articleId: "00000000-0000-4000-8000-0000000000d1",

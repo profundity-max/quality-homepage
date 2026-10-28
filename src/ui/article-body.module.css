@@ -175,3 +175,99 @@
   --callout-tint: var(--callout-formula-surface);
   --callout-edge: var(--callout-formula-border);
 }
+
+:global([data-design-system="editorial"]) .body {
+  font-size: 1.125rem;
+  line-height: 1.85;
+}
+:global([data-design-system="editorial"]) .body h2 {
+  font-size: 1.5rem;
+  line-height: 1.4;
+  margin: 2.5rem 0 1rem;
+}
+:global([data-design-system="editorial"]) .body h3 {
+  font-size: 1.25rem;
+  line-height: 1.5;
+  margin: 2rem 0 0.75rem;
+}
+:global([data-design-system="editorial"]) .body h4 {
+  font-size: 1.125rem;
+  line-height: 1.5;
+  margin: 1.5rem 0 0.75rem;
+}
+:global([data-design-system="editorial"]) .body :is(h2, h3, h4, h5, h6) {
+  scroll-margin-top: var(--reading-header-offset);
+}
+:global([data-design-system="editorial"]) .body p,
+:global([data-design-system="editorial"]) .body ul,
+:global([data-design-system="editorial"]) .body ol {
+  margin-bottom: 1.25rem;
+}
+:global([data-design-system="editorial"]) .body li {
+  margin-bottom: 0.5rem;
+}
+:global([data-design-system="editorial"]) .body blockquote {
+  border-color: var(--color-control-border);
+}
+:global([data-design-system="editorial"]) .body :global(.table-scroll) {
+  max-width: 100%;
+  overflow-x: auto;
+  margin-bottom: 1.25rem;
+}
+:global([data-design-system="editorial"]) .body table {
+  display: table;
+  overflow: visible;
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  font-size: 1rem;
+}
+:global([data-design-system="editorial"]) .body th,
+:global([data-design-system="editorial"]) .body td {
+  padding: 0.625rem 0.75rem;
+  white-space: normal;
+  border-color: var(--color-divider);
+}
+:global([data-design-system="editorial"]) .body [align="right"] {
+  text-align: right;
+}
+:global([data-design-system="editorial"]) .body [align="center"] {
+  text-align: center;
+}
+:global([data-design-system="editorial"]) .body th {
+  background: var(--color-surface-muted);
+}
+:global([data-design-system="editorial"]) .body pre {
+  font-size: 0.875rem;
+  line-height: 1.65;
+  background: var(--color-surface-muted);
+}
+:global([data-design-system="editorial"]) .body pre code {
+  font-size: inherit;
+}
+:global([data-design-system="editorial"]) .body :global(.katex-display) {
+  padding: 0.25em 0;
+  margin: 1.5rem 0;
+}
+:global([data-design-system="editorial"]) .body :global(.katex) {
+  font-size: 1.05em;
+}
+:global([data-design-system="editorial"]) .body svg[role="img"] {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+@media (max-width: 767px) {
+  :global([data-design-system="editorial"]) .body {
+    font-size: 1rem;
+  }
+  :global([data-design-system="editorial"]) .body table {
+    font-size: 0.875rem;
+  }
+}
+
+/* Approved contrast correction is limited to the warning title in this trial. */
+:global([data-design-system="editorial"])
+  .body
+  :global(.callout-warning .callout-title) {
+  color: var(--callout-warning-title);
+}

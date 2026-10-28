@@ -35,46 +35,14 @@ export type TocEntry = {
   text: string;
 };
 
-// rehype-sanitize 默认 schema 之外，公式（KaTeX 的 MathML 输出）与
-// Callout 结构需要的元素与属性。仅放行白名单内的 class，不放行任何
-// 事件属性或 javascript: 协议。
-const katexSchema: Schema = {
+// Sanitize untrusted Markdown HTML first. KaTeX then emits trusted geometry and
+// accessible MathML with trust disabled (rehype-katex's documented safe order).
+const markdownSchema: Schema = {
   ...defaultSchema,
   attributes: {
     ...defaultSchema.attributes,
-    span: [...(defaultSchema.attributes?.span ?? []), "className"],
-    div: [...(defaultSchema.attributes?.div ?? []), "className"],
+    code: [["className", /^language-./, "math-inline", "math-display"]],
   },
-  tagNames: [
-    ...(defaultSchema.tagNames ?? []),
-    "math",
-    "mrow",
-    "mi",
-    "mo",
-    "mn",
-    "msup",
-    "msub",
-    "mfrac",
-    "msqrt",
-    "mroot",
-    "mtext",
-    "mspace",
-    "mtable",
-    "mtr",
-    "mtd",
-    "mover",
-    "munder",
-    "munderover",
-    "menclose",
-    "semantics",
-    "annotation",
-    "mstyle",
-    "mpadded",
-    "mphantom",
-    "merror",
-    "mlabeledtr",
-    "none",
-  ],
 };
 
 function annotateCallouts() {
@@ -163,6 +131,40 @@ function annotateHeadings() {
   };
 }
 
+function wrapTables() {
+  return (tree: Root) => {
+    visit(tree, "element", (node, index, parent) => {
+      if (
+        node.tagName === "pre" ||
+        (node.tagName === "span" &&
+          node.properties.className?.toString().includes("katex-display"))
+      ) {
+        node.properties.tabIndex = 0;
+        node.properties.role = "region";
+        node.properties.ariaLabel =
+          node.tagName === "pre" ? "代码，可左右滚动" : "公式，可左右滚动";
+      }
+      if (node.tagName !== "table" || index === undefined || !parent) return;
+      if (
+        parent.type === "element" &&
+        parent.properties.className?.toString().includes("table-scroll")
+      )
+        return;
+      parent.children[index] = {
+        type: "element",
+        tagName: "div",
+        properties: {
+          className: ["table-scroll"],
+          tabIndex: 0,
+          role: "region",
+          ariaLabel: "表格，可左右滚动",
+        },
+        children: [node],
+      };
+    });
+  };
+}
+
 function collectHeadings() {
   return (tree: Root, file: { data?: Record<string, unknown> }) => {
     const entries: TocEntry[] = [];
@@ -215,10 +217,11 @@ const processor = unified()
   .use(remarkGfm)
   .use(remarkMath)
   .use(remarkRehype, { allowDangerousHtml: false })
-  .use(rehypeKatex)
-  .use(rehypeSanitize, katexSchema)
+  .use(rehypeSanitize, markdownSchema)
+  .use(rehypeKatex, { trust: false })
   .use(annotateCallouts)
   .use(annotateHeadings)
+  .use(wrapTables)
   .use(collectHeadings)
   .use(protectImageUrls)
   .use(rehypeStringify);
