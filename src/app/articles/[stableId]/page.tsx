@@ -10,7 +10,9 @@ import {
   renderMarkdown,
   extractTableOfContents,
 } from "@/modules/shared/markdown-renderer";
-import type { TocEntry } from "@/modules/shared/markdown-renderer";
+import { KnowledgeNavigation } from "@/ui/knowledge-navigation";
+import { resolveKnowledgeContext } from "@/ui/knowledge-navigation-model";
+import { ArticleToc } from "@/ui/article-toc";
 
 import { requirePortalSession } from "../../authorization";
 import { PortalShell } from "../../portal-shell";
@@ -42,11 +44,12 @@ export default async function ArticlePage({
   const session = await requirePortalSession(`/articles/${stableId}`);
 
   const service = createKnowledgePublishingService(getDatabase());
-  const [article, archivedInfo, related, adjacent] = await Promise.all([
+  const [article, archivedInfo, related, adjacent, tree] = await Promise.all([
     service.getPublishedArticleByStableId(stableId),
     service.getArchivedArticleInfo(stableId),
     service.listRelatedArticles(stableId),
     service.getAdjacentArticles(stableId),
+    service.listTopicTree(),
   ]);
 
   if (!article && !archivedInfo) notFound();
@@ -54,7 +57,10 @@ export default async function ArticlePage({
   // VER-04：已归档文章打开旧链接显示归档说明，不默认展示正文
   if (archivedInfo && !article) {
     return (
-      <PortalShell currentPath={`/articles/${stableId}`}>
+      <PortalShell
+        currentPath={`/articles/${stableId}`}
+        designSystem="editorial"
+      >
         <main id="main-content" tabIndex={-1} className={styles.layout}>
           <section className={styles.archived} aria-label="归档说明">
             {query.from === "onboarding" && (
@@ -84,6 +90,11 @@ export default async function ArticlePage({
 
   if (!article) notFound();
 
+  const knowledgeContext = resolveKnowledgeContext(tree, article.topicStableId);
+  const topicHref = knowledgeContext
+    ? `${knowledgeContext.destinationPath}?topic=${encodeURIComponent(article.topicStableId)}`
+    : `/search?q=${encodeURIComponent(article.topicName)}`;
+
   const route =
     query.from === "onboarding"
       ? await createOnboardingService(getDatabase()).listArticles()
@@ -108,127 +119,15 @@ export default async function ArticlePage({
   const displayedReadCount = article.readCount;
 
   return (
-    <PortalShell currentPath={`/articles/${stableId}`}>
+    <PortalShell currentPath={`/articles/${stableId}`} designSystem="editorial">
       <main id="main-content" tabIndex={-1} className={styles.layout}>
-        <aside className={styles.meta} aria-label="文章信息">
-          <nav className={styles.breadcrumb} aria-label="面包屑">
-            {query.from === "onboarding" ? (
-              <Link href="/onboarding">新人专区</Link>
-            ) : (
-              <>
-                <Link href={`/quality?topic=${article.topicStableId}`}>
-                  {article.sectionName}
-                </Link>
-                <span aria-hidden="true">/</span>
-                <Link href={`/quality?topic=${article.topicStableId}`}>
-                  {article.topicName}
-                </Link>
-              </>
-            )}
-          </nav>
-
-          <dl className={styles.metaList}>
-            <div>
-              <dt>内容负责人</dt>
-              <dd>{article.ownerDisplayName}</dd>
-            </div>
-            <div>
-              <dt>更新时间</dt>
-              <dd>{formatDate(article.updatedAt)}</dd>
-            </div>
-            <div>
-              <dt>最近复核</dt>
-              <dd>{formatDate(article.lastReviewedAt)}</dd>
-            </div>
-            <div>
-              <dt>下次复核</dt>
-              <dd>{formatDate(article.nextReviewAt)}</dd>
-            </div>
-          </dl>
-
-          {isEditorOrAdmin && (
-            <p className={styles.versionLink}>
-              <Link href={`/articles/${article.stableId}/versions`}>
-                版本历史
-              </Link>
-            </p>
-          )}
-
-          {article.tags.length > 0 && (
-            <section className={styles.tags} aria-label="标签">
-              {article.tags.map((tag) => (
-                <span key={tag} className={styles.tag}>
-                  {tag}
-                </span>
-              ))}
-            </section>
-          )}
-
-          {related.length > 0 && (
-            <section className={styles.related} aria-label="相关文章">
-              <h2>相关文章</h2>
-              <ul>
-                {related.map((item) => (
-                  <li key={item.stableId}>
-                    <Link href={`/articles/${item.stableId}`}>
-                      {item.title}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
-
-          <p className={styles.readCount}>阅读次数：{displayedReadCount}</p>
-
-          <form action={toggleFavoriteAction} className={styles.favoriteForm}>
-            <input type="hidden" name="articleId" value={article.id} />
-            <input type="hidden" name="stableId" value={article.stableId} />
-            <button
-              type="submit"
-              aria-pressed={isFavorite}
-              className={isFavorite ? styles.favoriteActive : undefined}
-            >
-              {isFavorite ? "取消收藏" : "收藏"}
-            </button>
-          </form>
-
-          {query.feedback === "submitted" ? (
-            <p className={styles.feedbackNotice} role="status">
-              反馈已提交，感谢你的补充。
-            </p>
-          ) : null}
-
-          <details className={styles.feedback}>
-            <summary>内容反馈</summary>
-            <form action={submitFeedbackAction} className={styles.feedbackForm}>
-              <input type="hidden" name="stableId" value={article.stableId} />
-              <fieldset>
-                <legend>反馈类型</legend>
-                {feedbackTypes.map((type) => (
-                  <label key={type.value}>
-                    <input
-                      type="radio"
-                      name="feedbackType"
-                      value={type.value}
-                      defaultChecked={type.value === "error"}
-                    />
-                    {type.label}
-                  </label>
-                ))}
-              </fieldset>
-              <label htmlFor="feedback-description">说明</label>
-              <textarea
-                id="feedback-description"
-                name="description"
-                rows={3}
-                required
-                placeholder="请描述你发现的问题或缺失内容"
-              />
-              <button type="submit">提交反馈</button>
-            </form>
-          </details>
-        </aside>
+        {knowledgeContext && (
+          <KnowledgeNavigation
+            root={knowledgeContext.root}
+            destinationPath={knowledgeContext.destinationPath}
+            selectedTopicStableId={article.topicStableId}
+          />
+        )}
 
         <article className={styles.article} data-reading-article={article.id}>
           <ReadingTracker />
@@ -257,21 +156,133 @@ export default async function ArticlePage({
               )}
             </nav>
           )}
+          <ArticleToc entries={bodyToc} variant="compact" />
+          <nav className={styles.breadcrumb} aria-label="面包屑">
+            {query.from === "onboarding" ? (
+              <Link href="/onboarding">新人专区</Link>
+            ) : (
+              <>
+                <Link href={topicHref}>{article.sectionName}</Link>
+                <span aria-hidden="true">/</span>
+                <Link href={topicHref}>{article.topicName}</Link>
+              </>
+            )}
+          </nav>
           <ArticleProtection {...createArticleProtection(session.member)}>
             <h1 className={styles.title}>{article.title}</h1>
             <p className={styles.summary}>{article.summary}</p>
+          </ArticleProtection>
+          <section className={styles.meta} aria-label="文章信息">
+            <dl className={styles.metaList}>
+              <div>
+                <dt>内容负责人</dt>
+                <dd>{article.ownerDisplayName}</dd>
+              </div>
+              <div>
+                <dt>更新时间</dt>
+                <dd>{formatDate(article.updatedAt)}</dd>
+              </div>
+              <div>
+                <dt>最近复核</dt>
+                <dd>{formatDate(article.lastReviewedAt)}</dd>
+              </div>
+              <div>
+                <dt>下次复核</dt>
+                <dd>{formatDate(article.nextReviewAt)}</dd>
+              </div>
+            </dl>
+
+            {isEditorOrAdmin && (
+              <p className={styles.versionLink}>
+                <Link href={`/articles/${article.stableId}/versions`}>
+                  版本历史
+                </Link>
+              </p>
+            )}
+
+            {article.tags.length > 0 && (
+              <section className={styles.tags} aria-label="标签">
+                {article.tags.map((tag) => (
+                  <span key={tag} className={styles.tag}>
+                    {tag}
+                  </span>
+                ))}
+              </section>
+            )}
+
+            <p className={styles.readCount}>阅读次数：{displayedReadCount}</p>
+
+            <form action={toggleFavoriteAction} className={styles.favoriteForm}>
+              <input type="hidden" name="articleId" value={article.id} />
+              <input type="hidden" name="stableId" value={article.stableId} />
+              <button
+                type="submit"
+                aria-pressed={isFavorite}
+                className={isFavorite ? styles.favoriteActive : undefined}
+              >
+                {isFavorite ? "取消收藏" : "收藏"}
+              </button>
+            </form>
+
+            {query.feedback === "submitted" ? (
+              <p className={styles.feedbackNotice} role="status">
+                反馈已提交，感谢你的补充。
+              </p>
+            ) : null}
+
+            <details className={styles.feedback}>
+              <summary>内容反馈</summary>
+              <form
+                action={submitFeedbackAction}
+                className={styles.feedbackForm}
+              >
+                <input type="hidden" name="stableId" value={article.stableId} />
+                <fieldset>
+                  <legend>反馈类型</legend>
+                  {feedbackTypes.map((type) => (
+                    <label key={type.value}>
+                      <input
+                        type="radio"
+                        name="feedbackType"
+                        value={type.value}
+                        defaultChecked={type.value === "error"}
+                      />
+                      {type.label}
+                    </label>
+                  ))}
+                </fieldset>
+                <label htmlFor="feedback-description">说明</label>
+                <textarea
+                  id="feedback-description"
+                  name="description"
+                  rows={3}
+                  required
+                  placeholder="请描述你发现的问题或缺失内容"
+                />
+                <button type="submit">提交反馈</button>
+              </form>
+            </details>
+          </section>
+          <ArticleProtection {...createArticleProtection(session.member)}>
             <ArticleBody html={bodyHtml} />
           </ArticleProtection>
         </article>
 
-        <aside className={styles.toc} aria-label="正文目录">
-          {bodyToc.length > 0 && (
-            <>
-              <h2 className={styles.tocHeading}>目录</h2>
-              <nav aria-label="正文目录导航">
-                <TocLinks entries={bodyToc} />
-              </nav>
-            </>
+        <aside className={styles.rail} aria-label="阅读辅助">
+          <ArticleToc entries={bodyToc} />
+          {related.length > 0 && (
+            <section className={styles.related} aria-label="相关文章">
+              <h2>相关文章</h2>
+              <ul>
+                {related.map((item) => (
+                  <li key={item.stableId}>
+                    <Link href={`/articles/${item.stableId}`}>
+                      {item.title}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </section>
           )}
         </aside>
 
@@ -295,20 +306,5 @@ export default async function ArticlePage({
         )}
       </main>
     </PortalShell>
-  );
-}
-
-function TocLinks({ entries }: { entries: TocEntry[] }) {
-  return (
-    <ul className={styles.tocList}>
-      {entries.map((entry) => (
-        <li
-          key={entry.id}
-          style={{ paddingLeft: `${(entry.depth - 2) * 12}px` }}
-        >
-          <a href={`#${entry.id}`}>{entry.text}</a>
-        </li>
-      ))}
-    </ul>
   );
 }

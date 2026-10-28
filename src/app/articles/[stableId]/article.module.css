@@ -1,26 +1,32 @@
 .layout {
   display: grid;
-  grid-template-columns: 240px minmax(0, 1fr) 220px;
-  gap: clamp(20px, 3vw, 40px);
-  padding: clamp(24px, 4vw, 48px);
-  max-width: 1440px;
   margin: 0 auto;
   width: 100%;
   align-items: start;
+  grid-template-columns: 13.5rem minmax(0, 1fr) 11rem;
+  gap: 2rem;
+  max-width: 90rem;
+  padding: 2.5rem 3.5rem 4rem;
 }
 
 .meta {
-  position: sticky;
-  top: 88px;
+  position: static;
   font-size: 0.875rem;
+  padding-bottom: 1.5rem;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid var(--color-divider);
 }
 
 .breadcrumb {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 20px;
   color: var(--color-text-secondary);
+  font-size: 0.875rem;
+  flex-wrap: wrap;
+  line-height: 1.6;
+  margin-bottom: 1.5rem;
+  overflow-wrap: anywhere;
 }
 
 .breadcrumb a {
@@ -33,16 +39,18 @@
 }
 
 .metaList {
-  margin: 0 0 20px;
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.5rem;
+  margin: 0 0 0.75rem;
 }
 
 .metaList div {
   display: flex;
-  justify-content: space-between;
-  gap: 12px;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.5rem;
 }
 
 .metaList dt {
@@ -51,27 +59,29 @@
 
 .metaList dd {
   margin: 0;
-  text-align: right;
+  text-align: left;
 }
 
 .readCount {
-  margin: 0 0 20px;
-  color: var(--color-text-secondary);
+  display: inline-block;
+  margin: 0.5rem 1rem 0.5rem 0;
+  color: var(--color-text-muted);
 }
 
 .favoriteForm {
-  margin-bottom: 20px;
+  display: inline-block;
+  margin: 0.5rem 1rem 0.5rem 0;
 }
 
 .favoriteForm button {
   min-height: 44px;
-  padding: 0 18px;
-  border: 1px solid var(--color-divider);
-  border-radius: 10px;
+  border: 1px solid var(--color-control-border);
   background: var(--color-surface);
   color: var(--color-text);
   font: inherit;
   cursor: pointer;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
 }
 
 .favoriteForm button[aria-pressed="true"] {
@@ -86,23 +96,29 @@
 
 .feedback {
   margin-bottom: 20px;
-  border: 1px solid var(--color-divider);
   border-radius: 10px;
+  margin: 0.5rem 0 0;
+  border: 0;
 }
 
 .feedback summary {
   min-height: 44px;
   display: flex;
   align-items: center;
-  padding: 0 14px;
   cursor: pointer;
   font-weight: 500;
+  padding: 0.5rem 0;
+  color: var(--color-link);
+  width: fit-content;
 }
 
 .feedbackForm {
   display: grid;
   gap: 10px;
-  padding: 0 14px 14px;
+  padding: 1rem;
+  border: 1px solid var(--color-divider);
+  border-radius: 0.5rem;
+  background: var(--color-surface-muted);
 }
 
 .feedbackForm fieldset {
@@ -134,6 +150,8 @@
   background: var(--color-surface-muted);
   color: var(--color-text);
   font: inherit;
+  border-color: var(--color-control-border);
+  width: 100%;
 }
 
 .feedbackForm button {
@@ -141,11 +159,11 @@
   min-height: 44px;
   padding: 0 18px;
   border: 1px solid var(--color-accent);
-  border-radius: 10px;
   background: var(--color-accent);
-  color: #fff;
   font: inherit;
   cursor: pointer;
+  color: var(--color-accent-foreground);
+  border-radius: 0.5rem;
 }
 
 .versionLink {
@@ -159,15 +177,18 @@
 
 .tags {
   margin-bottom: 20px;
+  margin: 0.5rem 0;
 }
 
 .tag {
   display: inline-block;
   margin: 0 8px 8px 0;
-  padding: 4px 10px;
   border-radius: 999px;
-  font-size: 0.8125rem;
-  border: 1px solid var(--color-border, rgba(0, 0, 0, 0.16));
+  font-size: 0.875rem;
+  padding: 0.125rem 0.5rem;
+  border: 0;
+  background: var(--color-surface-muted);
+  color: var(--color-accent);
 }
 
 .related h2 {
@@ -188,6 +209,8 @@
   color: var(--color-text);
   text-decoration: none;
   line-height: 1.5;
+  font-size: 0.875rem;
+  overflow-wrap: anywhere;
 }
 
 .related a:hover {
@@ -195,16 +218,20 @@
 }
 
 .article {
-  min-width: 0;
-  max-width: 76ch; /* 正文中栏不随超宽屏无限拉宽 */
+  min-width: 0; /* 正文中栏不随超宽屏无限拉宽 */
+  grid-column: 2;
+  grid-row: 1;
+  width: 100%;
+  max-width: var(--reading-width);
 }
 
 .title {
-  font-size: clamp(1.75rem, 4vw, 2.5rem);
-  font-weight: 500;
   letter-spacing: -0.02em;
-  line-height: 1.2;
   margin: 0 0 12px;
+  font-size: 2.5rem;
+  font-weight: 700;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
 }
 
 .summary {
@@ -213,81 +240,30 @@
   line-height: 1.7;
   margin: 0 0 32px;
   max-width: 64ch;
-}
-
-.toc {
-  position: sticky;
-  top: 88px;
-  font-size: 0.875rem;
-}
-
-.tocHeading {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--color-text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  margin: 0 0 12px;
-}
-
-.tocList {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.tocList a {
-  color: var(--color-text-secondary);
-  text-decoration: none;
-  line-height: 1.5;
-}
-
-.tocList a:hover {
-  color: var(--color-link);
+  margin-bottom: 1.25rem;
 }
 
 .adjacent {
-  grid-column: 2;
   display: flex;
   justify-content: space-between;
   gap: 24px;
-  margin-top: 48px;
   padding-top: 20px;
   border-top: 1px solid var(--color-border, rgba(0, 0, 0, 0.12));
+  grid-column: 2;
+  min-width: 0;
+  flex-wrap: wrap;
+  margin-top: 0;
 }
 
 .adjacent a {
   color: var(--color-text);
   text-decoration: none;
   max-width: 40ch;
+  overflow-wrap: anywhere;
 }
 
 .adjacent a:hover {
   color: var(--color-link);
-}
-
-@media (max-width: 1100px) {
-  .layout {
-    grid-template-columns: 200px minmax(0, 1fr);
-  }
-
-  .toc {
-    display: none; /* 右侧目录在较窄屏幕隐藏 */
-  }
-}
-
-@media (max-width: 720px) {
-  .layout {
-    grid-template-columns: 1fr;
-    gap: 20px;
-  }
-
-  .meta {
-    position: static;
-  }
 }
 
 /* VER-04 归档说明 */
@@ -295,6 +271,8 @@
   max-width: 56ch;
   margin: 0 auto;
   padding: clamp(48px, 8vw, 96px) 0;
+  grid-column: 1 / -1;
+  width: 100%;
 }
 
 .archived h1 {
@@ -333,7 +311,78 @@
   border-bottom: 1px solid var(--color-divider);
   font-size: 0.875rem;
   color: var(--color-text-secondary);
+  overflow-wrap: anywhere;
 }
 .routeNavigation a {
   color: var(--color-link);
+}
+
+/* Editorial reading is the first consumer of the approved design system. */
+.feedbackForm button:hover {
+  background: var(--color-accent-hover);
+}
+.rail {
+  grid-column: 3;
+  grid-row: 1;
+  min-width: 0;
+  position: sticky;
+  top: var(--reading-header-offset);
+  max-height: calc(100svh - var(--reading-header-offset) - 1rem);
+  overflow-y: auto;
+  padding: 0.25rem;
+}
+.related {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--color-divider);
+}
+@media (max-width: 1199px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 2rem;
+    gap: 1rem;
+  }
+  .article {
+    grid-column: 1;
+    grid-row: auto;
+    justify-self: center;
+  }
+  .rail {
+    grid-column: 1;
+    grid-row: auto;
+    position: static;
+    max-height: none;
+    width: 100%;
+    max-width: var(--reading-width);
+    justify-self: center;
+  }
+  .adjacent {
+    grid-column: 1 / -1;
+    max-width: var(--reading-width);
+    width: 100%;
+    justify-self: center;
+  }
+}
+@media (max-width: 767px) {
+  .layout {
+    padding: 1.25rem 1.25rem 2.5rem;
+  }
+  .title {
+    font-size: 1.875rem;
+  }
+  .breadcrumb {
+    margin-top: 1.25rem;
+  }
+  .summary {
+    font-size: 1.125rem;
+  }
+  .metaList {
+    display: grid;
+    gap: 0.5rem;
+  }
+}
+@media (max-width: 359px) {
+  .layout {
+    padding-inline: 1rem;
+  }
 }
