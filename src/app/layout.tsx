@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import "katex/dist/katex.min.css";
 import "../styles/tokens.css";
+import "../styles/editorial-tokens.css";
 import "./globals.css";
 import { getSelectedTheme } from "./theme";
 

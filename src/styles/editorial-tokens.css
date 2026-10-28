@@ -1,0 +1,89 @@
+[data-design-system="editorial"] {
+  --color-canvas: #faf9f6;
+  --color-surface: #ffffff;
+  --color-surface-muted: #edf2ee;
+  --color-text: #18201f;
+  --color-text-secondary: #4d5b57;
+  --color-text-muted: #606d65;
+  --color-accent: #185f59;
+  --color-accent-hover: #124d48;
+  --color-accent-active: #0d3d39;
+  --color-accent-foreground: #ffffff;
+  --color-link: var(--color-accent);
+  --color-divider: #d8dfda;
+  --color-border: var(--color-divider);
+  --color-control-border: #7a8982;
+  --color-focus: #185f59;
+  --color-success: #286244;
+  --color-warning: #805713;
+  --color-error: #a33336;
+  --color-info: #315f85;
+  --callout-warning-title: #96672d;
+  --reading-width: 46rem;
+  --reading-header-offset: 6rem;
+  --font-editorial:
+    system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei",
+    sans-serif;
+  min-height: 100vh;
+  background: var(--color-canvas);
+  color: var(--color-text);
+  font-family: var(--font-editorial);
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] [data-design-system="editorial"] {
+  --color-canvas: #171d1b;
+  --color-surface: #202825;
+  --color-surface-muted: #29342f;
+  --color-text: #eef2ee;
+  --color-text-secondary: #bdc8c0;
+  --color-text-muted: #a0ada4;
+  --color-accent: #91c9ba;
+  --color-accent-hover: #acdacc;
+  --color-accent-active: #c2e6da;
+  --color-accent-foreground: #14251e;
+  --color-divider: #3d4b43;
+  --color-control-border: #7c8e82;
+  --color-focus: #91c9ba;
+  --color-success: #9acba8;
+  --color-warning: #e1bf7a;
+  --color-error: #e7a0a0;
+  --color-info: #a0c4e4;
+  --callout-warning-title: #cfa771;
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="system"] [data-design-system="editorial"] {
+    --color-canvas: #171d1b;
+    --color-surface: #202825;
+    --color-surface-muted: #29342f;
+    --color-text: #eef2ee;
+    --color-text-secondary: #bdc8c0;
+    --color-text-muted: #a0ada4;
+    --color-accent: #91c9ba;
+    --color-accent-hover: #acdacc;
+    --color-accent-active: #c2e6da;
+    --color-accent-foreground: #14251e;
+    --color-divider: #3d4b43;
+    --color-control-border: #7c8e82;
+    --color-focus: #91c9ba;
+    --color-success: #9acba8;
+    --color-warning: #e1bf7a;
+    --color-error: #e7a0a0;
+    --color-info: #a0c4e4;
+    --callout-warning-title: #cfa771;
+    color-scheme: dark;
+  }
+}
+
+[data-design-system="editorial"] :focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 3px;
+}
+
+@media (max-width: 1199px) {
+  [data-design-system="editorial"] {
+    --reading-header-offset: 5.5rem;
+  }
+}

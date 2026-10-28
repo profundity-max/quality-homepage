@@ -20,9 +20,11 @@ const navigation = [
 export async function PortalShell({
   currentPath,
   children,
+  designSystem,
 }: {
   currentPath: string;
   children: React.ReactNode;
+  designSystem?: "editorial";
 }) {
   const session = await getCurrentSession();
   const currentTheme = await getSelectedTheme();
@@ -42,13 +44,17 @@ export async function PortalShell({
     );
   }
   return (
-    <>
+    <div
+      data-design-system={designSystem}
+      className={designSystem ? styles.editorial : undefined}
+    >
       <a className={styles.skipLink} href="#main-content">
         跳到主要内容
       </a>
       <StickyHeader
         className={styles.siteHeader}
         compactClassName={styles.compactHeader}
+        shrink={!designSystem}
       >
         <Link className={styles.brand} href="/">
           品集｜Q Nexus
@@ -104,7 +110,7 @@ export async function PortalShell({
         </details>
       </StickyHeader>
       {children}
-    </>
+    </div>
   );
 }
 
