@@ -28,7 +28,8 @@
     "e2e:prepare": "tsx scripts/seed-e2e.ts",
     "e2e:serve": "npm run e2e:prepare && next dev",
     "db:migrate": "tsx scripts/migrate.ts",
-    "identity:bootstrap": "tsx scripts/bootstrap-first-admin.ts"
+    "identity:bootstrap": "tsx scripts/bootstrap-first-admin.ts",
+    "test:e2e:editorial": "playwright test --config playwright.editorial.config.ts"
   },
   "dependencies": {
     "@electric-sql/pglite": "0.4.5",

@@ -20,7 +20,7 @@ test("reader protection covers detail, inline reading and print without blocking
 }) => {
   await login(page, "member");
   await page.goto("/articles/anova-example");
-  const content = page.locator("[data-content-protection]");
+  const content = page.locator("[data-content-protection]").last();
   await expect(content).toHaveAttribute(
     "data-watermark",
     /天脉品集 Q-Nexus · 内部资料 · .*（member）· \d{4}-\d{2}-\d{2}/,
@@ -104,7 +104,7 @@ test("editor front-office reading is protected while editing preview stays usabl
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   await login(page, "editor");
   await page.goto("/articles/anova-intro");
-  const content = page.locator("[data-content-protection]");
+  const content = page.locator("[data-content-protection]").last();
   await expect(content).toHaveAttribute("data-watermark", /（editor）/);
   await expect(content).toHaveAttribute("data-restrict-copy", "true");
   expect(
@@ -136,7 +136,7 @@ test("mobile watermark repeats behind content in both themes without horizontal 
   await page.setViewportSize({ width: 390, height: 844 });
   await login(page, "member");
   await page.goto("/articles/anova-example");
-  const content = page.locator("[data-content-protection]");
+  const content = page.locator("[data-content-protection]").last();
   const light = await content.evaluate(
     (root) => getComputedStyle(root, "::after").backgroundImage,
   );
