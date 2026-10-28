@@ -1,3 +1,5 @@
+V9.0 文章阅读模板的最新本地验收见 [验收记录](docs/design/editorial-reading-v9.0/acceptance.md)。以下保留 V8.0 后台历史验收。
+
 # V8.0 后台视觉验收
 
 final result: passed

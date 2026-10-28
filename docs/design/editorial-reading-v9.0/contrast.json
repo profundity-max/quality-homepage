@@ -1,0 +1,146 @@
+[
+  [
+    "light",
+    "text",
+    "canvas",
+    15.76
+  ],
+  [
+    "light",
+    "text-secondary",
+    "canvas",
+    6.76
+  ],
+  [
+    "light",
+    "text-muted",
+    "canvas",
+    5.15
+  ],
+  [
+    "light",
+    "accent",
+    "canvas",
+    7.07
+  ],
+  [
+    "light",
+    "accent-foreground",
+    "accent",
+    7.45
+  ],
+  [
+    "light",
+    "control-border",
+    "canvas",
+    3.48
+  ],
+  [
+    "light",
+    "callout-info",
+    "type surface",
+    4.71
+  ],
+  [
+    "light",
+    "callout-tip",
+    "type surface",
+    5.05
+  ],
+  [
+    "light",
+    "callout-important",
+    "type surface",
+    4.8
+  ],
+  [
+    "light",
+    "callout-warning",
+    "type surface",
+    4.63
+  ],
+  [
+    "light",
+    "callout-example",
+    "type surface",
+    5.13
+  ],
+  [
+    "light",
+    "callout-formula",
+    "type surface",
+    4.55
+  ],
+  [
+    "dark",
+    "text",
+    "canvas",
+    15.12
+  ],
+  [
+    "dark",
+    "text-secondary",
+    "canvas",
+    9.92
+  ],
+  [
+    "dark",
+    "text-muted",
+    "canvas",
+    7.34
+  ],
+  [
+    "dark",
+    "accent",
+    "canvas",
+    9.18
+  ],
+  [
+    "dark",
+    "accent-foreground",
+    "accent",
+    8.58
+  ],
+  [
+    "dark",
+    "control-border",
+    "canvas",
+    4.93
+  ],
+  [
+    "dark",
+    "callout-info",
+    "type surface",
+    5.77
+  ],
+  [
+    "dark",
+    "callout-tip",
+    "type surface",
+    5.79
+  ],
+  [
+    "dark",
+    "callout-important",
+    "type surface",
+    5.96
+  ],
+  [
+    "dark",
+    "callout-warning",
+    "type surface",
+    6.23
+  ],
+  [
+    "dark",
+    "callout-example",
+    "type surface",
+    5.7
+  ],
+  [
+    "dark",
+    "callout-formula",
+    "type surface",
+    5.98
+  ]
+]
