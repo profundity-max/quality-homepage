@@ -28,3 +28,8 @@ Implementation: 本机Codex可视化目录books-v10.2/production-light.png，Ego
 用户随后提供1069×1471高清红色漩涡PNG，替换V10.3网上图片，源文件归档docs/design/books-v10.4/quality-is-free-user-cover.png。实际受控存储SHA256与用户原文件一致，无裁切/重画/压缩。1469×1071桌面及375×900手机截图位于本机books-v10.4目录，5图有效、无溢出，水印保留；书目逐字段验证只有目标图片及时间变化。此用户原图优先于旧效果图和互联网来源。
 
 final result: passed
+
+
+## V10.5 图片显示与书籍封面免水印
+
+生产连续3轮首页优化图片→书单→文章图均200。5张封面SHA256与存储原图一致，无水印；文章图正常嵌入身份水印。桌面1469×1071与手机375×900实拍通过，无溢出。匿名401、错误扩展404，数据量不变；详情见docs/operations/releases/v10.5.md。
