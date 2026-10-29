@@ -1,285 +1,251 @@
 .layout {
   width: 100%;
-  max-width: 83rem;
+  max-width: 85rem;
   margin: 0 auto;
-  padding: 3.5rem 3.5rem 5rem;
-}
-.header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 2rem;
-  padding-bottom: 2rem;
-  border-bottom: 1px solid var(--color-divider);
+  padding: 2.625rem 2.5rem 4rem;
 }
 .eyebrow {
-  margin: 0 0 0.75rem;
+  margin: 0 0 0.625rem;
+  color: var(--color-accent);
   font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.12em;
-  color: var(--color-accent);
+  line-height: 1.5;
 }
 .title {
   margin: 0;
-  font-size: 2.5rem;
+  font-size: 3rem;
   font-weight: 700;
-  line-height: 1.3;
-  letter-spacing: -0.03em;
+  line-height: 1.1;
+  letter-spacing: -0.025em;
 }
 .subtitle {
-  margin: 1rem 0 0;
+  margin: 0.75rem 0 0;
   color: var(--color-text-secondary);
+  font-size: 1.125rem;
   line-height: 1.7;
 }
 .summary {
-  flex-shrink: 0;
-  display: grid;
-  gap: 0.25rem;
-  margin: 0;
-  padding-left: 2rem;
-  border-left: 1px solid var(--color-divider);
+  margin: 1rem 0 0;
   color: var(--color-text-secondary);
-  font-size: 0.8125rem;
-}
-.summary strong {
-  color: var(--color-accent);
-  font-size: 2.75rem;
-  font-weight: 500;
-  line-height: 1.1;
-  font-variant-numeric: tabular-nums;
+  font-size: 1rem;
+  line-height: 1.6;
 }
 .categoryNav {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.625rem;
-  padding: 1.5rem 0 2rem;
+  align-items: stretch;
+  column-gap: 2rem;
+  margin-top: 0.75rem;
+  border-bottom: 1px solid var(--color-divider);
 }
 .categoryNav a {
   display: inline-flex;
   align-items: center;
-  gap: 0.75rem;
-  min-height: 2.75rem;
-  padding: 0.5rem 1rem;
-  border: 1px solid var(--color-divider);
-  border-radius: 0.375rem;
+  min-height: 3.125rem;
+  padding: 0.75rem 0.5rem;
+  border-bottom: 2px solid transparent;
   color: var(--color-text-secondary);
+  font-size: 1rem;
+  line-height: 1.5;
   text-decoration: none;
-  font-size: 0.875rem;
 }
 .categoryNav a:hover {
+  color: var(--color-accent);
   background: var(--color-surface-muted);
-  border-color: var(--color-control-border);
-  color: var(--color-accent);
 }
-.categoryNav a span {
+.categoryNav a[aria-current="page"] {
+  border-bottom-color: var(--color-accent);
   color: var(--color-accent);
-  font-size: 0.75rem;
-  font-variant-numeric: tabular-nums;
+  font-weight: 650;
 }
-.catalog {
+.collection {
+  padding-top: 2.5rem;
+}
+.gallery {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  align-items: start;
-  gap: 1.5rem;
-}
-.category {
-  min-width: 0;
-  padding: 1.5rem;
-  border: 1px solid var(--color-divider);
-  border-radius: 0.625rem;
-  background: var(--color-surface);
-  scroll-margin-top: 7rem;
-}
-.categoryHeading {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 1rem;
-  padding-bottom: 1.25rem;
-  border-bottom: 1px solid var(--color-divider);
-}
-.categoryHeading h2 {
-  margin: 0;
-  color: var(--color-accent);
-  font-size: 0.875rem;
-  font-weight: 600;
-  line-height: 1.5;
-}
-.categoryHeading > span {
-  flex-shrink: 0;
-  color: var(--color-text-muted);
-  font-size: 0.75rem;
-}
-.bookList {
-  display: grid;
-  gap: 1.5rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 3.5rem 4rem;
   list-style: none;
   margin: 0;
   padding: 0;
 }
-.bookCard {
-  display: grid;
-  grid-template-columns: 8rem minmax(0, 1fr);
-  align-items: start;
-  gap: 1.5rem;
-  padding-top: 1.5rem;
-}
-.bookCard + .bookCard {
-  border-top: 1px solid var(--color-divider);
+.book {
+  min-width: 0;
 }
 .cover {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 8rem;
-  height: 11rem;
-  padding: 0.375rem;
-  border-radius: 0.25rem;
-  background: var(--color-surface-muted);
+  align-items: flex-end;
+  justify-content: flex-start;
+  width: 100%;
+  height: 23.5rem;
+  margin-bottom: 1.75rem;
 }
 .cover img {
+  display: block;
   width: 100%;
   height: 100%;
   object-fit: contain;
+  object-position: left bottom;
+  filter: drop-shadow(0 5px 6px rgb(0 0 0 / 0.1));
 }
 .placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  width: 100%;
+  height: 100%;
+  background: var(--color-surface-muted);
   color: var(--color-text-muted);
-  font-size: 0.8125rem;
+  font-size: 0.875rem;
 }
 .bookInfo {
-  min-width: 0;
   overflow-wrap: anywhere;
 }
-.bookInfo h3 {
-  margin: 0 0 0.5rem;
-  font-size: 1.25rem;
+.bookInfo h2 {
+  margin: 0;
+  font-size: 1.5rem;
   font-weight: 650;
-  line-height: 1.4;
-  letter-spacing: -0.015em;
+  line-height: 1.3;
+  letter-spacing: -0.025em;
 }
 .author {
-  margin: 0 0 1.25rem;
+  margin: 0.5rem 0 0.875rem;
   color: var(--color-text-secondary);
-  font-size: 0.8125rem;
-  line-height: 1.6;
+  font-size: 1rem;
+  line-height: 1.5;
 }
-.infoLabel {
-  display: block;
-  margin-bottom: 0.25rem;
-  color: var(--color-text-muted);
-  font-size: 0.6875rem;
-  font-weight: 500;
-  letter-spacing: 0.05em;
+.categoryLabel {
+  display: inline-block;
+  max-width: 100%;
+  margin: 0 0 1rem;
+  padding: 0.25rem 0.875rem;
+  border-radius: 999px;
+  background: var(--color-surface-muted);
+  color: var(--color-accent);
+  font-size: 0.875rem;
+  line-height: 1.5;
 }
 .recommendation {
-  margin: 0 0 1rem;
-  font-size: 0.875rem;
+  margin: 0 0 0.875rem;
+  color: var(--color-text-secondary);
+  font-size: 1rem;
   line-height: 1.7;
 }
 .audience {
-  margin: 0 0 1rem;
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  margin: 0;
   color: var(--color-text-secondary);
-  font-size: 0.8125rem;
-  line-height: 1.6;
+  font-size: 0.875rem;
+  line-height: 1.7;
+}
+.audience > span {
+  flex-shrink: 0;
+  color: var(--color-accent);
+  font-weight: 600;
 }
 .tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.375rem;
-  margin: 0;
+  gap: 0.5rem;
+  margin: 0.875rem 0 0;
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
 }
-.tag {
-  padding: 0.1875rem 0.5rem;
-  border-radius: 0.25rem;
-  background: var(--color-surface-muted);
-  color: var(--color-accent);
-  font-size: 0.6875rem;
+.tags span {
+  border-bottom: 1px solid var(--color-divider);
 }
-.empty,
-.categoryEmpty {
+.empty {
+  margin: 1rem 0 4rem;
   color: var(--color-text-secondary);
   line-height: 1.7;
 }
-.categoryEmpty {
-  margin: 1.5rem 0 0.5rem;
-  font-size: 0.875rem;
-}
-@media (max-width: 1199px) {
-  .layout {
-    padding: 2.5rem 2rem 4rem;
-  }
-  .bookCard {
-    grid-template-columns: 6rem minmax(0, 1fr);
-    gap: 1.125rem;
+@media (max-width: 1099px) {
+  .gallery {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 3rem 1.75rem;
   }
   .cover {
-    width: 6rem;
-    height: 8.5rem;
+    height: 19rem;
+  }
+  .categoryNav {
+    column-gap: 1.25rem;
   }
 }
-@media (max-width: 899px) {
-  .catalog {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .bookCard {
-    grid-template-columns: 8rem minmax(0, 1fr);
-    gap: 1.5rem;
-  }
-  .cover {
-    width: 8rem;
-    height: 11rem;
-  }
-}
-@media (max-width: 599px) {
+@media (max-width: 699px) {
   .layout {
-    padding: 2rem 1.25rem 3rem;
-  }
-  .header {
-    align-items: flex-end;
-    gap: 1rem;
-    padding-bottom: 1.5rem;
+    padding: 1.75rem 1.25rem 3rem;
   }
   .title {
     font-size: 2rem;
   }
-  .eyebrow {
-    font-size: 0.625rem;
-    letter-spacing: 0.06em;
-  }
   .subtitle {
-    font-size: 0.875rem;
+    font-size: 1rem;
+  }
+  .eyebrow {
+    font-size: 0.6875rem;
+    letter-spacing: 0.08em;
   }
   .summary {
-    border: 0;
-    padding: 0 0 0.25rem;
-    font-size: 0.6875rem;
-  }
-  .summary strong {
-    font-size: 2rem;
+    font-size: 0.875rem;
   }
   .categoryNav {
-    gap: 0.5rem;
-    padding: 1.25rem 0 1.5rem;
+    column-gap: 0.75rem;
+    margin-top: 1rem;
   }
   .categoryNav a {
-    padding: 0.5rem 0.75rem;
-    font-size: 0.8125rem;
+    min-height: 2.75rem;
+    padding: 0.625rem 0.25rem;
+    font-size: 0.875rem;
   }
-  .category {
-    padding: 1.125rem;
+  .collection {
+    padding-top: 1.75rem;
   }
-  .bookCard {
-    grid-template-columns: 5.5rem minmax(0, 1fr);
-    gap: 1rem;
+  .gallery {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 2.5rem 1.25rem;
   }
   .cover {
-    width: 5.5rem;
-    height: 8rem;
-  }
-  .bookInfo h3 {
-    font-size: 1.0625rem;
-  }
-  .author {
+    height: 14rem;
     margin-bottom: 1rem;
+  }
+  .bookInfo h2 {
+    font-size: 1.0625rem;
+    line-height: 1.4;
+    letter-spacing: -0.01em;
+  }
+  .author,
+  .recommendation {
+    font-size: 0.875rem;
+  }
+  .categoryLabel {
+    padding: 0.25rem 0.625rem;
+    font-size: 0.75rem;
+  }
+  .audience {
+    display: block;
+    font-size: 0.75rem;
+  }
+  .audience > span {
+    margin-right: 0.5rem;
+  }
+}
+@media (max-width: 359px) {
+  .gallery {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .cover {
+    height: 20rem;
+  }
+  .bookInfo h2 {
+    font-size: 1.25rem;
+  }
+  .author,
+  .recommendation {
+    font-size: 0.875rem;
   }
 }

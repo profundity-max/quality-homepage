@@ -31,6 +31,10 @@ test("administrator creates a book without cover; member sees placeholder (BOOK-
   await page.getByRole("button", { name: "退出登录" }).click();
   await login(page, "member", "member secure password");
   await page.goto("/books");
+  await page
+    .getByRole("navigation", { name: "书单分类" })
+    .getByRole("link", { name: "品质专业", exact: true })
+    .click();
   const category = page.getByRole("region", { name: "品质专业" });
   const bookCard = category.locator("li", {
     hasText: "e2e 品质管理基础",
@@ -54,7 +58,14 @@ test("administrator updates a book and uploads a cover (BOOK-04)", async ({
   await page.getByLabel("编辑 演示：品质管理基础 封面").setInputFiles({
     name: "cover.png",
     mimeType: "image/png",
-    buffer: Buffer.from("fake-png"),
+    buffer: await (
+      await import("sharp")
+    )
+      .default({
+        create: { width: 120, height: 180, channels: 3, background: "#d8dfda" },
+      })
+      .png()
+      .toBuffer(),
   });
   await page
     .getByRole("article", { name: "书目 演示：品质管理基础" })
@@ -94,6 +105,10 @@ test("category create and rename reflect on reader side; access control", async 
   await page.getByRole("button", { name: "退出登录" }).click();
   await login(page, "member", "member secure password");
   await page.goto("/books");
+  await page
+    .getByRole("navigation", { name: "书单分类" })
+    .getByRole("link", { name: "临时书分类改名", exact: true })
+    .click();
   await expect(
     page.getByRole("region", { name: "临时书分类改名" }),
   ).toBeVisible();
