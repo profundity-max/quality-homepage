@@ -77,6 +77,7 @@ test("PostgreSQL never exposes a working copy through reading, search or favorit
       expect.objectContaining({
         stableId: article.stableId,
         title: input.title,
+        updaterDisplayName: "editor",
       }),
     ]),
   );

@@ -131,7 +131,7 @@ export async function KnowledgeEntryPage({
                   {articles.map((article) => (
                     <a
                       key={article.stableId}
-                      href={`#article-${article.stableId}`}
+                      href={`/articles/${article.stableId}`}
                     >
                       {article.title}
                     </a>
@@ -149,26 +149,17 @@ export async function KnowledgeEntryPage({
                           data-reading-article={article.id}
                           aria-label={`文章 ${article.title}`}
                         >
-                          <ArticleProtection {...protection}>
-                            <h2
-                              id={`article-${article.stableId}`}
-                              className={styles.articleTitle}
-                            >
-                              {article.title}
-                            </h2>
-                          </ArticleProtection>
-                          <p className={styles.articleMeta}>
+                          <p
+                            id={`article-${article.stableId}`}
+                            className={styles.articleMeta}
+                          >
                             <span>
-                              负责人 {article.ownerDisplayName ?? "待指定"}
+                              更新日期：{formatDate(article.updatedAt)}
                             </span>
                             <span aria-hidden="true">·</span>
-                            <span>更新 {formatDate(article.updatedAt)}</span>
-                            <Link
-                              className={styles.articleOpenLink}
-                              href={`/articles/${article.stableId}`}
-                            >
-                              打开阅读页（目录 / 收藏 / 反馈）
-                            </Link>
+                            <span>
+                              更新人：{article.updaterDisplayName ?? "未记录"}
+                            </span>
                           </p>
                           <ArticleProtection {...protection}>
                             <ArticleBody html={article.document.html} />

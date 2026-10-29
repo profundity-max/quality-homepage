@@ -27,8 +27,8 @@ test("full reading path: home → entry → tree → topic → article → recen
 
   // 主题 → 文章
   await page
-    .getByLabel("文章 ANOVA 实例", { exact: true })
-    .getByRole("link", { name: "打开阅读页（目录 / 收藏 / 反馈）" })
+    .getByRole("navigation", { name: "本主题文章" })
+    .getByRole("link", { name: "ANOVA 实例", exact: true })
     .click();
   await expect(page).toHaveURL(/\/articles\/anova-example$/);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
@@ -109,8 +109,8 @@ test("full reading path survives 390px width (common definition)", async ({
     .getByRole("link", { name: "ANOVA" })
     .click();
   await page
-    .getByLabel("文章 ANOVA 入门", { exact: true })
-    .getByRole("link", { name: "打开阅读页（目录 / 收藏 / 反馈）" })
+    .getByRole("navigation", { name: "本主题文章" })
+    .getByRole("link", { name: "ANOVA 入门", exact: true })
     .click();
   await expect(page).toHaveURL(/\/articles\/anova-intro$/);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
@@ -133,8 +133,8 @@ test("spc demo article is readable via the entry page", async ({ page }) => {
       .getByRole("link", { name: "SPC" }),
   ).toHaveAttribute("aria-current", "page");
   await page
-    .getByLabel("文章 SPC 基础", { exact: true })
-    .getByRole("link", { name: "打开阅读页（目录 / 收藏 / 反馈）" })
+    .getByRole("navigation", { name: "本主题文章" })
+    .getByRole("link", { name: "SPC 基础", exact: true })
     .click();
   await expect(page).toHaveURL(/\/articles\/spc-basics$/);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("SPC 基础");

@@ -33,14 +33,14 @@ test("knowledge entry pages show the real column tree and published articles", a
     tree.getByRole("link", { name: "ANOVA", exact: true }),
   ).toHaveAttribute("aria-current", "page");
   const anovaEntry = page.getByLabel("文章 ANOVA 入门", { exact: true });
-  await expect(anovaEntry).toContainText("负责人");
+  await expect(anovaEntry).toContainText("更新人：");
   await expect(anovaEntry).toContainText("方差分析用于比较多个组的均值差异。");
 
   // 空主题/空栏目不出现（种子中 测量与数据可信度 等无内容）
   await expect(tree.getByRole("link", { name: "MSA" })).toHaveCount(0);
 });
 
-test("topic page shows only the article body plus owner and update time", async ({
+test("topic page shows only update metadata before the body and keeps article navigation", async ({
   page,
 }) => {
   await loginAsMember(page);
@@ -48,9 +48,10 @@ test("topic page shows only the article body plus owner and update time", async 
   await page.goto("/quality?topic=anova");
   const entry = page.getByLabel("文章 ANOVA 入门", { exact: true });
   await expect(entry).toBeVisible();
-  // 保留：负责人 / 更新时间
-  await expect(entry).toContainText("负责人");
-  await expect(entry).toContainText("更新");
+  // 仅保留：实际更新人 / 更新时间
+  await expect(entry).toContainText("更新人：");
+  await expect(entry).toContainText("更新日期：");
+  await expect(entry).not.toContainText("负责人");
   // 正文整篇内联
   await expect(entry).toContainText("方差分析用于比较多个组的均值差异。");
   await expect(
@@ -63,12 +64,33 @@ test("topic page shows only the article body plus owner and update time", async 
     page.getByRole("heading", { level: 1, name: "ANOVA", exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByRole("heading", { level: 2, name: "ANOVA 入门", exact: true }),
-  ).toBeVisible();
-  // 保留进入完整阅读页（目录 / 收藏 / 反馈）的入口
+    entry.getByRole("heading", { level: 2, name: "ANOVA 入门", exact: true }),
+  ).toHaveCount(0);
+  // 正文前移除操作链接；上方已有标题承担完整阅读页入口。
   await expect(
     entry.getByRole("link", { name: "打开阅读页（目录 / 收藏 / 反馈）" }),
+  ).toHaveCount(0);
+  const index = page.getByRole("navigation", { name: "本主题文章" });
+  await expect(
+    index.getByRole("link", { name: "ANOVA 入门", exact: true }),
   ).toHaveAttribute("href", "/articles/anova-intro");
+  // 目录中的文章项仍定位到元信息行。
+  await expect(page.locator("#article-anova-intro")).toContainText(
+    "更新日期：",
+  );
+
+  await page
+    .getByRole("complementary", { name: "正文目录" })
+    .getByRole("link", { name: "ANOVA 入门", exact: true })
+    .click();
+  await expect(page).toHaveURL(/#article-anova-intro$/);
+  await expect
+    .poll(() =>
+      page
+        .locator("#article-anova-intro")
+        .evaluate((node) => node.getBoundingClientRect().top),
+    )
+    .toBeLessThan(250);
 
   // 内联正文（含表格/公式）不能把窄屏撑出横向滚动
   await page.setViewportSize({ width: 390, height: 844 });
@@ -79,9 +101,7 @@ test("topic page shows only the article body plus owner and update time", async 
   ).toBe(true);
   await page.setViewportSize({ width: 1280, height: 900 });
 
-  await entry
-    .getByRole("link", { name: "打开阅读页（目录 / 收藏 / 反馈）" })
-    .click();
+  await index.getByRole("link", { name: "ANOVA 入门", exact: true }).click();
   await expect(page).toHaveURL(/\/articles\/anova-intro$/);
   await expect(
     page.getByRole("heading", { level: 1, name: "ANOVA 入门" }),
@@ -104,8 +124,8 @@ test("clicking a topic switches the article list via stable id", async ({
   );
   await expect(
     page
-      .getByLabel("文章 SPC 基础", { exact: true })
-      .getByRole("link", { name: "打开阅读页（目录 / 收藏 / 反馈）" }),
+      .getByRole("navigation", { name: "本主题文章" })
+      .getByRole("link", { name: "SPC 基础", exact: true }),
   ).toBeVisible();
   await expect(page.getByRole("link", { name: "ANOVA 入门" })).toHaveCount(0);
 });

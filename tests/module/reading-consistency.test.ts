@@ -152,3 +152,73 @@ test("taking over an edit lock never counts as a published content update", asyn
       ?.updatedAt,
   ).toEqual(before?.updatedAt);
 });
+
+test("topic metadata uses the last publisher, not owner, draft editor or review actor", async () => {
+  const otherEditor = "00000000-0000-4000-8000-0000000000f3";
+  await database.query(
+    "insert into users(id,username,normalized_username,password_hash,role,must_change_password,display_name) values ($1,'publisher','publisher','hash','editor',false,'发布者')",
+    [otherEditor],
+  );
+  const editing = createKnowledgeEditingService(database);
+  const publishing = createKnowledgePublishingService(database);
+  const input = {
+    title: "Metadata",
+    summary: "Summary",
+    bodyMarkdown: "First body",
+    primaryTopicId: topic,
+    tags: [],
+    contentOwnerId: reader,
+    nextReviewAt: new Date("2027-01-01"),
+  };
+  let article = await editing.createDraft(editor, input);
+  article = await editing.publish(
+    editor,
+    article.stableId,
+    input,
+    article.updatedAt,
+  );
+  expect(
+    (await publishing.listTopicArticlesForReading(topic))[0],
+  ).toMatchObject({
+    ownerDisplayName: "reader",
+    updaterDisplayName: "editor",
+  });
+  article = await editing.beginEdit(otherEditor, article.stableId);
+  article = await editing.publish(
+    otherEditor,
+    article.stableId,
+    { ...input, bodyMarkdown: "Second body" },
+    article.updatedAt,
+  );
+  const released = (await publishing.listTopicArticlesForReading(topic))[0];
+  expect(released).toMatchObject({
+    updaterDisplayName: "发布者",
+    bodyMarkdown: "Second body",
+  });
+  article = await editing.beginEdit(editor, article.stableId);
+  await editing.saveDraft(
+    editor,
+    article.stableId,
+    { ...input, bodyMarkdown: "Unpublished" },
+    article.updatedAt,
+  );
+  expect(
+    (await publishing.listTopicArticlesForReading(topic))[0],
+  ).toMatchObject({
+    updaterDisplayName: "发布者",
+    updatedAt: released.updatedAt,
+    bodyMarkdown: "Second body",
+  });
+  const legacy = await editing.createDraft(editor, {
+    ...input,
+    title: "Legacy import",
+  });
+  await database.query(
+    "update articles set status = 'published', published_at = now() where id = $1",
+    [legacy.id],
+  );
+  const imported = (await publishing.listTopicArticlesForReading(topic)).find(
+    (row) => row.id === legacy.id,
+  );
+  expect(imported!.updaterDisplayName).toBeNull();
+});

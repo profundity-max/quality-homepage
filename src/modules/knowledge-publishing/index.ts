@@ -7,6 +7,7 @@ import type { Sql } from "postgres";
 import { createDatabaseClient } from "@/db/client";
 import {
   articles as articleRecords,
+  contentAuditEvents,
   sections,
   topics,
   users,
@@ -49,6 +50,7 @@ export type TopicReadingArticle = {
   topicName: string;
   topicStableId: string;
   ownerDisplayName: string | null;
+  updaterDisplayName: string | null;
   updatedAt: Date;
   nextReviewAt: Date | null;
 };
@@ -253,6 +255,18 @@ export function createKnowledgePublishingService(
           ownerDisplayName: sql<
             string | null
           >`coalesce(${users.displayName}, ${users.username})`,
+          // Only a completed publication changes the visible updater. Draft edits,
+          // review confirmations and historical snapshot authors are not publishers.
+          updaterDisplayName: sql<string | null>`(
+            select coalesce(nullif(updater.display_name, ''), updater.username)
+            from ${contentAuditEvents} publication
+            left join ${users} updater on updater.id = publication.actor_user_id
+            where publication.target_id = ${articles.id}::text
+              and publication.target_type = 'article'
+              and publication.event_type = 'article.publish'
+            order by publication.occurred_at desc, publication.id desc
+            limit 1
+          )`,
           updatedAt: articles.updatedAt,
           nextReviewAt: articles.nextReviewAt,
         })
