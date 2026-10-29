@@ -96,3 +96,5 @@
 5. 通过 `scripts/deploy-to-server.sh` 同步至 `quality-server`，完成部署前备份、重建及验收。
 6. 验收通过后，从本机推送 GitHub；Git 网络操作默认使用命令级 `-c http.version=HTTP/1.1`。
 7. 为该版本打标签并推送：`git tag v<版本> && git -c http.version=HTTP/1.1 push origin v<版本>`。Git 链路不可用时可通过 GitHub API 同步 Git 对象，但必须核对提交与标签目标一致。
+
+| V10.5 | 2026-10-29 | 小型修改 | 修复Next图片优化器初始化后受控图片500；书籍封面不加水印并返回原图，文章继续身份水印 | `v10.5` |

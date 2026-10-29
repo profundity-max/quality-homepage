@@ -31,6 +31,13 @@ function escapeXml(value: string) {
   );
 }
 
+/** Pango文字输入用于服务端栅格水印，不依赖会被Next图片优化器禁用的SVG解码。 */
+export function watermarkText(label: string) {
+  const prefix = "天脉品集 Q-Nexus · 内部资料";
+  const identity = label.slice(prefix.length + 3);
+  return `<span foreground="#334155" alpha="11796">${escapeXml(prefix)}\n${escapeXml(identity)}</span>`;
+}
+
 /** 身份水印只含可见会话资料；SVG 作为图片背景，身份文本必须转义。 */
 export function watermarkSvg(
   label: string,

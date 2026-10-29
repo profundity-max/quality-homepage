@@ -36,22 +36,21 @@ export async function GET(
     if (!match) return notFound();
     const [, fileId, extension] = match;
     const storage = createDiskFileStorage(resolveDataDirectory());
-    if (
-      !(await createImageService(getDatabase(), storage).canReadImage(
-        session.member.id,
-        fileId,
-        extension,
-      ))
-    )
-      return notFound();
+    const access = await createImageService(
+      getDatabase(),
+      storage,
+    ).getReadAccess(session.member.id, fileId, extension);
+    if (!access) return notFound();
     const buffer = await storage.read(fileId, extension);
     if (!buffer) return notFound();
     return new NextResponse(
       new Uint8Array(
-        await watermarkImageBytes(
-          buffer,
-          createArticleProtection(session.member).watermark,
-        ),
+        access === "book-cover"
+          ? buffer
+          : await watermarkImageBytes(
+              buffer,
+              createArticleProtection(session.member).watermark,
+            ),
       ),
       {
         headers: {

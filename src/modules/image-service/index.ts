@@ -14,7 +14,15 @@ export type UploadedImage = SavedFile & {
   byteSize: number;
 };
 
+export type ImageReadAccess = "book-cover" | "protected";
+
 export type ImageService = {
+  /** 授权与用途一起解析，封面豁免仅由服务端书目引用决定。 */
+  getReadAccess(
+    userId: string,
+    imageId: string,
+    extension?: string,
+  ): Promise<ImageReadAccess | null>;
   /** 当前成员能否读取图片；阅读者只允许当前阅读正文或书封面所引用的图片。 */
   canReadImage(
     userId: string,
@@ -58,48 +66,57 @@ export function createImageService(
 ): ImageService {
   const client = createDatabaseClient(database);
 
-  return {
-    async canReadImage(userId, imageId, extension) {
-      if (
-        !/^[0-9a-f-]{36}$/.test(imageId) ||
-        (extension && !imageExtension.test(extension))
+  async function getReadAccess(
+    userId: string,
+    imageId: string,
+    extension?: string,
+  ): Promise<ImageReadAccess | null> {
+    if (
+      !/^[0-9a-f-]{36}$/.test(imageId) ||
+      (extension && !imageExtension.test(extension))
+    )
+      return null;
+    const [member] = await client
+      .select({ role: users.role })
+      .from(users)
+      .where(and(eq(users.id, userId), isNull(users.disabledAt)))
+      .limit(1);
+    if (!member) return null;
+
+    const [cover] = await client
+      .select({ id: books.id })
+      .from(books)
+      .where(
+        and(
+          eq(books.coverImageId, imageId),
+          extension
+            ? eq(books.coverExtension, extension)
+            : sql`${books.coverExtension} in ('png', 'jpg', 'jpeg', 'gif', 'webp')`,
+        ),
       )
-        return false;
-      const [member] = await client
-        .select({ role: users.role })
-        .from(users)
-        .where(and(eq(users.id, userId), isNull(users.disabledAt)))
-        .limit(1);
-      if (!member) return false;
-      if (member.role === "editor" || member.role === "administrator")
-        return true;
+      .limit(1);
+    if (cover) return "book-cover";
+    if (member.role === "editor" || member.role === "administrator")
+      return "protected";
 
-      const [cover] = await client
-        .select({ id: books.id })
-        .from(books)
-        .where(
-          and(
-            eq(books.coverImageId, imageId),
-            extension
-              ? eq(books.coverExtension, extension)
-              : sql`${books.coverExtension} in ('png', 'jpg', 'jpeg', 'gif', 'webp')`,
-          ),
-        )
-        .limit(1);
-      if (cover) return true;
+    const candidates = await client
+      .select({ bodyMarkdown: articles.bodyMarkdown })
+      .from(articles)
+      .where(sql`${articles.bodyMarkdown} like ${`%${imageId}%`}`);
+    for (const row of candidates) {
+      if (
+        row.bodyMarkdown &&
+        (await referencesImage(row.bodyMarkdown, imageId, extension))
+      )
+        return "protected";
+    }
+    return null;
+  }
 
-      const candidates = await client
-        .select({ bodyMarkdown: articles.bodyMarkdown })
-        .from(articles)
-        .where(sql`${articles.bodyMarkdown} like ${`%${imageId}%`}`);
-      for (const row of candidates) {
-        if (
-          row.bodyMarkdown &&
-          (await referencesImage(row.bodyMarkdown, imageId, extension))
-        )
-          return true;
-      }
-      return false;
+  return {
+    getReadAccess,
+    async canReadImage(userId, imageId, extension) {
+      return (await getReadAccess(userId, imageId, extension)) !== null;
     },
 
     async uploadImage(requestingUserId, buffer, fileName) {

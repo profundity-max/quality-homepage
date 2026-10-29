@@ -147,7 +147,7 @@ describe("protected uploads HTTP boundary", () => {
     ).toBe(true);
   });
 
-  test("book cover references remain readable", async () => {
+  test("book covers return original bytes without watermark for readers and editors", async () => {
     await database.query(
       `insert into books (id, stable_id, title, author, category_id, cover_image_id, cover_extension)
       values ('00000000-0000-4000-8000-0000000000d2', 'book', 'Book', 'Author', (select id from book_categories limit 1), $1, 'png')`,
@@ -156,6 +156,34 @@ describe("protected uploads HTTP boundary", () => {
     const response = await request();
     expect(response.status).toBe(200);
     expectPrivate(response);
+    const original = await createDiskFileStorage(context.directory).read(
+      image.id,
+      "png",
+    );
+    expect(Buffer.from(await response.arrayBuffer()).equals(original!)).toBe(
+      true,
+    );
+    context.session = {
+      member: {
+        id: editorId,
+        role: "editor",
+        username: "editor",
+        displayName: "编辑",
+      },
+    };
+    const editorResponse = await request();
+    expect(editorResponse.status).toBe(200);
+    expect(
+      Buffer.from(await editorResponse.arrayBuffer()).equals(original!),
+    ).toBe(true);
+    context.session = {
+      member: {
+        id: readerId,
+        role: "reader",
+        username: "reader",
+        displayName: "阅读者",
+      },
+    };
     const alternate = await request(`${image.id}.jpg`);
     expect(alternate.status).toBe(404);
     expectPrivate(alternate);

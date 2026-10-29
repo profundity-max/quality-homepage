@@ -55,17 +55,18 @@ test("administrator updates a book and uploads a cover (BOOK-04)", async ({
   await page
     .getByLabel("编辑 演示：品质管理基础 推荐理由")
     .fill("更新后的推荐理由");
+  const cover = await (
+    await import("sharp")
+  )
+    .default({
+      create: { width: 120, height: 180, channels: 3, background: "#d8dfda" },
+    })
+    .png()
+    .toBuffer();
   await page.getByLabel("编辑 演示：品质管理基础 封面").setInputFiles({
     name: "cover.png",
     mimeType: "image/png",
-    buffer: await (
-      await import("sharp")
-    )
-      .default({
-        create: { width: 120, height: 180, channels: 3, background: "#d8dfda" },
-      })
-      .png()
-      .toBuffer(),
+    buffer: cover,
   });
   await page
     .getByRole("article", { name: "书目 演示：品质管理基础" })
@@ -80,6 +81,15 @@ test("administrator updates a book and uploads a cover (BOOK-04)", async ({
   await expect(
     page.getByRole("img", { name: "演示：品质管理基础 封面" }),
   ).toBeVisible();
+  const image = page.getByRole("img", { name: "演示：品质管理基础 封面" });
+  await expect
+    .poll(() =>
+      image.evaluate((node) => (node as HTMLImageElement).naturalWidth),
+    )
+    .toBe(120);
+  const response = await page.request.get((await image.getAttribute("src"))!);
+  expect(response.status()).toBe(200);
+  expect((await response.body()).equals(cover)).toBe(true);
 });
 
 test("category create and rename reflect on reader side; access control", async ({
