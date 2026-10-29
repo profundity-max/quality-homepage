@@ -17,6 +17,7 @@ const navigation = [
   { label: "散热知识", href: "/thermal" },
   { label: "推荐书单", href: "/books" },
   { label: "模板中心", href: "/templates" },
+  { label: "应用中心", href: "/apps" },
 ] as const;
 
 export async function PortalShell({
