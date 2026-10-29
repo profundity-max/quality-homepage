@@ -61,7 +61,8 @@ export async function GET(
         },
       },
     );
-  } catch {
+  } catch (error) {
+    console.error("Protected image response failed", error);
     return new NextResponse("Image unavailable", {
       status: 500,
       headers: privateHeaders,
