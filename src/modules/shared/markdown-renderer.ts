@@ -120,13 +120,17 @@ function annotateCallouts() {
 }
 
 function annotateHeadings() {
-  return (tree: Root) => {
+  return (tree: Root, file: { data: Record<string, unknown> }) => {
+    const prefix =
+      typeof file.data.headingPrefix === "string"
+        ? file.data.headingPrefix
+        : "";
     let counter = 0;
     visit(tree, "element", (node) => {
       const match = /^h([2-6])$/.exec(node.tagName);
       if (!match) return;
       counter += 1;
-      node.properties = { ...node.properties, id: `toc-${counter}` };
+      node.properties = { ...node.properties, id: `${prefix}toc-${counter}` };
     });
   };
 }
@@ -254,4 +258,20 @@ export async function extractRenderedResourceUrls(
     if (typeof url === "string") urls.add(url);
   });
   return [...urls];
+}
+
+/** Render one inline document and its matching TOC in one pass. */
+export async function renderReadingDocument(
+  markdown: string,
+  stableId: string,
+): Promise<{ html: string; entries: TocEntry[] }> {
+  const headingPrefix = `${stableId.replace(/[^a-zA-Z0-9_-]/g, "-")}-`;
+  const file = await processor.process({
+    value: markdown,
+    data: { headingPrefix },
+  });
+  return {
+    html: String(file),
+    entries: (file.data.tocEntries as TocEntry[] | undefined) ?? [],
+  };
 }

@@ -18,7 +18,7 @@ export default async function RootLayout({
 }) {
   const theme = await getSelectedTheme();
   return (
-    <html lang="zh-CN" data-theme={theme}>
+    <html lang="zh-CN" data-theme={theme} data-appearance="editorial">
       <body>{children}</body>
     </html>
   );

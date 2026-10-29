@@ -53,17 +53,18 @@ test("topic page shows only the article body plus owner and update time", async 
   await expect(entry).toContainText("更新");
   // 正文整篇内联
   await expect(entry).toContainText("方差分析用于比较多个组的均值差异。");
-  await expect(page.getByText("什么是 ANOVA", { exact: true })).toBeVisible();
+  await expect(
+    entry.getByRole("heading", { name: "什么是 ANOVA", exact: true }),
+  ).toBeVisible();
   // 精简掉的重复信息：栏目名、主题名、文章标题、摘要都不再出现在正文区
   await expect(page.getByText("方差分析的基础概念与适用场景。")).toHaveCount(0);
-  // 栏目名/主题名/文章标题只为屏幕阅读器保留结构，视觉上被裁掉
-  const headingIsClipped = await page
-    .locator("main > section > h1")
-    .evaluate((element) => {
-      const style = getComputedStyle(element);
-      return style.clipPath !== "none" && style.position === "absolute";
-    });
-  expect(headingIsClipped).toBe(true);
+  // 新版可见栏目与主题标题；正文内部不重复文章标题与摘要。
+  await expect(
+    page.getByRole("heading", { level: 1, name: "ANOVA", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { level: 2, name: "ANOVA 入门", exact: true }),
+  ).toBeVisible();
   // 保留进入完整阅读页（目录 / 收藏 / 反馈）的入口
   await expect(
     entry.getByRole("link", { name: "打开阅读页（目录 / 收藏 / 反馈）" }),

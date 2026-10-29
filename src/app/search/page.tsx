@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ResponsiveDisclosure } from "@/ui/responsive-disclosure";
 
 import { getDatabase } from "@/db/database";
 import {
@@ -113,63 +114,74 @@ export default async function SearchPage({
             <button type="submit">搜索</button>
           </div>
 
-          <fieldset className={styles.filters}>
-            <legend>筛选</legend>
-            <div className={styles.filterGroup}>
-              <span>内容类型</span>
-              {(["articles", "topics", "templates", "books"] as const).map(
-                (type) => (
-                  <label key={type}>
-                    <input
-                      type="checkbox"
-                      name="types"
-                      value={type}
-                      defaultChecked={types.includes(type)}
-                    />
-                    {typeNames[type]}
-                  </label>
-                ),
-              )}
+          <ResponsiveDisclosure
+            className={styles.filterDisclosure}
+            summary="筛选条件"
+          >
+            <fieldset className={styles.filters}>
+              <legend>筛选</legend>
+              <div className={styles.filterGroup}>
+                <span>内容类型</span>
+                {(["articles", "topics", "templates", "books"] as const).map(
+                  (type) => (
+                    <label key={type}>
+                      <input
+                        type="checkbox"
+                        name="types"
+                        value={type}
+                        defaultChecked={types.includes(type)}
+                      />
+                      {typeNames[type]}
+                    </label>
+                  ),
+                )}
+              </div>
+              <div className={styles.filterGroup}>
+                <label htmlFor="search-section">栏目</label>
+                <select
+                  id="search-section"
+                  name="section"
+                  defaultValue={sectionId}
+                >
+                  <option value="">全部栏目</option>
+                  {sections.map((section) => (
+                    <option key={section.id} value={section.id}>
+                      {section.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className={styles.filterGroup}>
+                <label htmlFor="search-tag">标签</label>
+                <input
+                  id="search-tag"
+                  name="tag"
+                  type="text"
+                  defaultValue={tag}
+                  placeholder="例如：统计"
+                />
+              </div>
+              <div className={styles.filterGroup}>
+                <label htmlFor="search-updated">更新时间</label>
+                <select
+                  id="search-updated"
+                  name="updated"
+                  defaultValue={updatedDays ? String(updatedDays) : ""}
+                >
+                  <option value="">不限</option>
+                  <option value="7">近 7 天</option>
+                  <option value="30">近 30 天</option>
+                  <option value="90">近 90 天</option>
+                </select>
+              </div>
+            </fieldset>
+            <div className={styles.filterActions}>
+              <button type="submit">应用筛选</button>
+              <Link href={`/search?q=${encodeURIComponent(query)}`}>
+                重置筛选
+              </Link>
             </div>
-            <div className={styles.filterGroup}>
-              <label htmlFor="search-section">栏目</label>
-              <select
-                id="search-section"
-                name="section"
-                defaultValue={sectionId}
-              >
-                <option value="">全部栏目</option>
-                {sections.map((section) => (
-                  <option key={section.id} value={section.id}>
-                    {section.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className={styles.filterGroup}>
-              <label htmlFor="search-tag">标签</label>
-              <input
-                id="search-tag"
-                name="tag"
-                type="text"
-                defaultValue={tag}
-                placeholder="例如：统计"
-              />
-            </div>
-            <div className={styles.filterGroup}>
-              <label htmlFor="search-updated">更新时间</label>
-              <select
-                id="search-updated"
-                name="updated"
-                defaultValue={updatedDays ? String(updatedDays) : ""}
-              >
-                <option value="">不限</option>
-                <option value="7">近 7 天</option>
-                <option value="30">近 30 天</option>
-                <option value="90">近 90 天</option>
-              </select>
-            </div>
-          </fieldset>
+          </ResponsiveDisclosure>
         </form>
 
         {query ? (
@@ -283,10 +295,7 @@ function ResultGroups({
           <ul>
             {groups.topics.map((hit) => (
               <li key={hit.stableId}>
-                <a
-                  href={`/quality?topic=${hit.stableId}`}
-                  className={styles.result}
-                >
+                <a href={hit.href} className={styles.result}>
                   <span className={styles.resultTitle}>
                     <HighlightText text={hit.name} query={query} />
                   </span>

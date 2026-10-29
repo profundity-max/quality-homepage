@@ -33,7 +33,7 @@
 }
 
 .notice {
-  background: rgba(0, 150, 255, 0.08);
+  background: var(--color-surface-muted);
 }
 
 .error {

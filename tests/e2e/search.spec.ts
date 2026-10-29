@@ -43,7 +43,7 @@ test("full results page filters by content type and highlights matches (SEARCH-0
   await page.getByRole("checkbox", { name: "文章" }).uncheck();
   await page.getByRole("checkbox", { name: "主题" }).uncheck();
   await page.getByRole("checkbox", { name: "书籍" }).uncheck();
-  await page.getByRole("button", { name: "搜索" }).click();
+  await page.getByRole("button", { name: "搜索", exact: true }).click();
   await expect(page).toHaveURL(/types=templates/);
   await expect(
     page.getByRole("link", { name: /演示检验记录表/ }),

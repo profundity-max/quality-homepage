@@ -8,11 +8,11 @@ body {
   background: var(--color-canvas);
   color: var(--color-text);
   font-family:
-    Helvetica,
-    Arial,
     system-ui,
     -apple-system,
     "Segoe UI",
+    "PingFang SC",
+    "Microsoft YaHei",
     sans-serif;
   font-size: 16px;
   line-height: 1.7;

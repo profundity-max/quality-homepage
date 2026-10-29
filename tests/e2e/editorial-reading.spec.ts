@@ -10,7 +10,7 @@ test.beforeEach(async ({ page }) => {
   await expect(page).toHaveURL(/\/$/);
 });
 
-test("article theme boundary follows light, dark and system without restyling home", async ({
+test("editorial theme follows light, dark and system throughout the portal", async ({
   page,
   context,
 }) => {
@@ -30,7 +30,7 @@ test("article theme boundary follows light, dark and system without restyling ho
   await page.reload();
   await expect(boundary).toHaveCSS("background-color", "rgb(23, 29, 27)");
   await page.goto("/");
-  await expect(boundary).toHaveCount(0);
+  await expect(boundary).toHaveCount(1);
 });
 
 test("adjacent links do not create an implicit mobile grid column", async ({
@@ -171,10 +171,10 @@ test("wide content scrolls locally without truncating data", async ({
   await page.goto(
     "/quality?topic=mean-sigma-distribution-ci-normal-distribution",
   );
-  await expect(page.locator('[data-design-system="editorial"]')).toHaveCount(0);
+  await expect(page.locator('[data-design-system="editorial"]')).toHaveCount(1);
   await expect(page.locator(".callout-warning .callout-title")).toHaveCSS(
     "color",
-    "rgb(154, 107, 47)",
+    "rgb(150, 103, 45)",
   );
 });
 
@@ -272,7 +272,7 @@ test("thermal article keeps its real root and long title at compact widths", asy
     .getByRole("link", { name: "传热基础" })
     .click();
   await expect(page).toHaveURL(/\/thermal\?topic=thermal-reading-fixture/);
-  await expect(page.locator('[data-design-system="editorial"]')).toHaveCount(0);
+  await expect(page.locator('[data-design-system="editorial"]')).toHaveCount(1);
 });
 
 test("reading reflows with text enlarged to 200 percent", async ({ page }) => {
@@ -303,13 +303,13 @@ test("reading reflows with text enlarged to 200 percent", async ({ page }) => {
   );
 });
 
-test("trial tokens stay out of home, inline reading and three admin views", async ({
+test("editorial theme covers home, inline reading and preserves three admin views", async ({
   page,
 }, testInfo) => {
   for (const path of ["/", "/quality?topic=anova"]) {
     await page.goto(path);
     await expect(page.locator('[data-design-system="editorial"]')).toHaveCount(
-      0,
+      1,
     );
     await page.screenshot({
       path: testInfo.outputPath(
@@ -344,7 +344,7 @@ test("trial tokens stay out of home, inline reading and three admin views", asyn
       0,
     );
     await page.screenshot({
-      path: testInfo.outputPath(`unchanged-${name}.png`),
+      path: testInfo.outputPath(`editorial-${name}.png`),
       fullPage: true,
       animations: "disabled",
     });

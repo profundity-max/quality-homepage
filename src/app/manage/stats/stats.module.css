@@ -223,7 +223,7 @@
   border-radius: 8px;
   text-decoration: none;
   background: var(--admin-primary);
-  color: white !important;
+  color: var(--admin-primary-text) !important;
   border: 0;
   min-height: 40px;
   white-space: nowrap;

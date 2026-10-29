@@ -213,3 +213,15 @@
     animation: none;
   }
 }
+.introduction h1 {
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+.form {
+  border-radius: 0.75rem;
+  box-shadow: none;
+}
+.form input:not([type="hidden"]):not([type="checkbox"]) {
+  border-color: var(--color-control-border);
+}

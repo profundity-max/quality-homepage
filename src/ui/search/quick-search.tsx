@@ -18,12 +18,15 @@ type SearchItem = {
   href: string;
 };
 
-export function QuickSearch() {
+export function QuickSearch({ compact = false }: { compact?: boolean }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [groups, setGroups] = useState<SearchGroups | null>(null);
   const [loading, setLoading] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const [retry, setRetry] = useState(0);
+  const openerRef = useRef<HTMLElement | null>(null);
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -45,7 +48,7 @@ export function QuickSearch() {
         type: "topic" as const,
         label: hit.name,
         detail: hit.sectionName,
-        href: `/quality?topic=${hit.stableId}`,
+        href: hit.href,
       })),
       ...groups.templates.map((hit) => ({
         type: "template" as const,
@@ -65,20 +68,41 @@ export function QuickSearch() {
   const openAt = useCallback(
     (index: number) => {
       const item = items[index];
-      if (item) router.push(item.href);
+      if (item) {
+        setOpen(false);
+        router.push(item.href);
+      }
     },
     [items, router],
   );
 
   const closeSearch = useCallback(() => {
     setOpen(false);
-    requestAnimationFrame(() => triggerRef.current?.focus());
+    requestAnimationFrame(() => {
+      const target = openerRef.current;
+      if (
+        target?.isConnected &&
+        target !== document.body &&
+        target !== document.documentElement &&
+        target.getClientRects().length
+      )
+        target.focus();
+      else if (triggerRef.current?.getClientRects().length)
+        triggerRef.current.focus();
+      else document.querySelector<HTMLElement>("#main-content")?.focus();
+    });
   }, []);
 
   useEffect(() => {
     const handleShortcut = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
+        openerRef.current = document.activeElement as HTMLElement;
+        document
+          .querySelector<HTMLDetailsElement>(
+            'details[aria-label="移动端主导航"]',
+          )
+          ?.removeAttribute("open");
         setOpen(true);
       }
     };
@@ -90,6 +114,15 @@ export function QuickSearch() {
     if (!open) return;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+    const previousInert = [...document.body.children]
+      .filter(
+        (node): node is HTMLElement =>
+          node instanceof HTMLElement && !node.contains(panelRef.current),
+      )
+      .map((node) => ({ node, inert: node.inert }));
+    previousInert.forEach(({ node }) => {
+      node.inert = true;
+    });
     inputRef.current?.focus();
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -116,38 +149,59 @@ export function QuickSearch() {
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
       document.body.style.overflow = previousOverflow;
+      previousInert.forEach(({ node, inert }) => {
+        node.inert = inert;
+      });
     };
   }, [closeSearch, open]);
 
   useEffect(() => {
-    window.clearTimeout(debounceRef.current);
     if (!open || query.trim().length === 0) return;
+    const controller = new AbortController();
+    let current = true;
     debounceRef.current = setTimeout(async () => {
       try {
         const response = await fetch(
           `/api/search/quick?q=${encodeURIComponent(query)}`,
+          { signal: controller.signal },
         );
-        if (response.ok) {
-          setGroups((await response.json()) as SearchGroups);
-          setSelectedIndex(0);
+        if (!response.ok) throw new Error("Search unavailable");
+        const result = (await response.json()) as SearchGroups;
+        if (current) {
+          setGroups(result);
+          setSelectedIndex(-1);
         }
       } catch {
-        setGroups(null);
+        if (current) {
+          setGroups(null);
+          setFailed(true);
+        }
       } finally {
-        setLoading(false);
+        if (current) setLoading(false);
       }
     }, 250);
-    return () => window.clearTimeout(debounceRef.current);
-  }, [open, query]);
+    return () => {
+      current = false;
+      controller.abort();
+      window.clearTimeout(debounceRef.current);
+    };
+  }, [open, query, retry]);
 
   const total = items.length;
 
   function moveSelection(delta: number) {
     if (total === 0) return;
-    setSelectedIndex((current) => (current + delta + total) % total);
+    setSelectedIndex((current) =>
+      current < 0
+        ? delta > 0
+          ? 0
+          : total - 1
+        : (current + delta + total) % total,
+    );
   }
 
   function handleKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
+    if (event.nativeEvent.isComposing || event.keyCode === 229) return;
     if (event.key === "ArrowDown") {
       event.preventDefault();
       moveSelection(1);
@@ -160,6 +214,7 @@ export function QuickSearch() {
       if (selectedIndex >= 0 && selectedIndex < total) {
         openAt(selectedIndex);
       } else if (trimmed) {
+        setOpen(false);
         router.push(`/search?q=${encodeURIComponent(trimmed)}`);
       }
     }
@@ -168,6 +223,9 @@ export function QuickSearch() {
   function handleQueryChange(event: React.ChangeEvent<HTMLInputElement>) {
     const value = event.target.value;
     setQuery(value);
+    setGroups(null);
+    setSelectedIndex(-1);
+    setFailed(false);
     if (value.trim().length === 0) {
       setGroups(null);
       setSelectedIndex(-1);
@@ -202,12 +260,21 @@ export function QuickSearch() {
       <button
         ref={triggerRef}
         type="button"
-        className={styles.launcher}
-        onClick={() => setOpen(true)}
+        className={compact ? styles.iconLauncher : styles.launcher}
+        aria-label="搜索知识"
+        onClick={() => {
+          openerRef.current = triggerRef.current;
+          document
+            .querySelector<HTMLDetailsElement>(
+              'details[aria-label="移动端主导航"]',
+            )
+            ?.removeAttribute("open");
+          setOpen(true);
+        }}
       >
         <Search aria-hidden="true" size={19} strokeWidth={1.8} />
-        <span className={styles.launcherLabel}>搜索知识</span>
-        <span className={styles.shortcut} aria-hidden="true">
+        {!compact && <span className={styles.launcherLabel}>搜索知识</span>}
+        <span className={styles.shortcut} aria-hidden="true" hidden={compact}>
           <kbd>⌘ K</kbd>
           <span>/</span>
           <kbd>Ctrl K</kbd>
@@ -244,7 +311,26 @@ export function QuickSearch() {
                   </button>
                 </div>
 
-                {loading ? <p className={styles.status}>正在搜索…</p> : null}
+                {loading ? (
+                  <p className={styles.status} role="status">
+                    正在搜索…
+                  </p>
+                ) : null}
+                {failed && !loading && (
+                  <div className={styles.status} role="alert">
+                    <p>搜索暂时不可用，请重试。</p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLoading(true);
+                        setFailed(false);
+                        setRetry((value) => value + 1);
+                      }}
+                    >
+                      重试
+                    </button>
+                  </div>
+                )}
 
                 {!loading && query.trim().length === 0 ? (
                   <p className={styles.status}>输入关键词开始搜索。</p>
@@ -285,7 +371,7 @@ export function QuickSearch() {
                                           ? styles.selected
                                           : undefined
                                       }
-                                      aria-selected={index === selectedIndex}
+                                      onClick={() => setOpen(false)}
                                       href={item.href}
                                       onMouseEnter={() =>
                                         setSelectedIndex(index)

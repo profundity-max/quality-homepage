@@ -52,6 +52,7 @@ export type ArticleHit = {
 
 export type TopicHit = {
   kind: "topic";
+  href: string;
   stableId: string;
   name: string;
   sectionName: string;
@@ -401,6 +402,7 @@ export function createSearchService(database: PGlite | Sql): SearchService {
         stableId: topics.stableId,
         name: topics.name,
         sectionName: sections.name,
+        sectionId: sections.id,
       })
       .from(topics)
       .innerJoin(sections, eq(topics.sectionId, sections.id))
@@ -458,8 +460,28 @@ export function createSearchService(database: PGlite | Sql): SearchService {
       )
       .slice(0, limit);
 
+    const sectionRows = await client
+      .select({
+        id: sections.id,
+        parentId: sections.parentId,
+        stableId: sections.stableId,
+      })
+      .from(sections);
+    const byId = new Map(sectionRows.map((section) => [section.id, section]));
+    function entryPath(sectionId: string): string {
+      let section = byId.get(sectionId);
+      const visited = new Set<string>();
+      while (section && !visited.has(section.id)) {
+        if (section.stableId === "thermal-knowledge") return "/thermal";
+        if (section.stableId === "quality-knowledge") return "/quality";
+        visited.add(section.id);
+        section = section.parentId ? byId.get(section.parentId) : undefined;
+      }
+      return "/quality";
+    }
     return ranked.map(({ row, matchedAlias }) => ({
       kind: "topic" as const,
+      href: `${entryPath(row.sectionId)}?topic=${encodeURIComponent(row.stableId)}`,
       stableId: row.stableId,
       name: row.name,
       sectionName: row.sectionName,

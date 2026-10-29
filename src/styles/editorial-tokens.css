@@ -1,4 +1,4 @@
-[data-design-system="editorial"] {
+:is([data-design-system="editorial"], :root[data-appearance="editorial"]) {
   --color-canvas: #faf9f6;
   --color-surface: #ffffff;
   --color-surface-muted: #edf2ee;
@@ -10,6 +10,8 @@
   --color-accent-active: #0d3d39;
   --color-accent-foreground: #ffffff;
   --color-link: var(--color-accent);
+  --color-surface-hover: var(--color-surface-muted);
+  --color-accent-soft: var(--color-surface-muted);
   --color-divider: #d8dfda;
   --color-border: var(--color-divider);
   --color-control-border: #7a8982;
@@ -31,6 +33,7 @@
   color-scheme: light;
 }
 
+:root[data-theme="dark"][data-appearance="editorial"],
 :root[data-theme="dark"] [data-design-system="editorial"] {
   --color-canvas: #171d1b;
   --color-surface: #202825;
@@ -54,6 +57,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
+  :root[data-theme="system"][data-appearance="editorial"],
   :root[data-theme="system"] [data-design-system="editorial"] {
     --color-canvas: #171d1b;
     --color-surface: #202825;
@@ -77,13 +81,14 @@
   }
 }
 
-[data-design-system="editorial"] :focus-visible {
+:is([data-design-system="editorial"], :root[data-appearance="editorial"])
+  :focus-visible {
   outline: 3px solid var(--color-focus);
   outline-offset: 3px;
 }
 
 @media (max-width: 1199px) {
-  [data-design-system="editorial"] {
+  :is([data-design-system="editorial"], :root[data-appearance="editorial"]) {
     --reading-header-offset: 5.5rem;
   }
 }

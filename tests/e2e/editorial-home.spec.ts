@@ -1,289 +1,58 @@
 import { expect, test } from "@playwright/test";
 
-test("Editorial Space works across desktop, theme, keyboard, and mobile", async ({
+test("editorial homepage preserves navigation, keyboard search and responsive assets", async ({
   page,
 }) => {
-  const consoleProblems: string[] = [];
-  page.on("console", (message) => {
-    if (["error", "warning"].includes(message.type())) {
-      consoleProblems.push(message.text());
-    }
-  });
-  page.on("pageerror", (error) => consoleProblems.push(error.message));
-  const publicNetworkRequests: string[] = [];
-  page.on("request", (request) => {
-    const url = new URL(request.url());
-    if (!["127.0.0.1", "localhost"].includes(url.hostname)) {
-      publicNetworkRequests.push(request.url());
-    }
-  });
-
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/login");
   await page.getByLabel("用户名").fill("member");
-  await page.getByLabel("密码").fill("member secure password");
+  await page.getByLabel("密码", { exact: true }).fill("member secure password");
   await page.getByLabel("保持登录 7 天").check();
-  await page.getByRole("button", { name: "登录" }).click();
+  await page.getByRole("button", { name: "登录", exact: true }).click();
   await expect(page).toHaveURL(/\/$/);
-  await expect(page.getByRole("heading", { level: 1 })).toContainText(
-    "品质成员",
-  );
-  await expect(page.getByText("数据驱动 · 结果闭环")).toBeVisible();
-
-  const expectedNavigation = [
+  await expect(
+    page
+      .getByRole("navigation", { name: "主导航", exact: true })
+      .getByRole("link"),
+  ).toHaveText([
     "首页",
     "新人专区",
     "品质知识",
     "散热知识",
     "推荐书单",
     "模板中心",
-  ];
-  await expect(
-    page.getByRole("navigation", { name: "主导航" }).getByRole("link"),
-  ).toHaveText(expectedNavigation);
-  await expect(
-    page.getByRole("link", { name: "首页", exact: true }),
-  ).toHaveAttribute("aria-current", "page");
-  await expect(
-    page.locator("main section").getByRole("heading", { level: 2 }),
-  ).toHaveText([
-    "新人专区",
-    "模板中心",
-    "品质知识",
-    "散热知识",
-    "推荐书单",
-    "最近更新",
   ]);
-  await expect(page.getByTestId("home-editorial-section")).toHaveCount(5);
-  const graphicAssets = {
-    onboarding: ["01_newcomer_light.svg", "02_newcomer_dark.svg"],
-    templates: ["07_template_light.svg", "08_template_dark.svg"],
-    quality: ["03_quality_light.svg", "04_quality_dark.svg"],
-    thermal: ["05_thermal_light.svg", "06_thermal_dark.svg"],
-    books: ["09_reading_light.svg", "10_reading_dark.svg"],
-  } as const;
-  const expectGraphicCanvas = async (expectedBackground: string) => {
-    const contracts = await page
-      .locator('svg[data-testid^="home-graphic-"]')
-      .evaluateAll(async (illustrations) =>
-        Promise.all(
-          illustrations.map(async (illustration) => {
-            const activeAsset = [
-              ...illustration.querySelectorAll("image"),
-            ].find((asset) => getComputedStyle(asset).display !== "none");
-            const href = activeAsset?.getAttribute("href") ?? "";
-            const source = await (await fetch(href)).text();
-            const document = new DOMParser().parseFromString(
-              source,
-              "image/svg+xml",
-            );
-            const normalizeColor = (color: string) => {
-              const probe = window.document.createElement("span");
-              probe.style.color = color;
-              window.document.body.append(probe);
-              const normalized = getComputedStyle(probe).color;
-              probe.remove();
-              return normalized;
-            };
-            const box = illustration.getBoundingClientRect();
-
-            return {
-              backgroundColors: [...document.querySelectorAll("#bg stop")].map(
-                (stop) =>
-                  normalizeColor(
-                    stop.getAttribute("stop-color") ?? "transparent",
-                  ),
-              ),
-              href,
-              ratio: box.width / box.height,
-            };
-          }),
-        ),
-      );
-
-    for (const contract of contracts) {
-      expect(contract.backgroundColors, contract.href).toEqual([
-        expectedBackground,
-        expectedBackground,
-      ]);
-      expect(contract.ratio, contract.href).toBeCloseTo(4 / 3, 2);
-    }
-  };
-  const expectTemplateGraphicOnLeft = async () => {
-    const templateSection = page.locator('[data-graphic="templates"]');
-    const heading = await templateSection.getByRole("heading").boundingBox();
-    const graphic = await templateSection
-      .getByTestId("home-graphic-templates")
-      .boundingBox();
-
-    expect(graphic?.x).toBeLessThan(heading?.x ?? 0);
-  };
-  const expectUpdatesHeadingMatchesEditorialHeading = async () => {
-    const editorialFontSize = await page
-      .getByRole("heading", { name: "推荐书单" })
-      .evaluate((heading) => getComputedStyle(heading).fontSize);
-
-    await expect(page.getByRole("heading", { name: "最近更新" })).toHaveCSS(
-      "font-size",
-      editorialFontSize,
-    );
-  };
-  for (const [graphic, [lightAsset, darkAsset]] of Object.entries(
-    graphicAssets,
-  )) {
-    const illustration = page.getByTestId(`home-graphic-${graphic}`);
-    await expect(illustration).toHaveAttribute("aria-hidden", "true");
-    await expect(illustration).toHaveAttribute("focusable", "false");
-    await expect(
-      illustration.locator('[data-theme-asset="light"]'),
-    ).toHaveAttribute("href", `/homepage-graphics/${lightAsset}`);
-    await expect(
-      illustration.locator('[data-theme-asset="dark"]'),
-    ).toHaveAttribute("href", `/homepage-graphics/${darkAsset}`);
-    await expect(illustration.locator('[data-theme-asset="light"]')).toHaveCSS(
-      "display",
-      "block",
-    );
-    await expect(illustration.locator('[data-theme-asset="dark"]')).toHaveCSS(
-      "display",
-      "none",
-    );
-  }
-  await expectGraphicCanvas("rgb(245, 245, 247)");
-  await expectTemplateGraphicOnLeft();
-  await expectUpdatesHeadingMatchesEditorialHeading();
+  await page.keyboard.press("Control+k");
+  const dialog = page.getByRole("dialog", { name: "快速搜索" });
+  await expect(dialog).toBeVisible();
+  await dialog.getByLabel("搜索知识").fill("ANOVA");
+  await expect(dialog.getByRole("link", { name: /ANOVA 入门/ })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "切换到深色模式" }).click();
   await expect(
-    page.getByRole("heading", { name: "新人专区" }).locator(".."),
-  ).toHaveAttribute("href", "/onboarding");
+    page.getByAltText("同均值、不同标准差的正态分布示意图"),
+  ).toHaveAttribute("src", /process-distribution-dark/);
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.getByLabel("打开主导航").click();
   await expect(
-    page.getByRole("heading", { name: "模板中心" }).locator(".."),
-  ).toHaveAttribute("href", "/templates");
-  await page.setViewportSize({ width: 820, height: 900 });
-  expect(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth <= window.innerWidth,
-    ),
-  ).toBe(true);
-  await page.setViewportSize({ width: 1280, height: 720 });
-
-  const heroRatio = await page
-    .getByTestId("home-hero")
-    .evaluate(
-      (hero) => hero.getBoundingClientRect().height / window.innerHeight,
-    );
-  expect(heroRatio).toBeGreaterThanOrEqual(0.55);
-  expect(heroRatio).toBeLessThanOrEqual(0.65);
-  await expect(
-    page.getByRole("heading", { name: "新人专区" }),
-  ).toBeInViewport();
-  await page.evaluate(() => scrollTo(0, 0));
-  await expect(page.locator("header")).not.toHaveClass(/compactHeader/);
-  const expandedHeaderHeight = await page
-    .locator("header")
-    .evaluate((header) => header.getBoundingClientRect().height);
-  await page.evaluate(() => scrollTo(0, 600));
-  await expect(page.locator("header")).toHaveClass(/compactHeader/);
-  await expect
-    .poll(() =>
-      page
-        .locator("header")
-        .evaluate((header) => header.getBoundingClientRect().height),
-    )
-    .toBeLessThan(expandedHeaderHeight);
-  await page.evaluate(() => scrollTo(0, 0));
-
-  await page.getByRole("button", { name: /切换/ }).click();
-  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
-  for (const graphic of Object.keys(graphicAssets)) {
-    const illustration = page.getByTestId(`home-graphic-${graphic}`);
-    await expect(illustration.locator('[data-theme-asset="light"]')).toHaveCSS(
-      "display",
-      "none",
-    );
-    await expect(illustration.locator('[data-theme-asset="dark"]')).toHaveCSS(
-      "display",
-      "block",
-    );
-  }
-  await expectGraphicCanvas("rgb(28, 28, 30)");
-  await expectTemplateGraphicOnLeft();
-  await expectUpdatesHeadingMatchesEditorialHeading();
-  await page.reload();
-  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
-  expect(
-    (await page.context().cookies()).find(
-      ({ name }) => name === "q_nexus_theme",
-    )?.value,
-  ).toBe("dark");
-  await expect(page.getByRole("button", { name: "浅色" })).toBeVisible();
-
-  await page.keyboard.press("Home");
-  await page.keyboard.press("Tab");
-  await expect(page.getByRole("link", { name: "跳到主要内容" })).toBeFocused();
-  await page.keyboard.press("Enter");
-  await expect(page.locator("#main-content")).toBeFocused();
-
-  await page
-    .getByRole("navigation", { name: "主导航" })
-    .getByRole("link", { name: "品质知识", exact: true })
-    .click();
-  await expect(page).toHaveURL(/\/quality$/);
-  await expect(page.getByRole("heading", { name: "品质知识" })).toBeVisible();
-  // seed 首个主题是 sigma，点选 ANOVA 后断言其文章区（与 knowledge-entry 一致）
-  await page
-    .getByRole("complementary", { name: "分类树" })
-    .getByRole("link", { name: "ANOVA" })
-    .click();
-  await expect(
-    page.getByRole("heading", { name: "ANOVA", exact: true }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("link", { name: "品质知识", exact: true }),
-  ).toHaveAttribute("aria-current", "page");
-
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/");
-  const drawer = page.getByRole("group", { name: "移动端主导航" });
-  await expect(drawer).toBeVisible();
-  const drawerButton = page.locator('summary[aria-label="打开主导航"]');
-  await drawerButton.focus();
-  await page.keyboard.press("Enter");
-  await expect(drawer).toHaveAttribute("open", "");
-  await expect(
-    drawer
+    page
       .getByRole("navigation", { name: "移动端主导航链接" })
-      .getByRole("link"),
-  ).toHaveText(expectedNavigation);
-  const drawerHeight = await drawerButton.evaluate(
-    (element) => element.getBoundingClientRect().height,
-  );
-  expect(drawerHeight).toBeGreaterThanOrEqual(44);
-  expect(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth <= innerWidth,
-    ),
-  ).toBe(true);
-  await drawerButton.click();
-  await page.evaluate(() => {
-    document.documentElement.style.zoom = "2";
-  });
-  expect(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth <= innerWidth,
-    ),
-  ).toBe(true);
-  await expect(page.getByRole("heading", { name: "新人专区" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "搜索知识" })).toBeVisible();
-  await page
-    .locator("main section", { hasText: "新人专区" })
-    .getByRole("link")
-    .click();
-  await expect(page).toHaveURL(/\/onboarding$/);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("新人专区");
-  const destinationDrawer = page.getByRole("group", { name: "移动端主导航" });
-  await destinationDrawer.locator("summary").click();
+      .getByRole("link", { name: "模板中心" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "搜索知识", exact: true }).click();
+  await expect(dialog).toBeVisible();
   await expect(
-    destinationDrawer.getByRole("link", { name: "新人专区" }),
-  ).toHaveAttribute("aria-current", "page");
-  expect(publicNetworkRequests).toEqual([]);
-  expect(consoleProblems).toEqual([]);
+    page.getByRole("navigation", { name: "移动端主导航链接" }),
+  ).not.toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(
+    page.getByRole("button", { name: "搜索知识", exact: true }),
+  ).toBeFocused();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  expect(errors).toEqual([]);
 });

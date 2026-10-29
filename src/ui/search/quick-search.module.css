@@ -244,3 +244,27 @@
     transition: none;
   }
 }
+.iconLauncher {
+  display: inline-flex;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem;
+  border: 0;
+  background: transparent;
+  color: var(--color-text);
+  cursor: pointer;
+}
+.shortcut[hidden] {
+  display: none;
+}
+.status button {
+  min-height: 2.75rem;
+  padding: 0.5rem 1rem;
+  background: var(--color-accent);
+  color: var(--color-accent-foreground);
+  border: 0;
+  border-radius: 0.5rem;
+  cursor: pointer;
+}

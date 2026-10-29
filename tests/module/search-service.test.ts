@@ -10,6 +10,7 @@ import {
   searchAggregates,
   searchEvents,
   templateVersions,
+  topics,
   templates,
   users,
 } from "@/db/schema";
@@ -176,6 +177,38 @@ describe("search service", () => {
     database = new PGlite();
     await migrate(database);
     await seedDatabase(database);
+  });
+
+  test("topic results link to the actual knowledge entry", async () => {
+    const client = createDatabaseClient(database);
+    await client.insert(topics).values({
+      id: "00000000-0000-4000-8000-000000000c99",
+      stableId: "thermal-test",
+      sectionId: "00000000-0000-4000-8000-0000000000b7",
+      name: "传热检索测试",
+      sortOrder: 99,
+      createdAt: NOW,
+    });
+    await client.insert(articles).values({
+      id: "00000000-0000-4000-8000-000000000d99",
+      stableId: "thermal-test-article",
+      title: "传热检索测试文章",
+      summary: "热学",
+      bodyMarkdown: "## 传热",
+      primaryTopicId: "00000000-0000-4000-8000-000000000c99",
+      contentOwnerId: READER_ID,
+      status: "published",
+      nextReviewAt: NOW,
+      createdAt: NOW,
+      updatedAt: NOW,
+    });
+    const service = createSearchService(database);
+    const thermal = await service.fullSearch("传热检索测试");
+    expect(thermal.topics[0]).toMatchObject({
+      href: "/thermal?topic=thermal-test",
+    });
+    const quality = await service.fullSearch("ANOVA");
+    expect(quality.topics[0]).toMatchObject({ href: "/quality?topic=anova" });
   });
 
   afterEach(async () => {

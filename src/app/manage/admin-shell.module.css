@@ -1,6 +1,6 @@
 .shell {
-  --admin-primary: #1d4ed8;
-  --admin-primary-text: #fff;
+  --admin-primary: var(--color-accent);
+  --admin-primary-text: var(--color-accent-foreground);
   min-height: 100vh;
   font-size: 14px;
 }
@@ -10,8 +10,8 @@
   width: 224px;
   display: flex;
   flex-direction: column;
-  background: #152238;
-  color: #e5ebf3;
+  background: var(--color-surface);
+  color: var(--color-text);
   z-index: 30;
 }
 .brand {
@@ -20,11 +20,11 @@
   flex-shrink: 0;
   min-height: 72px;
   padding: 0 22px;
-  color: white;
+  color: var(--color-text);
   text-decoration: none;
   font-size: 21px;
   font-weight: 700;
-  border-bottom: 1px solid #304057;
+  border-bottom: 1px solid var(--color-divider);
   white-space: nowrap;
 }
 .navigation {
@@ -38,7 +38,7 @@
   margin: 0 14px 8px;
   font-size: 12px;
   font-weight: 500;
-  color: #a9b8cd;
+  color: var(--color-text-muted);
 }
 .group a {
   display: flex;
@@ -46,16 +46,16 @@
   gap: 12px;
   padding: 10px 14px;
   border-radius: 7px;
-  color: #d9e2ef;
+  color: var(--color-text-secondary);
   text-decoration: none;
   line-height: 1.5;
 }
 .group a:hover {
-  background: #253a58;
+  background: var(--color-surface-muted);
 }
 .group a[aria-current] {
-  background: #234b8c;
-  color: #fff;
+  background: var(--color-accent);
+  color: var(--color-accent-foreground);
   font-weight: 600;
 }
 .group svg {
@@ -67,8 +67,8 @@
   gap: 12px;
   margin: auto 14px 0;
   padding: 18px 10px;
-  border-top: 1px solid #304057;
-  color: #e5ebf3;
+  border-top: 1px solid var(--color-divider);
+  color: var(--color-text);
   text-decoration: none;
 }
 .workspace {
@@ -158,8 +158,8 @@
     display: block;
     margin: 12px 20px 0;
     padding: 10px 14px;
-    background: #152238;
-    color: #e5ebf3;
+    background: var(--color-surface);
+    color: var(--color-text);
     border-radius: 8px;
   }
   .mobileNav summary {
@@ -167,7 +167,7 @@
     min-height: 24px;
   }
   .mobileNav a {
-    color: #e5ebf3;
+    color: var(--color-text);
   }
   .mobileNav nav {
     display: grid;

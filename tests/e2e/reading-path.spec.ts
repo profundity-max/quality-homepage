@@ -15,8 +15,8 @@ test("full reading path: home → entry → tree → topic → article → recen
 
   // 首页 → 品质知识入口
   await page
-    .locator("main section", { hasText: "品质知识" })
-    .getByRole("link")
+    .getByTestId("home-hero")
+    .getByRole("link", { name: "探索品质知识" })
     .click();
   await expect(page).toHaveURL(/\/quality$/);
 
@@ -94,14 +94,15 @@ test("full reading path survives 390px width (common definition)", async ({
 
   // 首页入口在窄屏可用
   await page
-    .locator("main section", { hasText: "品质知识" })
-    .getByRole("link")
+    .getByTestId("home-hero")
+    .getByRole("link", { name: "探索品质知识" })
     .click();
   await expect(page).toHaveURL(/\/quality$/);
   // 分类树与正文在窄屏堆叠可用
   await expect(
     page.getByRole("complementary", { name: "分类树" }),
   ).toBeVisible();
+  await page.getByText(/分类导航 ·/).click();
   // seed 首个主题是 sigma，先点选 ANOVA 主题
   await page
     .getByRole("complementary", { name: "分类树" })

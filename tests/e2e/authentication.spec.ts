@@ -418,7 +418,10 @@ test("identity lifecycle protects lockout, sessions, revocation, and disabled ac
   await mobilePage.getByLabel("确认新密码").fill("lasting mobile password");
   await mobilePage.getByRole("button", { name: "更新密码" }).click();
   await expect(
-    mobilePage.getByRole("heading", { name: "移动品质成员" }),
+    mobilePage.getByRole("heading", {
+      level: 1,
+      name: /从数据可信，\s*到过程受控/,
+    }),
   ).toBeVisible();
 
   const themeDrawer = await openMobileDrawer(mobilePage);
@@ -432,7 +435,10 @@ test("identity lifecycle protects lockout, sessions, revocation, and disabled ac
   await mobilePage.getByLabel("密码").fill("lasting mobile password");
   await mobilePage.getByRole("button", { name: "登录" }).click();
   await expect(
-    mobilePage.getByRole("heading", { name: "移动品质成员" }),
+    mobilePage.getByRole("heading", {
+      level: 1,
+      name: /从数据可信，\s*到过程受控/,
+    }),
   ).toBeVisible();
   await logoutFromMobile(mobilePage);
 
@@ -480,7 +486,10 @@ test("identity lifecycle protects lockout, sessions, revocation, and disabled ac
   await mobilePage.getByLabel("密码").fill("lasting mobile password");
   await mobilePage.getByRole("button", { name: "登录" }).click();
   await expect(
-    mobilePage.getByRole("heading", { name: "移动品质成员" }),
+    mobilePage.getByRole("heading", {
+      level: 1,
+      name: /从数据可信，\s*到过程受控/,
+    }),
   ).toBeVisible();
   await logoutFromMobile(mobilePage);
   await mobileContext.close();

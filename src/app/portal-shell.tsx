@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { Menu } from "lucide-react";
+import { QuickSearch } from "@/ui/search/quick-search";
 import { AdminShell } from "./manage/admin-shell";
 
 import { logoutAction } from "./actions";
@@ -20,7 +22,7 @@ const navigation = [
 export async function PortalShell({
   currentPath,
   children,
-  designSystem,
+  designSystem = "editorial",
 }: {
   currentPath: string;
   children: React.ReactNode;
@@ -56,21 +58,22 @@ export async function PortalShell({
         compactClassName={styles.compactHeader}
         shrink={!designSystem}
       >
-        <Link className={styles.brand} href="/">
-          品集｜Q Nexus
+        <Link className={styles.brand} href="/" aria-label="品集｜Q Nexus">
+          <span>品集｜Q Nexus</span>
+          <small>Better quality</small>
         </Link>
         <nav className={styles.desktopNavigation} aria-label="主导航">
           <NavigationLinks currentPath={currentPath} />
         </nav>
+        <div className={styles.quickSearch}>
+          <QuickSearch compact />
+        </div>
         <div className={styles.tools}>
           {canManage ? (
             <Link className={styles.searchLink} href="/manage">
               管理
             </Link>
           ) : null}
-          <Link className={styles.searchLink} href="/search">
-            搜索
-          </Link>
           <Link className={styles.searchLink} href="/favorites">
             收藏
           </Link>
@@ -82,7 +85,10 @@ export async function PortalShell({
           </form>
         </div>
         <details className={styles.mobileNavigation} aria-label="移动端主导航">
-          <summary aria-label="打开主导航">菜单</summary>
+          <summary aria-label="打开主导航">
+            <Menu size={20} aria-hidden="true" />
+            菜单
+          </summary>
           <div className={styles.drawer}>
             <nav aria-label="移动端主导航链接">
               <NavigationLinks currentPath={currentPath} />
@@ -117,7 +123,12 @@ export async function PortalShell({
 function NavigationLinks({ currentPath }: { currentPath: string }) {
   return navigation.map(({ label, href }) => (
     <Link
-      aria-current={currentPath === href ? "page" : undefined}
+      aria-current={
+        currentPath === href ||
+        (href !== "/" && currentPath.startsWith(`${href}/`))
+          ? "page"
+          : undefined
+      }
       href={href}
       key={href}
     >

@@ -1,14 +1,16 @@
 import Link from "next/link";
+import { ResponsiveDisclosure } from "@/ui/responsive-disclosure";
 import { ReadingTracker } from "@/ui/reading-tracker";
 import { notFound } from "next/navigation";
 
 import { getDatabase } from "@/db/database";
 import { createKnowledgePublishingService } from "@/modules/knowledge-publishing";
 import type { SectionNode, TopicSummary } from "@/modules/knowledge-publishing";
-import { renderMarkdown } from "@/modules/shared/markdown-renderer";
+import { renderReadingDocument } from "@/modules/shared/markdown-renderer";
 import { ArticleProtection } from "@/ui/article-protection";
 import { createArticleProtection } from "@/modules/content-protection";
 
+import { ArticleToc } from "@/ui/article-toc";
 import { ArticleBody } from "@/ui/article-body";
 
 import { requirePortalSession } from "./authorization";
@@ -68,8 +70,38 @@ export async function KnowledgeEntryPage({
   const articles = await Promise.all(
     topicArticles.map(async (article) => ({
       ...article,
-      bodyHtml: await renderMarkdown(article.bodyMarkdown),
+      document: await renderReadingDocument(
+        article.bodyMarkdown,
+        article.stableId,
+      ),
     })),
+  );
+
+  const entries = articles.flatMap((article) => [
+    { id: `article-${article.stableId}`, depth: 2, text: article.title },
+    ...article.document.entries,
+  ]);
+
+  const navigation = (
+    <ul className={styles.treeList}>
+      {section.children.map((child) => (
+        <TreeSection
+          key={child.id}
+          section={child}
+          sectionPath={destinationPath}
+          selectedTopicStableId={selectedTopic?.stableId}
+        />
+      ))}
+      {section.topics.map((topic) => (
+        <li key={topic.id}>
+          <TopicLink
+            sectionPath={destinationPath}
+            topic={topic}
+            selected={topic.stableId === selectedTopic?.stableId}
+          />
+        </li>
+      ))}
+    </ul>
   );
 
   return (
@@ -77,67 +109,75 @@ export async function KnowledgeEntryPage({
       <main id="main-content" tabIndex={-1} className={styles.layout}>
         <aside className={styles.tree} aria-label="分类树">
           <h2 className={styles.treeHeading}>栏目</h2>
-          <ul className={styles.treeList}>
-            {section.children.map((child) => (
-              <TreeSection
-                key={child.id}
-                section={child}
-                sectionPath={destinationPath}
-                selectedTopicStableId={selectedTopic?.stableId}
-              />
-            ))}
-            {section.topics.map((topic) => (
-              <li key={topic.id}>
-                <TopicLink
-                  sectionPath={destinationPath}
-                  topic={topic}
-                  selected={topic.stableId === selectedTopic?.stableId}
-                />
-              </li>
-            ))}
-          </ul>
+          <ResponsiveDisclosure
+            className={styles.treeDisclosure}
+            summary={`分类导航 · ${selectedTopic?.name ?? section.name}`}
+          >
+            {navigation}
+          </ResponsiveDisclosure>
         </aside>
 
         <section className={styles.content}>
           <ReadingTracker />
-          {/* 栏目名与主题名已经由顶部导航和左侧分类树表达，
-              这里只给屏幕阅读器保留结构，正文直接铺开（IA-01 精简）。 */}
-          <h1 className={styles.visuallyHidden}>{section.name}</h1>
+          <p className={styles.eyebrow}>知识库 / {section.name}</p>
+          <h1 className={styles.pageTitle}>
+            {selectedTopic?.name ?? section.name}
+          </h1>
           {selectedTopic ? (
             <>
-              <h2 className={styles.visuallyHidden}>{selectedTopic.name}</h2>
-              {articles.length > 0 ? (
-                <ul className={styles.articleList}>
+              <p className={styles.topicTitle}>本主题文章</p>
+              {articles.length > 0 && (
+                <nav className={styles.articleIndex} aria-label="本主题文章">
                   {articles.map((article) => (
-                    <li key={article.id}>
-                      <article
-                        className={styles.article}
-                        data-reading-article={article.id}
-                        aria-label={`文章 ${article.title}`}
-                      >
-                        <h3 className={styles.visuallyHidden}>
-                          {article.title}
-                        </h3>
-                        <p className={styles.articleMeta}>
-                          <span>
-                            负责人 {article.ownerDisplayName ?? "待指定"}
-                          </span>
-                          <span aria-hidden="true">·</span>
-                          <span>更新 {formatDate(article.updatedAt)}</span>
-                          <Link
-                            className={styles.articleOpenLink}
-                            href={`/articles/${article.stableId}`}
-                          >
-                            打开阅读页（目录 / 收藏 / 反馈）
-                          </Link>
-                        </p>
-                        <ArticleProtection {...protection}>
-                          <ArticleBody html={article.bodyHtml} />
-                        </ArticleProtection>
-                      </article>
-                    </li>
+                    <a
+                      key={article.stableId}
+                      href={`#article-${article.stableId}`}
+                    >
+                      {article.title}
+                    </a>
                   ))}
-                </ul>
+                </nav>
+              )}
+              {articles.length > 0 ? (
+                <>
+                  <ArticleToc entries={entries} variant="compact" />
+                  <ul className={styles.articleList}>
+                    {articles.map((article) => (
+                      <li key={article.id}>
+                        <article
+                          className={styles.article}
+                          data-reading-article={article.id}
+                          aria-label={`文章 ${article.title}`}
+                        >
+                          <ArticleProtection {...protection}>
+                            <h2
+                              id={`article-${article.stableId}`}
+                              className={styles.articleTitle}
+                            >
+                              {article.title}
+                            </h2>
+                          </ArticleProtection>
+                          <p className={styles.articleMeta}>
+                            <span>
+                              负责人 {article.ownerDisplayName ?? "待指定"}
+                            </span>
+                            <span aria-hidden="true">·</span>
+                            <span>更新 {formatDate(article.updatedAt)}</span>
+                            <Link
+                              className={styles.articleOpenLink}
+                              href={`/articles/${article.stableId}`}
+                            >
+                              打开阅读页（目录 / 收藏 / 反馈）
+                            </Link>
+                          </p>
+                          <ArticleProtection {...protection}>
+                            <ArticleBody html={article.document.html} />
+                          </ArticleProtection>
+                        </article>
+                      </li>
+                    ))}
+                  </ul>
+                </>
               ) : (
                 <p className={styles.empty}>该主题暂无文章。</p>
               )}
@@ -146,6 +186,7 @@ export async function KnowledgeEntryPage({
             <p className={styles.empty}>该栏目暂无内容。</p>
           )}
         </section>
+        <ArticleToc entries={entries} />
       </main>
     </PortalShell>
   );

@@ -23,7 +23,24 @@ export default async function OnboardingPage({
   return (
     <PortalShell currentPath="/onboarding">
       <main id="main-content" tabIndex={-1} className={styles.layout}>
-        <h1 className={styles.title}>新人专区</h1>
+        <header className={styles.introduction}>
+          <div>
+            <p className={styles.eyebrow}>从这里开始 · GET STARTED</p>
+            <h1 className={styles.title}>新人专区</h1>
+            <p className={styles.lead}>循序阅读，走进品质工作。</p>
+            <p className={styles.description}>
+              从部门与岗位开始，逐步建立工作所需的知识与方法。
+            </p>
+          </div>
+          {articles[0] && (
+            <Link
+              className={styles.start}
+              href={`/articles/${articles[0].stableId}?from=onboarding`}
+            >
+              开始学习 →
+            </Link>
+          )}
+        </header>
         <nav className={styles.overview} aria-label="新人路线总览">
           <h2>学习路线 · {articles.length} 篇文章</h2>
           <p className={styles.description}>

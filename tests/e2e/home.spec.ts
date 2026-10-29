@@ -1,83 +1,51 @@
-import { expect, test } from "@playwright/test";
-
-async function loginAsMember(page: import("@playwright/test").Page) {
+import { expect, test, type Page } from "@playwright/test";
+async function loginAsMember(page: Page) {
   await page.goto("/login");
   await page.getByLabel("用户名").fill("member");
-  await page.getByLabel("密码").fill("member secure password");
-  await page.getByRole("button", { name: "登录" }).click();
+  await page.getByLabel("密码", { exact: true }).fill("member secure password");
+  await page.getByRole("button", { name: "登录", exact: true }).click();
   await expect(page).toHaveURL(/\/$/);
 }
-
-test("home shows real knowledge entries and recent updates", async ({
+test("home shows selected feature, real knowledge entries and recent updates", async ({
   page,
 }) => {
   await loginAsMember(page);
-
-  // 首页问候：名字 + 问候语在同一行、同一字体（不换行）
-  const greeting = page.getByTestId("home-hero").getByRole("heading", {
-    level: 1,
-  });
-  await expect(greeting).toHaveText(/^品质成员 (早上好|下午好|晚上好)$/);
-  // 名字与问候：顶边一致（同一行）+ 同字号
-  const greetingParts = () =>
-    greeting.locator("span").evaluateAll((parts) =>
-      parts.map((part) => ({
-        top: Math.round(part.getBoundingClientRect().top),
-        fontSize: getComputedStyle(part).fontSize,
-      })),
-    );
-  const desktopParts = await greetingParts();
-  expect(new Set(desktopParts.map((part) => part.top)).size).toBe(1);
-  expect(new Set(desktopParts.map((part) => part.fontSize)).size).toBe(1);
-  await page.setViewportSize({ width: 390, height: 844 });
-  const mobileParts = await greetingParts();
-  expect(new Set(mobileParts.map((part) => part.top)).size).toBe(1);
-  expect(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth <= window.innerWidth,
-    ),
-  ).toBe(true);
-  await page.setViewportSize({ width: 1280, height: 900 });
-
-  // 品质知识入口显示真实状态（种子有已发布文章）
-  const qualitySection = page
-    .locator("main section", { hasText: "品质知识" })
-    .first();
-  await expect(qualitySection).toContainText("主题");
-
-  // 散热知识无内容 → 空态
-  const thermalSection = page
-    .locator("main section", { hasText: "散热知识" })
-    .first();
-  await expect(thermalSection).toContainText("暂无内容");
-
-  // 最近更新按更新时间倒序展示真实文章
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    "从数据可信，到过程受控",
+  );
+  await expect(
+    page.getByRole("navigation", { name: "知识分类" }),
+  ).toContainText("数据与统计基础");
+  await expect(
+    page.getByRole("complementary", { name: "常用入口" }),
+  ).toContainText("暂无内容");
   const updates = page.getByRole("region", { name: "最近更新" });
   await expect(updates).toContainText("ANOVA 实例");
   await expect(updates).toContainText("ANOVA 入门");
-  // Other scenarios may have published newer articles; only the five latest releases belong here.
-  await expect(updates.getByRole("link")).toHaveCount(5);
+  await expect(
+    updates.getByRole("link").filter({ hasNotText: "查看更多" }),
+  ).toHaveCount(5);
 });
-
 test("recent updates link to the reading page", async ({ page }) => {
   await loginAsMember(page);
-  const updates = page.getByRole("region", { name: "最近更新" });
-  // 不依赖具体哪篇排第一（复核确认会把 anova-intro 的 updatedAt 刷到最新）
-  const first = updates.getByRole("link").first();
-  const firstHref = await first.getAttribute("href");
+  const first = page
+    .getByRole("region", { name: "最近更新" })
+    .getByRole("link")
+    .filter({ hasNotText: "查看更多" })
+    .first();
+  const href = await first.getAttribute("href");
   await first.click();
-  await expect(page).toHaveURL(firstHref!);
+  await expect(page).toHaveURL(href!);
   await expect(page.getByRole("heading", { level: 1 })).not.toBeEmpty();
 });
-
 test("knowledge entry links from home reach the entry pages", async ({
   page,
 }) => {
   await loginAsMember(page);
   await page
-    .locator("main section", { hasText: "品质知识" })
-    .getByRole("link")
+    .getByTestId("home-hero")
+    .getByRole("link", { name: "探索品质知识" })
     .click();
   await expect(page).toHaveURL(/\/quality$/);
-  await expect(page.getByRole("heading", { name: "品质知识" })).toBeVisible();
+  await expect(page.getByRole("main")).toContainText("品质知识");
 });

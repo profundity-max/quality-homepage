@@ -80,27 +80,18 @@ test("quick search opens from the keyboard, traps focus, and restores the page",
   await expect(page.locator("body")).not.toHaveCSS("overflow", "hidden");
 });
 
-test("editorial sections reveal once they enter the viewport", async ({
+test("editorial content remains visible without decorative entrance motion", async ({
   page,
 }) => {
   await login(page);
-  await page.setViewportSize({ width: 1280, height: 720 });
-  await page.evaluate(() => scrollTo(0, 0));
-
-  const firstSection = page.locator('[data-graphic="onboarding"]');
-  const laterSection = page.locator('[data-graphic="thermal"]');
-  await expect(firstSection).toHaveAttribute("data-motion-state", "visible");
-  await expect(laterSection).toHaveAttribute("data-motion-state", "hidden");
-
-  await laterSection.scrollIntoViewIfNeeded();
-  await expect(laterSection).toHaveAttribute("data-motion-state", "visible");
-  await expect
-    .poll(() =>
-      laterSection.evaluate((section) =>
-        Number.parseFloat(getComputedStyle(section).opacity),
-      ),
-    )
-    .toBe(1);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    "从数据可信，到过程受控",
+  );
+  await expect(
+    page.getByRole("navigation", { name: "知识分类" }),
+  ).toBeVisible();
+  await expect(page.getByRole("region", { name: "最近更新" })).toBeVisible();
 });
 
 test("dark home entrance motion preserves readable text contrast", async ({
