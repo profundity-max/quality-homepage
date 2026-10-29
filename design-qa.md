@@ -23,4 +23,8 @@ Implementation: 本机Codex可视化目录books-v10.2/production-light.png，Ego
 
 本机books-v10.3/after-desktop.png与旧版同为1469×1071、DPR1，四本封面等比可见高度均376px；375×900手机实拍无溢出，5张图片正常。图片主体为正面，保持比例、完整显示及身份水印。通过实际页面和源图人工对照，无待修复的阻断问题。
 
+## V10.4 用户指定原图
+
+用户随后提供1069×1471高清红色漩涡PNG，替换V10.3网上图片，源文件归档docs/design/books-v10.4/quality-is-free-user-cover.png。实际受控存储SHA256与用户原文件一致，无裁切/重画/压缩。1469×1071桌面及375×900手机截图位于本机books-v10.4目录，5图有效、无溢出，水印保留；书目逐字段验证只有目标图片及时间变化。此用户原图优先于旧效果图和互联网来源。
+
 final result: passed

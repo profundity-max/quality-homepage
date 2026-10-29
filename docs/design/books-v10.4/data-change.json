@@ -1,0 +1,19 @@
+[
+  {
+    "stableId": "book-de0ff47d",
+    "changes": {
+      "cover_image_id": {
+        "before": "fb8e871a-b81a-4c23-8d2a-d26160f64bc1",
+        "after": "7d551d08-d949-4d9c-bc47-b1edafc6f9d3"
+      },
+      "cover_extension": {
+        "before": "jpg",
+        "after": "png"
+      },
+      "updated_at": {
+        "before": "2026-10-29T05:56:09.127+00:00",
+        "after": "2026-10-29T06:06:52.033+00:00"
+      }
+    }
+  }
+]
