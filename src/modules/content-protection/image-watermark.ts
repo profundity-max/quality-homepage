@@ -19,7 +19,6 @@ export async function watermarkImageBytes(buffer: Buffer, label: string) {
       text: watermarkText(label),
       font: "sans-serif 12",
       width: 290,
-      height: 42,
       align: "centre",
       rgba: true,
       spacing: 4,
@@ -32,6 +31,7 @@ export async function watermarkImageBytes(buffer: Buffer, label: string) {
     .rotate(-22, { background: { r: 0, g: 0, b: 0, alpha: 0 } })
     .resize(320, 180, {
       fit: "contain",
+      withoutEnlargement: true,
       background: { r: 0, g: 0, b: 0, alpha: 0 },
     })
     .png()
