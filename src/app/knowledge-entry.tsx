@@ -119,25 +119,13 @@ export async function KnowledgeEntryPage({
 
         <section className={styles.content}>
           <ReadingTracker />
-          <p className={styles.eyebrow}>知识库 / {section.name}</p>
-          <h1 className={styles.pageTitle}>
+          <h1
+            className={selectedTopic ? styles.visuallyHidden : styles.pageTitle}
+          >
             {selectedTopic?.name ?? section.name}
           </h1>
           {selectedTopic ? (
             <>
-              <p className={styles.topicTitle}>本主题文章</p>
-              {articles.length > 0 && (
-                <nav className={styles.articleIndex} aria-label="本主题文章">
-                  {articles.map((article) => (
-                    <a
-                      key={article.stableId}
-                      href={`/articles/${article.stableId}`}
-                    >
-                      {article.title}
-                    </a>
-                  ))}
-                </nav>
-              )}
               {articles.length > 0 ? (
                 <>
                   <ArticleToc entries={entries} variant="compact" />

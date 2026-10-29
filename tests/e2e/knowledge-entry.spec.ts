@@ -40,7 +40,7 @@ test("knowledge entry pages show the real column tree and published articles", a
   await expect(tree.getByRole("link", { name: "MSA" })).toHaveCount(0);
 });
 
-test("topic page shows only update metadata before the body and keeps article navigation", async ({
+test("topic page starts with update metadata and keeps body and TOC navigation", async ({
   page,
 }) => {
   await loginAsMember(page);
@@ -59,21 +59,31 @@ test("topic page shows only update metadata before the body and keeps article na
   ).toBeVisible();
   // 精简掉的重复信息：栏目名、主题名、文章标题、摘要都不再出现在正文区
   await expect(page.getByText("方差分析的基础概念与适用场景。")).toHaveCount(0);
-  // 新版可见栏目与主题标题；正文内部不重复文章标题与摘要。
+  // 主题语义保留给读屏，视觉头部和文章索引均移除。
   await expect(
     page.getByRole("heading", { level: 1, name: "ANOVA", exact: true }),
-  ).toBeVisible();
+  ).toHaveClass(/visuallyHidden/);
+  await expect(
+    page.getByText("知识库 / 品质知识", { exact: true }),
+  ).toHaveCount(0);
+  await expect(page.getByText("本主题文章", { exact: true })).toHaveCount(0);
+  await expect(
+    page.getByRole("navigation", { name: "本主题文章" }),
+  ).toHaveCount(0);
+  const meta = page.locator("#article-anova-intro");
+  expect(
+    await meta.evaluate(
+      (node) =>
+        node.closest("section")!.querySelector("p") ===
+        node.closest("section")!.querySelector("article > p"),
+    ),
+  ).toBe(true);
   await expect(
     entry.getByRole("heading", { level: 2, name: "ANOVA 入门", exact: true }),
   ).toHaveCount(0);
-  // 正文前移除操作链接；上方已有标题承担完整阅读页入口。
   await expect(
     entry.getByRole("link", { name: "打开阅读页（目录 / 收藏 / 反馈）" }),
   ).toHaveCount(0);
-  const index = page.getByRole("navigation", { name: "本主题文章" });
-  await expect(
-    index.getByRole("link", { name: "ANOVA 入门", exact: true }),
-  ).toHaveAttribute("href", "/articles/anova-intro");
   // 目录中的文章项仍定位到元信息行。
   await expect(page.locator("#article-anova-intro")).toContainText(
     "更新日期：",
@@ -100,12 +110,6 @@ test("topic page shows only update metadata before the body and keeps article na
     ),
   ).toBe(true);
   await page.setViewportSize({ width: 1280, height: 900 });
-
-  await index.getByRole("link", { name: "ANOVA 入门", exact: true }).click();
-  await expect(page).toHaveURL(/\/articles\/anova-intro$/);
-  await expect(
-    page.getByRole("heading", { level: 1, name: "ANOVA 入门" }),
-  ).toBeVisible();
 });
 
 test("clicking a topic switches the article list via stable id", async ({
@@ -122,11 +126,7 @@ test("clicking a topic switches the article list via stable id", async ({
     "aria-current",
     "page",
   );
-  await expect(
-    page
-      .getByRole("navigation", { name: "本主题文章" })
-      .getByRole("link", { name: "SPC 基础", exact: true }),
-  ).toBeVisible();
+  await expect(page.getByLabel("文章 SPC 基础", { exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "ANOVA 入门" })).toHaveCount(0);
 });
 

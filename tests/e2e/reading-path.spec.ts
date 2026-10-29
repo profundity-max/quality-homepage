@@ -25,15 +25,13 @@ test("full reading path: home → entry → tree → topic → article → recen
   await tree.getByRole("link", { name: "ANOVA" }).click();
   await expect(page).toHaveURL(/topic=anova/);
 
-  // 主题 → 文章
-  await page
-    .getByRole("navigation", { name: "本主题文章" })
-    .getByRole("link", { name: "ANOVA 实例", exact: true })
-    .click();
-  await expect(page).toHaveURL(/\/articles\/anova-example$/);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-    "ANOVA 实例",
-  );
+  // 主题页直接内联阅读全文，正文前不再显示文章索引。
+  await expect(
+    page.getByLabel("文章 ANOVA 实例", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("navigation", { name: "本主题文章" }),
+  ).toHaveCount(0);
 
   // 回首页 → 最近更新可跳转
   await page.goto("/");
@@ -42,6 +40,7 @@ test("full reading path: home → entry → tree → topic → article → recen
   const firstHref = await firstUpdate.getAttribute("href");
   await firstUpdate.click();
   await expect(page).toHaveURL(firstHref!);
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
 });
 
 test("demo article renders tables, formulas, code blocks and internal links", async ({
@@ -108,14 +107,12 @@ test("full reading path survives 390px width (common definition)", async ({
     .getByRole("complementary", { name: "分类树" })
     .getByRole("link", { name: "ANOVA" })
     .click();
-  await page
-    .getByRole("navigation", { name: "本主题文章" })
-    .getByRole("link", { name: "ANOVA 入门", exact: true })
-    .click();
-  await expect(page).toHaveURL(/\/articles\/anova-intro$/);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-    "ANOVA 入门",
-  );
+  await expect(
+    page.getByLabel("文章 ANOVA 入门", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("navigation", { name: "本主题文章" }),
+  ).toHaveCount(0);
   // 无横向滚动
   await expect
     .poll(() =>
@@ -132,11 +129,6 @@ test("spc demo article is readable via the entry page", async ({ page }) => {
       .getByRole("complementary", { name: "分类树" })
       .getByRole("link", { name: "SPC" }),
   ).toHaveAttribute("aria-current", "page");
-  await page
-    .getByRole("navigation", { name: "本主题文章" })
-    .getByRole("link", { name: "SPC 基础", exact: true })
-    .click();
-  await expect(page).toHaveURL(/\/articles\/spc-basics$/);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("SPC 基础");
+  await expect(page.getByLabel("文章 SPC 基础", { exact: true })).toBeVisible();
   await expect(page.locator("article h2")).toContainText("控制图");
 });
