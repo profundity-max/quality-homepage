@@ -9,7 +9,7 @@ describe("application catalog", () => {
   it("exposes the BOF application with stable navigation metadata", () => {
     expect(getApplication("bof-boxplot")).toMatchObject({
       name: "BOF 箱线图与散点图",
-      version: "V1.1",
+      version: "V1.2",
       status: "available",
       href: "/apps/bof-boxplot",
       runtimeHref: "/apps/bof-boxplot/run",

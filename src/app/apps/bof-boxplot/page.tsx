@@ -26,11 +26,6 @@ const workbookSheets = [
     required: "BinType、FAI#、USL、LSL",
   },
   {
-    name: "BinPlot",
-    purpose: "定义每组 Bin 的连续区间、名称和颜色。",
-    required: "BinType、BInName、USL、LSL、Color",
-  },
-  {
     name: "HL SN",
     purpose: "列出需要突出显示的 SN，对应记录必须存在于 Data。",
     required: "SN",
@@ -110,7 +105,7 @@ export default async function BofApplicationPage() {
                 <div>
                   <h3>下载案例工作簿</h3>
                   <p>
-                    参考案例中的工作表、列名、Bin 区间和 Highlight SN
+                    参考案例中的工作表、列名、Spec 上下限和 Highlight SN
                     写法，替换为本次数据。
                   </p>
                 </div>
@@ -120,8 +115,8 @@ export default async function BofApplicationPage() {
                 <div>
                   <h3>检查工作簿结构</h3>
                   <p>
-                    必须包含 Data、Spec、BinPlot、HL SN
-                    四个工作表；列名必须与工具要求一致。
+                    必须包含 Data、Spec、HL SN 三个工作表；BinPlot
+                    可选，不使用分 Bin 时可直接省略。
                   </p>
                 </div>
               </li>
@@ -130,8 +125,8 @@ export default async function BofApplicationPage() {
                 <div>
                   <h3>打开工具并选择文件</h3>
                   <p>
-                    工具会先检查缺表、重复 SN、无效尺寸值和 Bin
-                    区间问题。存在阻断错误时不会生成图表。
+                    工具会先检查缺表、重复 SN
+                    和无效尺寸值。存在阻断错误时不会生成图表。
                   </p>
                 </div>
               </li>
@@ -140,7 +135,8 @@ export default async function BofApplicationPage() {
                 <div>
                   <h3>核对并下载图表</h3>
                   <p>
-                    核对摘要、Spec 点、HL 标记和统计表后，可分别下载单图 PNG。
+                    核对摘要、Spec 上下限、HL 标记和统计表后，可分别下载单图
+                    PNG。
                   </p>
                 </div>
               </li>
@@ -190,7 +186,8 @@ export default async function BofApplicationPage() {
             </table>
           </div>
           <p className={styles.note}>
-            建议先使用案例工作簿跑通流程，再将实际数据复制到对应工作表。不要修改工作表名称和表头名称。
+            本案例工作簿不包含 BinPlot，图表只显示每个尺寸的 USL/LSL。已有
+            BinPlot 的工作簿仍可继续使用，并按原规则显示 Bin 色带和边界。
           </p>
         </section>
       </main>

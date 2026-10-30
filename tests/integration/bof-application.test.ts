@@ -42,7 +42,7 @@ describe("BOF application HTTP boundary", () => {
     );
     expect(response.headers.get("cache-control")).toContain("private");
     const html = await response.text();
-    expect(html).toContain("BOF 箱线图与散点图");
+    expect(html).toContain("BOF 箱线图与散点图 V1.2");
     expect(html).not.toMatch(/X(?:9600|9601|7092|7082)/i);
   });
 

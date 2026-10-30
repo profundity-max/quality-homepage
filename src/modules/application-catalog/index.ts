@@ -18,9 +18,9 @@ const applications: readonly PortalApplication[] = [
     name: "BOF 箱线图与散点图",
     shortName: "BOF",
     summary:
-      "按 BinType 自动生成箱线图与散点图，快速查看 Spec、Bin 区间和 Highlight SN。",
+      "按 BinType 自动生成箱线图与散点图；可仅按 Spec 上下限分析，无需填写分 Bin 数据。",
     category: "质量分析",
-    version: "V1.1",
+    version: "V1.2",
     owner: "品质部",
     status: "available",
     href: "/apps/bof-boxplot",
