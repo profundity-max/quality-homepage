@@ -26,7 +26,7 @@ describe("BOF application HTTP boundary", () => {
       new Request("http://localhost/apps/bof-boxplot/run"),
     );
     expect(response.status).toBe(307);
-    expect(response.headers.get("location")).toContain(
+    expect(response.headers.get("location")).toBe(
       "/login?next=%2Fapps%2Fbof-boxplot%2Frun",
     );
   });

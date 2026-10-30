@@ -16,10 +16,13 @@ export async function GET(request: Request): Promise<NextResponse> {
   const session = await getCurrentSession();
   if (!session) {
     const requestedPath = new URL(request.url).pathname;
-    return NextResponse.redirect(
-      new URL(loginPath(requestedPath), request.url),
-      307,
-    );
+    return new NextResponse(null, {
+      status: 307,
+      headers: {
+        ...privateHeaders,
+        Location: loginPath(requestedPath),
+      },
+    });
   }
 
   try {
