@@ -22,6 +22,7 @@ test("editorial homepage preserves navigation, keyboard search and responsive as
     "散热知识",
     "推荐书单",
     "模板中心",
+    "应用中心",
   ]);
   await page.keyboard.press("Control+k");
   const dialog = page.getByRole("dialog", { name: "快速搜索" });

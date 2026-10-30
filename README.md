@@ -144,6 +144,8 @@ scripts/deploy-to-server.sh             # 正式部署
 | `/onboarding`                                             | 新人六阶段路线（总览 + 阶段 + 上下篇导航）            | 登录          |
 | `/templates` `/templates/[stableId]`                      | 模板中心 / 模板详情（QMS 提示 + 下载）                | 登录          |
 | `/books`                                                  | 推荐书单                                              | 登录          |
+| `/apps` `/apps/bof-boxplot`                                  | 应用中心 / BOF 工具说明与案例下载                    | 登录          |
+| `/apps/bof-boxplot/run` `/apps/bof-boxplot/template`         | BOF 工具运行页 / 案例工作簿下载                      | 登录          |
 | `/manage`                                                 | 账户管理 + 待复核内容（GOV-02/03）                    | 管理员        |
 | `/manage/columns`                                         | 栏目/主题管理                                         | 管理员        |
 | `/manage/articles/[stableId]/edit` `/manage/articles/new` | Markdown 编辑器（三模式 + 自动保存 + 离线 + 占用）    | 编辑者/管理员 |

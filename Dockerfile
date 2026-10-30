@@ -32,6 +32,7 @@ COPY --from=builder --chown=qnexus:qnexus /app/.next/standalone ./
 COPY --from=builder --chown=qnexus:qnexus /app/.next/static ./.next/static
 COPY --from=builder --chown=qnexus:qnexus /app/node_modules/postgres ./node_modules/postgres
 COPY --from=builder --chown=qnexus:qnexus /app/drizzle ./drizzle
+COPY --from=builder --chown=qnexus:qnexus /app/app-assets ./app-assets
 COPY --from=builder --chown=qnexus:qnexus /app/scripts/start-production.mjs ./scripts/start-production.mjs
 COPY --from=builder --chown=qnexus:qnexus /app/scripts/seed-production-e2e.mjs ./scripts/seed-production-e2e.mjs
 COPY --from=builder --chown=qnexus:qnexus /app/scripts/postgres-migrations.mjs ./scripts/postgres-migrations.mjs

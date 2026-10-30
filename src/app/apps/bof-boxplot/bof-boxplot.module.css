@@ -1,0 +1,339 @@
+.layout {
+  width: 100%;
+  max-width: 78rem;
+  margin: 0 auto;
+  padding: 2rem 3.5rem 4rem;
+}
+
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 2.75rem;
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+  text-decoration: none;
+}
+
+.backLink:hover {
+  color: var(--color-accent);
+}
+
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 19rem;
+  gap: clamp(2rem, 6vw, 5rem);
+  align-items: end;
+  padding: 2.5rem 0 2rem;
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.eyebrow {
+  margin: 0 0 0.65rem;
+  color: var(--color-accent);
+  font-size: 0.75rem;
+  font-weight: 750;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.hero h1 {
+  margin: 0;
+  font-size: clamp(2.2rem, 5vw, 4rem);
+  font-weight: 700;
+  letter-spacing: -0.045em;
+  line-height: 1.14;
+}
+
+.lead {
+  max-width: 46rem;
+  margin: 1rem 0 0;
+  color: var(--color-text-secondary);
+  font-size: 1.05rem;
+  line-height: 1.8;
+}
+
+.privacy {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin: 1.1rem 0 0;
+  color: var(--color-success);
+  font-size: 0.875rem;
+}
+
+.actions {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.primaryAction,
+.secondaryAction,
+.sampleCard a {
+  display: inline-flex;
+  min-height: 2.9rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  border-radius: 0.55rem;
+  padding: 0.65rem 1rem;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.primaryAction {
+  background: var(--color-accent);
+  color: var(--color-accent-foreground);
+}
+
+.primaryAction:hover {
+  background: var(--color-accent-hover);
+}
+
+.secondaryAction,
+.sampleCard a {
+  border: 1px solid var(--color-control-border);
+  color: var(--color-text);
+}
+
+.secondaryAction:hover,
+.sampleCard a:hover {
+  background: var(--color-surface-muted);
+}
+
+.actions small {
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  line-height: 1.55;
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 1.5rem 0 3.25rem;
+  border: 1px solid var(--color-divider);
+  border-radius: 0.75rem;
+  background: var(--color-surface);
+}
+
+.facts div {
+  display: grid;
+  gap: 0.2rem;
+  padding: 1rem 1.2rem;
+}
+
+.facts div + div {
+  border-left: 1px solid var(--color-divider);
+}
+
+.facts span {
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+}
+
+.facts strong {
+  font-size: 0.9rem;
+  font-weight: 650;
+}
+
+.contentGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 19rem;
+  gap: 2rem;
+  align-items: start;
+}
+
+.sectionHeading p {
+  margin: 0 0 0.3rem;
+  color: var(--color-accent);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.sectionHeading h2 {
+  margin: 0;
+  font-size: 1.45rem;
+  letter-spacing: -0.02em;
+}
+
+.guide ol {
+  display: grid;
+  gap: 0;
+  margin: 1.25rem 0 0;
+  padding: 0;
+  border-top: 1px solid var(--color-divider);
+  list-style: none;
+}
+
+.guide li {
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr);
+  gap: 1rem;
+  padding: 1.2rem 0;
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.guide li > span {
+  color: var(--color-accent);
+  font-size: 0.75rem;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+
+.guide h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.guide li p {
+  margin: 0.35rem 0 0;
+  color: var(--color-text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.7;
+}
+
+.sampleCard {
+  padding: 1.35rem;
+  border: 1px solid var(--color-divider);
+  border-radius: 0.8rem;
+  background:
+    linear-gradient(
+      150deg,
+      color-mix(in srgb, var(--color-surface-muted) 70%, transparent),
+      transparent 60%
+    ),
+    var(--color-surface);
+}
+
+.sampleCard > svg {
+  color: var(--color-accent);
+}
+
+.sampleCard h2 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.sampleCard ul {
+  display: grid;
+  gap: 0.45rem;
+  margin: 1rem 0 1.2rem;
+  padding-left: 1.1rem;
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+}
+
+.sampleCard a {
+  width: 100%;
+  font-size: 0.875rem;
+}
+
+.requirements {
+  margin-top: 3.5rem;
+}
+
+.tableWrap {
+  margin-top: 1.2rem;
+  overflow-x: auto;
+  border: 1px solid var(--color-divider);
+  border-radius: 0.7rem;
+}
+
+.requirements table {
+  width: 100%;
+  min-width: 42rem;
+  border-collapse: collapse;
+  background: var(--color-surface);
+  font-size: 0.875rem;
+}
+
+.requirements th,
+.requirements td {
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--color-divider);
+  text-align: left;
+  vertical-align: top;
+}
+
+.requirements thead th {
+  background: var(--color-surface-muted);
+  font-weight: 700;
+}
+
+.requirements tbody th {
+  color: var(--color-accent);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  white-space: nowrap;
+}
+
+.requirements tbody tr:last-child th,
+.requirements tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.note {
+  margin: 0.9rem 0 0;
+  color: var(--color-text-muted);
+  font-size: 0.82rem;
+  line-height: 1.65;
+}
+
+@media (max-width: 1199px) {
+  .layout {
+    padding: 1.75rem 2rem 3rem;
+  }
+}
+
+@media (max-width: 900px) {
+  .hero,
+  .contentGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .actions {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .actions small {
+    grid-column: 1 / -1;
+  }
+
+  .contentGrid {
+    gap: 2.5rem;
+  }
+}
+
+@media (max-width: 767px) {
+  .layout {
+    padding: 1.25rem 1.25rem 3rem;
+  }
+
+  .hero {
+    padding-top: 1.5rem;
+  }
+
+  .facts {
+    grid-template-columns: 1fr;
+  }
+
+  .facts div + div {
+    border-top: 1px solid var(--color-divider);
+    border-left: 0;
+  }
+
+  .actions {
+    grid-template-columns: 1fr;
+  }
+
+  .actions small {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 359px) {
+  .layout {
+    padding-inline: 1rem;
+  }
+}
