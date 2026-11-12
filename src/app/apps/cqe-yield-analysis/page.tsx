@@ -82,8 +82,8 @@ export default async function CqeYieldAnalysisPage({
           </div>
           <div>
             <LockKeyhole size={20} aria-hidden="true" />
-            <span>原站账号</span>
-            <strong>继续使用原良率网站账号</strong>
+            <span>登录方式</span>
+            <strong>使用品集身份免登录</strong>
           </div>
         </section>
 
@@ -111,9 +111,9 @@ export default async function CqeYieldAnalysisPage({
               <li>
                 <span>03</span>
                 <div>
-                  <h3>使用原站账号登录</h3>
+                  <h3>自动进入良率分析</h3>
                   <p>
-                    数据权限和账号体系仍由原良率分析网站维护，品集不保存其分析数据。
+                    品集身份会安全传递给良率分析网站，不再显示原站登录页；权限按品集角色自动映射。
                   </p>
                 </div>
               </li>

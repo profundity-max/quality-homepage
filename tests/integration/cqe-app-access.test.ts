@@ -14,6 +14,8 @@ vi.mock("@/app/session", () => ({
       ? {
           member: {
             id: "00000000-0000-4000-8000-000000000001",
+            username: "quality.user",
+            displayName: "质量用户",
             role: "reader",
           },
         }
@@ -64,6 +66,16 @@ describe("CQE application controlled launch", () => {
       }),
     );
     expect(access.status).toBe(204);
+    expect(access.headers.get("x-q-nexus-subject")).toBe(
+      "00000000-0000-4000-8000-000000000001",
+    );
+    expect(access.headers.get("x-q-nexus-username-b64")).toBe(
+      Buffer.from("quality.user").toString("base64url"),
+    );
+    expect(access.headers.get("x-q-nexus-display-name-b64")).toBe(
+      Buffer.from("质量用户").toString("base64url"),
+    );
+    expect(access.headers.get("x-q-nexus-role")).toBe("reader");
 
     const denied = await validateAccess(
       new Request("http://localhost/api/apps/cqe-yield-analysis/access", {

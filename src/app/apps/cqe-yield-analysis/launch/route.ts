@@ -60,6 +60,9 @@ export async function GET(request: Request): Promise<NextResponse> {
     const { token } = createApplicationGrant({
       applicationId,
       subject: session.member.id,
+      username: session.member.username,
+      displayName: session.member.displayName,
+      role: session.member.role,
       secret: applicationGatewaySecret(),
     });
     const port = process.env.APP_GATEWAY_YIELD_PORT ?? "8504";

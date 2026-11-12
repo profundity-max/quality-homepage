@@ -3,14 +3,24 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 export const APPLICATION_GRANT_COOKIE = "q_nexus_app_grant";
 export const APPLICATION_GRANT_HEADER = "x-q-nexus-grant";
 
-interface ApplicationGrantPayload {
-  version: 1;
+export type ApplicationGrantRole = "reader" | "editor" | "administrator";
+
+export interface ApplicationGrantPayload {
+  version: 2;
   applicationId: string;
   subject: string;
+  username: string;
+  displayName: string | null;
+  role: ApplicationGrantRole;
   expiresAt: number;
 }
 
 const minimumSecretLength = 32;
+const applicationGrantRoles: ApplicationGrantRole[] = [
+  "reader",
+  "editor",
+  "administrator",
+];
 
 function sign(encodedPayload: string, secret: string): string {
   return createHmac("sha256", secret)
@@ -29,21 +39,44 @@ function readSecret(secret: string): string {
 export function createApplicationGrant({
   applicationId,
   subject,
+  username,
+  displayName = null,
+  role,
   secret,
   now = Date.now(),
   ttlSeconds = 7200,
 }: {
   applicationId: string;
   subject: string;
+  username: string;
+  displayName?: string | null;
+  role: ApplicationGrantRole;
   secret: string;
   now?: number;
   ttlSeconds?: number;
 }): { token: string; expiresAt: number } {
+  const normalizedSubject = subject.trim();
+  const normalizedUsername = username.trim();
+  if (!normalizedSubject || !normalizedUsername) {
+    throw new Error("应用授权身份信息不完整");
+  }
+  if (normalizedSubject.length > 128 || normalizedUsername.length > 256) {
+    throw new Error("应用授权身份信息过长");
+  }
+  if ((displayName?.trim().length ?? 0) > 256) {
+    throw new Error("应用授权显示名称过长");
+  }
+  if (!applicationGrantRoles.includes(role)) {
+    throw new Error("应用授权角色不正确");
+  }
   const expiresAt = now + ttlSeconds * 1000;
   const payload: ApplicationGrantPayload = {
-    version: 1,
+    version: 2,
     applicationId,
-    subject,
+    subject: normalizedSubject,
+    username: normalizedUsername,
+    displayName: displayName?.trim() || null,
+    role,
     expiresAt,
   };
   const encodedPayload = Buffer.from(JSON.stringify(payload)).toString(
@@ -55,7 +88,7 @@ export function createApplicationGrant({
   };
 }
 
-export function verifyApplicationGrant({
+export function readApplicationGrant({
   token,
   applicationId,
   secret,
@@ -65,11 +98,10 @@ export function verifyApplicationGrant({
   applicationId: string;
   secret: string;
   now?: number;
-}): boolean {
-  if (!token || token.length > 4096) return false;
+}): ApplicationGrantPayload | null {
+  if (!token || token.length > 4096) return null;
   const [encodedPayload, providedSignature, extra] = token.split(".");
-  if (!encodedPayload || !providedSignature || extra !== undefined)
-    return false;
+  if (!encodedPayload || !providedSignature || extra !== undefined) return null;
 
   const expectedSignature = sign(encodedPayload, readSecret(secret));
   const provided = Buffer.from(providedSignature);
@@ -78,24 +110,41 @@ export function verifyApplicationGrant({
     provided.length !== expected.length ||
     !timingSafeEqual(provided, expected)
   ) {
-    return false;
+    return null;
   }
 
   try {
     const payload = JSON.parse(
       Buffer.from(encodedPayload, "base64url").toString("utf8"),
     ) as Partial<ApplicationGrantPayload>;
-    return (
-      payload.version === 1 &&
-      payload.applicationId === applicationId &&
-      typeof payload.subject === "string" &&
-      payload.subject.length > 0 &&
-      typeof payload.expiresAt === "number" &&
-      payload.expiresAt > now
-    );
+    if (
+      payload.version !== 2 ||
+      payload.applicationId !== applicationId ||
+      typeof payload.subject !== "string" ||
+      payload.subject.length === 0 ||
+      typeof payload.username !== "string" ||
+      payload.username.length === 0 ||
+      (payload.displayName !== null &&
+        typeof payload.displayName !== "string") ||
+      !applicationGrantRoles.includes(payload.role as ApplicationGrantRole) ||
+      typeof payload.expiresAt !== "number" ||
+      payload.expiresAt <= now
+    ) {
+      return null;
+    }
+    return payload as ApplicationGrantPayload;
   } catch {
-    return false;
+    return null;
   }
+}
+
+export function verifyApplicationGrant(options: {
+  token: string | null | undefined;
+  applicationId: string;
+  secret: string;
+  now?: number;
+}): boolean {
+  return readApplicationGrant(options) !== null;
 }
 
 export function applicationGatewaySecret(

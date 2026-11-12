@@ -34,7 +34,7 @@ const applications: readonly PortalApplication[] = [
     summary:
       "查看 AOI、Delta-T 与 Tester 良率趋势，支持日期、线体和测试项分析。",
     category: "良率分析",
-    version: "V1.9.4",
+    version: "V1.9.5",
     owner: "品质部",
     status: "available",
     href: "/apps/cqe-yield-analysis",

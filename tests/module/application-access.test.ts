@@ -12,6 +12,9 @@ describe("application access grants", () => {
     const { token, expiresAt } = createApplicationGrant({
       applicationId: "cqe-yield-analysis",
       subject: "member-1",
+      username: "quality.user",
+      displayName: "质量用户",
+      role: "reader",
       secret,
       now: 1_000,
       ttlSeconds: 60,
@@ -31,6 +34,9 @@ describe("application access grants", () => {
     const { token } = createApplicationGrant({
       applicationId: "cqe-yield-analysis",
       subject: "member-1",
+      username: "quality.user",
+      displayName: "质量用户",
+      role: "reader",
       secret,
       now: 1_000,
       ttlSeconds: 60,

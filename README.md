@@ -134,26 +134,26 @@ scripts/deploy-to-server.sh             # 正式部署
 
 ### 2.3 路由地图（`src/app/`）
 
-| 路由                                                      | 功能                                                  | 权限          |
-| --------------------------------------------------------- | ----------------------------------------------------- | ------------- |
-| `/`                                                       | 首页（问候 + 真实知识/模板/书单/新人入口 + 最近更新） | 登录          |
-| `/login` `/change-password`                               | 登录 / 强制改密                                       | 公开 / 登录   |
-| `/quality` `/thermal`                                     | 知识入口页（可收起分类树 + 主题文章列表）             | 登录          |
-| `/articles/[stableId]`                                    | 文章三栏阅读页（目录/相关/上下篇/阅读计数/归档说明）  | 登录          |
-| `/articles/[stableId]/versions`                           | 版本历史页（恢复需填原因）                            | 编辑者/管理员 |
-| `/onboarding`                                             | 新人六阶段路线（总览 + 阶段 + 上下篇导航）            | 登录          |
-| `/templates` `/templates/[stableId]`                      | 模板中心 / 模板详情（QMS 提示 + 下载）                | 登录          |
-| `/books`                                                  | 推荐书单                                              | 登录          |
-| `/apps` `/apps/bof-boxplot`                                  | 应用中心 / BOF 工具说明与案例下载                    | 登录          |
-| `/apps/bof-boxplot/run` `/apps/bof-boxplot/template`         | BOF 工具运行页 / 案例工作簿下载                      | 登录          |
-| `/apps/cqe-yield-analysis` `/apps/cqe-yield-analysis/launch` | CQE 良率分析说明 / 签发独立应用短期访问授权          | 登录          |
-| `/manage`                                                 | 账户管理 + 待复核内容（GOV-02/03）                    | 管理员        |
-| `/manage/columns`                                         | 栏目/主题管理                                         | 管理员        |
-| `/manage/articles/[stableId]/edit` `/manage/articles/new` | Markdown 编辑器（三模式 + 自动保存 + 离线 + 占用）    | 编辑者/管理员 |
-| `/uploads/[id]`                                           | 受控图片访问                                          | 登录          |
-| `/templates/[stableId]/download`                          | 模板附件下载（计数）                                  | 登录          |
-| `/api/articles/[stableId]/take-over`                      | 编辑占用接管                                          | 编辑者/管理员 |
-| `/api/health/live` `/api/health/ready`                    | 健康检查                                              | 公开          |
+| 路由                                                         | 功能                                                  | 权限          |
+| ------------------------------------------------------------ | ----------------------------------------------------- | ------------- |
+| `/`                                                          | 首页（问候 + 真实知识/模板/书单/新人入口 + 最近更新） | 登录          |
+| `/login` `/change-password`                                  | 登录 / 强制改密                                       | 公开 / 登录   |
+| `/quality` `/thermal`                                        | 知识入口页（可收起分类树 + 主题文章列表）             | 登录          |
+| `/articles/[stableId]`                                       | 文章三栏阅读页（目录/相关/上下篇/阅读计数/归档说明）  | 登录          |
+| `/articles/[stableId]/versions`                              | 版本历史页（恢复需填原因）                            | 编辑者/管理员 |
+| `/onboarding`                                                | 新人六阶段路线（总览 + 阶段 + 上下篇导航）            | 登录          |
+| `/templates` `/templates/[stableId]`                         | 模板中心 / 模板详情（QMS 提示 + 下载）                | 登录          |
+| `/books`                                                     | 推荐书单                                              | 登录          |
+| `/apps` `/apps/bof-boxplot`                                  | 应用中心 / BOF 工具说明与案例下载                     | 登录          |
+| `/apps/bof-boxplot/run` `/apps/bof-boxplot/template`         | BOF 工具运行页 / 案例工作簿下载                       | 登录          |
+| `/apps/cqe-yield-analysis` `/apps/cqe-yield-analysis/launch` | CQE 良率分析说明 / 签发带品集身份的短期免登录授权     | 登录          |
+| `/manage`                                                    | 账户管理 + 待复核内容（GOV-02/03）                    | 管理员        |
+| `/manage/columns`                                            | 栏目/主题管理                                         | 管理员        |
+| `/manage/articles/[stableId]/edit` `/manage/articles/new`    | Markdown 编辑器（三模式 + 自动保存 + 离线 + 占用）    | 编辑者/管理员 |
+| `/uploads/[id]`                                              | 受控图片访问                                          | 登录          |
+| `/templates/[stableId]/download`                             | 模板附件下载（计数）                                  | 登录          |
+| `/api/articles/[stableId]/take-over`                         | 编辑占用接管                                          | 编辑者/管理员 |
+| `/api/health/live` `/api/health/ready`                       | 健康检查                                              | 公开          |
 
 ### 2.4 关键设计决策（ADR 摘要）
 

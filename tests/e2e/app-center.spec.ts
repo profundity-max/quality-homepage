@@ -95,6 +95,7 @@ test("CQE yield site is reachable only through a signed portal launch", async ({
     page.getByRole("heading", { level: 1, name: "CQE 测试线良率分析" }),
   ).toBeVisible();
   await expect(page.getByText("禁止直接访问")).toBeVisible();
+  await expect(page.getByText("使用品集身份免登录")).toBeVisible();
   await expect(
     page.getByRole("link", { name: "打开良率分析网站" }),
   ).toHaveAttribute("href", "/apps/cqe-yield-analysis/launch");
@@ -116,6 +117,8 @@ test("CQE yield site is reachable only through a signed portal launch", async ({
     headers: { "x-q-nexus-grant": token! },
   });
   expect(access.status()).toBe(204);
+  expect(access.headers()["x-q-nexus-role"]).toBeTruthy();
+  expect(access.headers()["x-q-nexus-subject"]).toBeTruthy();
 });
 
 test("application center has responsive layout and no serious accessibility issues", async ({
