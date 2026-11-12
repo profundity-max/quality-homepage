@@ -9,7 +9,7 @@ export interface PortalApplication {
   status: "available" | "maintenance";
   href: string;
   runtimeHref: string;
-  templateHref: string;
+  templateHref?: string;
 }
 
 const applications: readonly PortalApplication[] = [
@@ -26,6 +26,19 @@ const applications: readonly PortalApplication[] = [
     href: "/apps/bof-boxplot",
     runtimeHref: "/apps/bof-boxplot/run",
     templateHref: "/apps/bof-boxplot/template",
+  },
+  {
+    id: "cqe-yield-analysis",
+    name: "CQE 测试线良率分析",
+    shortName: "CQE",
+    summary:
+      "查看 AOI、Delta-T 与 Tester 良率趋势，支持日期、线体和测试项分析。",
+    category: "良率分析",
+    version: "V1.9.4",
+    owner: "品质部",
+    status: "available",
+    href: "/apps/cqe-yield-analysis",
+    runtimeHref: "/apps/cqe-yield-analysis/launch",
   },
 ];
 

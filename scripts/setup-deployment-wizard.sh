@@ -248,6 +248,14 @@ if [[ -z "$(_existing BACKUP_PASSPHRASE || true)" ]]; then
 else
   say "已存在 BACKUP_PASSPHRASE，保留现有值。"
 fi
+if [[ -z "$(_existing APP_GATEWAY_SECRET || true)" ]]; then
+  APP_GATEWAY_SECRET=$(openssl rand -hex 32)
+  write_env APP_GATEWAY_SECRET "$APP_GATEWAY_SECRET"
+else
+  say "已存在 APP_GATEWAY_SECRET，保留现有值。"
+fi
+write_env APP_GATEWAY_ALLOWED_HOSTS "quality-server.local,$LAN_IP,localhost,127.0.0.1"
+write_env APP_GATEWAY_YIELD_PORT "8504"
 ask Q_NEXUS_PORT "对外端口（推荐 8080）:" 
 write_env Q_NEXUS_PORT "${Q_NEXUS_PORT:-8080}"
 write_env Q_NEXUS_HTTPS "0"

@@ -21,4 +21,15 @@ describe("application catalog", () => {
     const ids = listApplications().map((application) => application.id);
     expect(new Set(ids).size).toBe(ids.length);
   });
+
+  it("exposes the CQE yield site through the controlled launch route", () => {
+    expect(getApplication("cqe-yield-analysis")).toMatchObject({
+      name: "CQE 测试线良率分析",
+      version: "V1.9.4",
+      status: "available",
+      href: "/apps/cqe-yield-analysis",
+      runtimeHref: "/apps/cqe-yield-analysis/launch",
+    });
+    expect(getApplication("cqe-yield-analysis")?.templateHref).toBeUndefined();
+  });
 });

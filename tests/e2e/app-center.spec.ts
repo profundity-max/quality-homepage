@@ -81,6 +81,43 @@ test("BOF sample workbook runs end to end in the hosted application", async ({
   );
 });
 
+test("CQE yield site is reachable only through a signed portal launch", async ({
+  page,
+}) => {
+  await loginAsMember(page);
+  await page.goto("/apps");
+
+  const card = page.getByRole("link", { name: /CQE 测试线良率分析/ });
+  await expect(card).toBeVisible();
+  await card.click();
+  await expect(page).toHaveURL(/\/apps\/cqe-yield-analysis$/);
+  await expect(
+    page.getByRole("heading", { level: 1, name: "CQE 测试线良率分析" }),
+  ).toBeVisible();
+  await expect(page.getByText("禁止直接访问")).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "打开良率分析网站" }),
+  ).toHaveAttribute("href", "/apps/cqe-yield-analysis/launch");
+
+  const launch = await page.request.get("/apps/cqe-yield-analysis/launch", {
+    maxRedirects: 0,
+  });
+  expect(launch.status()).toBe(302);
+  const location = launch.headers().location;
+  expect(location).toBeTruthy();
+  const target = new URL(location!);
+  expect(target.origin).toBe("https://127.0.0.1:8504");
+  expect(target.pathname).toBe("/__qnexus_entry");
+  expect(target.searchParams.get("next")).toBe("/yield-trend");
+  const token = target.searchParams.get("token");
+  expect(token).toBeTruthy();
+
+  const access = await page.request.get("/api/apps/cqe-yield-analysis/access", {
+    headers: { "x-q-nexus-grant": token! },
+  });
+  expect(access.status()).toBe(204);
+});
+
 test("application center has responsive layout and no serious accessibility issues", async ({
   page,
   context,
@@ -92,7 +129,11 @@ test("application center has responsive layout and no serious accessibility issu
     ]);
     for (const width of [320, 768, 1440]) {
       await page.setViewportSize({ width, height: 900 });
-      for (const path of ["/apps", "/apps/bof-boxplot"]) {
+      for (const path of [
+        "/apps",
+        "/apps/bof-boxplot",
+        "/apps/cqe-yield-analysis",
+      ]) {
         await page.goto(path);
         expect(
           await page.evaluate(

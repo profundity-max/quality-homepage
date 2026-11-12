@@ -59,6 +59,11 @@ assert(
   "Production web must write backups to the dedicated backup mount.",
 );
 assert(
+  production.services.web.environment.APP_GATEWAY_SECRET ===
+    "compose-verification-only",
+  "Production web must receive the independent application gateway secret.",
+);
+assert(
   production.services.web.volumes?.some(
     (volume) => volume.target === "/backups" && volume.type === "bind",
   ),
@@ -137,6 +142,7 @@ async function capture(command, args) {
     env: {
       ...process.env,
       Q_NEXUS_DB_PASSWORD: "compose-verification-only",
+      APP_GATEWAY_SECRET: "compose-verification-only",
       BACKUP_PASSPHRASE: "compose-verification-only",
       BACKUP_ADMIN_USER_ID: "00000000-0000-4000-8000-000000000000",
     },
