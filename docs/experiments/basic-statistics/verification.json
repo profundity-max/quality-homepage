@@ -1,0 +1,22 @@
+{
+  "date": "2026-11-13",
+  "article": "article-da79db86",
+  "scope": "Only the first article body; experiment artifacts and required version records",
+  "lint": "PASS: 0 errors; 2 existing warnings in editor.tsx and account-administration.test.ts",
+  "typecheck": "PASS: npm run typecheck",
+  "build": "PASS: npm run build",
+  "localTests": "Default parallel run encountered database test timeouts; rerunning with --maxWorkers=1",
+  "math": {
+    "A_mean": 1,
+    "A_sampleSD": 0.007071067811865481,
+    "B_sampleSD": 0.15811388300841894,
+    "SD_ratio": 22.360679774997873,
+    "A_CI95": [0.9912201096697747, 1.0087798903302254],
+    "exerciseOutOfSpec": [0.94, 1.06]
+  },
+  "comparisonPreview": "Desktop and 390px mobile inspected; no viewport overflow, image loaded, no KaTeX errors; single-column toggle works",
+  "spreadsheet": "Artifact tool import/export; original cell values/formulas unchanged on all three sheets; one row appended at A69:F69 and rendered for inspection",
+  "backup": "backup-2026-11-13T01-20-23-504Z-manual.bin",
+  "publication": "Pending editor publication and screenshots",
+  "learningEffect": "Not measured; scores are expert design assessment only"
+}
