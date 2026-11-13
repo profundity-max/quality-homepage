@@ -5,7 +5,7 @@
   "lint": "PASS: 0 errors; 2 existing warnings in editor.tsx and account-administration.test.ts",
   "typecheck": "PASS: npm run typecheck",
   "build": "PASS: npm run build",
-  "localTests": "Default parallel run encountered database test timeouts; rerunning with --maxWorkers=1",
+  "localTests": "Default parallel run hit PGlite/database timeouts and was stopped; --maxWorkers=1 produced no completed suite summary after >3 minutes and was stopped. Full suite is NOT reported as passing.",
   "math": {
     "A_mean": 1,
     "A_sampleSD": 0.007071067811865481,
@@ -17,6 +17,32 @@
   "comparisonPreview": "Desktop and 390px mobile inspected; no viewport overflow, image loaded, no KaTeX errors; single-column toggle works",
   "spreadsheet": "Artifact tool import/export; original cell values/formulas unchanged on all three sheets; one row appended at A69:F69 and rendered for inspection",
   "backup": "backup-2026-11-13T01-20-23-504Z-manual.bin",
-  "publication": "Pending editor publication and screenshots",
-  "learningEffect": "Not measured; scores are expert design assessment only"
+  "publication": "Published through existing editor; database body matches after.md after CRLF/LF normalization; reader page updated",
+  "learningEffect": "Not measured; scores are expert design assessment only",
+  "rendererTests": "PASS: npx vitest run tests/module/markdown-renderer.test.ts --maxWorkers=1 --reporter=verbose; 11/11",
+  "scopeVerified": {
+    "publishedArticleCountBefore": 43,
+    "publishedArticleCountAfter": 43,
+    "onlyChangedStableId": "article-da79db86"
+  },
+  "recovery": "Original body MD5 179726a49a112d487fecb91bab1b7938 is retained in article_versions version 5; before.md and before.json retain complete original",
+  "desktop": {
+    "viewport": [1440, 1000],
+    "pageWidth": 1440,
+    "KaTeXErrors": 0,
+    "renderedMath": 16
+  },
+  "mobile": {
+    "viewport": [390, 844],
+    "pageWidth": 390,
+    "tableWidths": [350, 350, 350, 350, 350],
+    "formulaWidths": [350, 350, 350]
+  },
+  "health": "Server readiness HTTP 200 after publication",
+  "screenshots": {
+    "before-desktop.png": [1440, 10765],
+    "after-desktop.png": [1440, 4890],
+    "before-mobile.png": [390, 10900],
+    "after-mobile.png": [390, 5913]
+  }
 }
