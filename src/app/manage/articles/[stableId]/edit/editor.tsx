@@ -202,8 +202,11 @@ export function Editor({
     if (!textarea) return;
     const { selectionStart, selectionEnd } = textarea;
     const markdown = `![图片说明](${result.url})`;
+    const currentBody = textarea.value;
     const text =
-      body.slice(0, selectionStart) + markdown + body.slice(selectionEnd);
+      currentBody.slice(0, selectionStart) +
+      markdown +
+      currentBody.slice(selectionEnd);
     setBody(text);
     requestAnimationFrame(() => {
       textarea.focus();

@@ -80,6 +80,84 @@ test("image upload inserts a controlled-directory link", async ({ page }) => {
   );
 });
 
+test("pasting an image preserves text entered after opening the article editor", async ({
+  page,
+}) => {
+  await loginAsEditor(page);
+  await page.goto("/manage/articles/edit-fixture/edit");
+  await page.getByRole("tab", { name: "源码" }).click();
+  const source = page.getByLabel("Markdown 源码");
+  await source.fill("原有正文\n刚输入的内容");
+
+  await source.evaluate((element) => {
+    const bytes = Uint8Array.from(
+      atob(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADUlEQVQImWNgYGD4DwABBAEAfbLI3wAAAABJRU5ErkJggg==",
+      ),
+      (character) => character.charCodeAt(0),
+    );
+    const clipboard = new DataTransfer();
+    clipboard.items.add(new File([bytes], "pasted.png", { type: "image/png" }));
+    element.dispatchEvent(
+      new ClipboardEvent("paste", {
+        clipboardData: clipboard,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+  });
+
+  await expect(source).toHaveValue(
+    /^原有正文\n刚输入的内容!\[图片说明\]\(\/uploads\/[0-9a-f-]{36}\.png\)$/,
+  );
+});
+
+test("image upload preserves text entered while the upload is pending", async ({
+  page,
+}) => {
+  await loginAsEditor(page);
+  await page.goto("/manage/articles/edit-fixture/edit");
+  await page.getByRole("tab", { name: "源码" }).click();
+  const source = page.getByLabel("Markdown 源码");
+  await source.fill("上传前的正文");
+
+  let notifyStarted!: () => void;
+  const started = new Promise<void>((resolve) => {
+    notifyStarted = resolve;
+  });
+  let releaseUpload!: () => void;
+  const released = new Promise<void>((resolve) => {
+    releaseUpload = resolve;
+  });
+  await page.route("**/manage/articles/edit-fixture/edit", async (route) => {
+    if (route.request().method() === "POST") {
+      notifyStarted();
+      await released;
+    }
+    await route.continue();
+  });
+
+  await page.locator('input[type="file"]').setInputFiles({
+    name: "pending.png",
+    mimeType: "image/png",
+    buffer: Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADUlEQVQImWNgYGD4DwABBAEAfbLI3wAAAABJRU5ErkJggg==",
+      "base64",
+    ),
+  });
+  await started;
+  try {
+    await source.press("End");
+    await source.pressSequentially("，上传期间继续输入");
+  } finally {
+    releaseUpload();
+  }
+
+  await expect(source).toHaveValue(
+    /^上传前的正文，上传期间继续输入!\[图片说明\]\(\/uploads\/[0-9a-f-]{36}\.png\)$/,
+  );
+});
+
 test("autosave persists the body and preserves article properties without manual save", async ({
   page,
 }) => {
