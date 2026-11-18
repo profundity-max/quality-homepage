@@ -46,7 +46,7 @@ test("application center opens BOF guidance and protected tool", async ({
 
   await page.goto("/apps/bof-boxplot/run");
   await expect(
-    page.getByRole("heading", { level: 1, name: "BOF 箱线图与散点图 V1.2" }),
+    page.getByRole("heading", { level: 1, name: "BOF 箱线图与散点图 V1.3" }),
   ).toBeVisible();
   await expect(page.locator("#workbook-file")).toBeAttached();
   await expect(page.getByText("文件只在本机浏览器处理")).toBeVisible();
@@ -70,11 +70,17 @@ test("BOF sample workbook runs end to end in the hosted application", async ({
     null,
     { timeout: 30_000 },
   );
-  await expect(page.locator(".chart-card")).toHaveCount(2);
-  await expect(page.locator(".bof-bin-band")).toHaveCount(0);
-  await expect(page.locator(".bof-bin-cut")).toHaveCount(0);
-  await expect(page.locator(".bof-spec-limit")).toHaveCount(8);
-  await expect(page.getByText("仅显示 Spec 上下限").first()).toBeVisible();
+  await expect(page.locator(".chart-card")).toHaveCount(4);
+  await expect(page.locator(".bof-bin-band")).toHaveCount(3);
+  await expect(page.locator(".bof-bin-cut")).toHaveCount(3);
+  await expect(page.locator(".bof-spec-limit")).toHaveCount(6);
+  await expect(page.locator(".spec-legend")).toHaveCount(3);
+  await expect(page.locator(".chart-card h2")).toHaveText([
+    "Group A",
+    "Group B",
+    "尺寸 D",
+    "尺寸 E",
+  ]);
   await expect(page.locator(".bof-point-normal").first()).toHaveAttribute(
     "data-sn",
     "SN-BOF-001",

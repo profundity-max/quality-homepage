@@ -22,7 +22,7 @@ const workbookSheets = [
   },
   {
     name: "Spec",
-    purpose: "定义每个尺寸所属的 BinType、USL 和 LSL。",
+    purpose: "定义每个尺寸的 BinType、USL 和 LSL；BinType 可留空。",
     required: "BinType、FAI#、USL、LSL",
   },
   {
@@ -105,7 +105,7 @@ export default async function BofApplicationPage() {
                 <div>
                   <h3>下载案例工作簿</h3>
                   <p>
-                    参考案例中的工作表、列名、Spec 上下限和 Highlight SN
+                    参考案例中的完整 Bin、自动降级、BinType 空白和 Highlight SN
                     写法，替换为本次数据。
                   </p>
                 </div>
@@ -115,8 +115,8 @@ export default async function BofApplicationPage() {
                 <div>
                   <h3>检查工作簿结构</h3>
                   <p>
-                    必须包含 Data、Spec、HL SN 三个工作表；BinPlot
-                    可选，不使用分 Bin 时可直接省略。
+                    Data、Spec、HL SN 必需；BinPlot 可选，缺失或不完整时按
+                    BinType 自动降级。
                   </p>
                 </div>
               </li>
@@ -125,8 +125,8 @@ export default async function BofApplicationPage() {
                 <div>
                   <h3>打开工具并选择文件</h3>
                   <p>
-                    工具会先检查缺表、重复 SN
-                    和无效尺寸值。存在阻断错误时不会生成图表。
+                    工具会检查缺表、重复 SN、尺寸值及 BinPlot 完整性；不完整
+                    BinPlot 只影响对应 BinType。
                   </p>
                 </div>
               </li>
@@ -135,8 +135,8 @@ export default async function BofApplicationPage() {
                 <div>
                   <h3>核对并下载图表</h3>
                   <p>
-                    核对摘要、Spec 上下限、HL 标记和统计表后，可分别下载单图
-                    PNG。
+                    核对 Bin 色带、Spec 上下限、HL
+                    标记和统计表后，可分别下载单图 PNG。
                   </p>
                 </div>
               </li>
@@ -148,8 +148,9 @@ export default async function BofApplicationPage() {
             <p className={styles.eyebrow}>Sample workbook</p>
             <h2 id="sample-title">案例数据包含什么</h2>
             <ul>
-              <li>2 个 BinType</li>
-              <li>4 个尺寸与完整 Spec</li>
+              <li>2 个有值 BinType + 2 个空白 BinType 尺寸</li>
+              <li>Group A 完整 Bin，Group B 自动降级</li>
+              <li>5 个尺寸与完整 Spec</li>
               <li>8 个 SN，包含超 Spec 数据</li>
               <li>2 个 Highlight SN</li>
             </ul>
@@ -186,8 +187,8 @@ export default async function BofApplicationPage() {
             </table>
           </div>
           <p className={styles.note}>
-            本案例工作簿不包含 BinPlot，图表只显示每个尺寸的 USL/LSL。已有
-            BinPlot 的工作簿仍可继续使用，并按原规则显示 Bin 色带和边界。
+            BinType 有值且 BinPlot 完整时显示 Bin 色带；BinPlot
+            不完整时自动降级为 Spec-only；BinType 空白时每个尺寸单独一张图。
           </p>
         </section>
       </main>
