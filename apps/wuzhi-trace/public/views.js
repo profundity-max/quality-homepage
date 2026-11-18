@@ -1,4 +1,4 @@
-/* 物资申领与消耗追溯 V1.2.1 — views.js：视图 / 表单 / 签名板 / 导入导出 UI */
+/* 物资申领与消耗追溯 V1.2.2 — views.js：视图 / 表单 / 签名板 / 导入导出 UI */
 'use strict';
 (function () {
   const W = window.WZ;
@@ -87,11 +87,26 @@
   /* ================= 仪表盘 ================= */
   function renderDashboard() {
     const pane = $('#pane-dashboard');
-    const m = FILTER.dash === 'all' ? W.thisMonth() : FILTER.dash;
-    const s = W.monthSummary(FILTER.dash);
+    const selectedMonth = FILTER.dash === 'all' ? W.thisMonth() : FILTER.dash;
+    const s = W.monthSummary(selectedMonth);
     const kpi = (l, v, sub, cls) => `<div class="kpi ${cls || ''}"><div class="l">${l}</div><div class="v">${v}</div><div class="s">${sub || ''}</div></div>`;
     const pend = W.pendingDocs();
     const maxDisp = Math.max(1, ...W.REGIONS.map(r => s.dispatchByRegion[r] || 0));
+    const sourceTotal = key => Object.values(s.sources).reduce((sum, item) => sum + W.num(item[key]), 0);
+    const sourceRow = (source, metric, label, value, sub, total) => {
+      const width = total > 0 ? Math.max(0, Math.min(100, value / total * 100)) : 0;
+      return `<div class="source-row"><span class="source-label">${label}</span><span class="source-track"><span class="source-fill" style="width:${width}%"></span></span><span class="source-value"><button class="source-link" data-source-detail="${source}" data-source-metric="${metric}">${W.fmtQty(value)}</button><span class="source-meta">${sub}</span></span></div>`;
+    };
+    const sourceCard = source => {
+      const d = s.sources[source];
+      return `<section class="source-card"><h4>${source}<span class="source-subtitle">分类取自采购单，到货 / 签收自动归入</span></h4><div class="source-body">
+        ${sourceRow(source, 'purchase', '本月采购', d.purchaseQty, d.purchaseCount + ' 单', s.purchaseQty)}
+        ${sourceRow(source, 'arrival', '本月到货', d.arriveQty, d.arriveCount + ' 批', s.arriveQty)}
+        ${sourceRow(source, 'receipt', '文员实收', d.recvQty, d.recvCount + ' 次', s.recvQty)}
+        ${sourceRow(source, 'pendingReview', '待审核', d.pendingReview, '待一级审核', sourceTotal('pendingReview'))}
+        ${sourceRow(source, 'pendingApproval', '待核准', d.pendingApproval, '待最终核准', sourceTotal('pendingApproval'))}
+      </div></section>`;
+    };
     const stockRows = s.stocks.map(x => {
       const cls = x.alert === 'red' ? 'bad' : x.alert === 'yellow' ? 'warn' : '';
       const daysTxt = x.days == null ? '—' : x.days + ' 天';
@@ -100,7 +115,7 @@
     }).join('') || `<tr><td colspan="7" class="empty">暂无物料，请先在「物料档案」建立档案</td></tr>`;
     pane.innerHTML = `
       <div class="card"><h3>📊 月度汇总
-        <span class="sp"><input type="month" id="dashMonth" value="${m}"></span>
+        <span class="sp"><input type="month" id="dashMonth" value="${selectedMonth}"></span>
         <span><button class="btn sm" id="dashExport">导出 Excel</button></span>
       </h3>
       <div class="kpis">
@@ -112,8 +127,10 @@
         ${kpi('待签字领用单据', s.pendingSignoffs, '待领用确认', s.pendingSignoffs > 0 ? 'warn' : '')}
         ${W.REGIONS.map(r => kpi('分发至 ' + W.REGION_LABEL[r], W.fmtQty(s.dispatchByRegion[r] || 0), '本月分发')).join('')}
       </div>
-      <div class="card" style="box-shadow:none;border:none;padding:0;margin:0">
-        <h3>各区域分发对比</h3>
+      <div class="source-grid">${sourceCard('OA请购')}${sourceCard('行政请购')}</div>
+      <p class="source-note">OA请购 + 行政请购 + 其他来源 = 全量合计；请购来源为“其他”或旧数据不进入上方两个卡片，但仍计入顶部核心指标。</p>
+    </div>
+    <div class="card"><h3>📈 各区域分发对比</h3>
         <div class="bar">${W.REGIONS.map(r => `<div class="col"><b>${W.fmtQty(s.dispatchByRegion[r] || 0)}</b><div class="b" style="height:${Math.round((s.dispatchByRegion[r] || 0) / maxDisp * 90) + 4}px"></div><div class="n">${W.REGION_LABEL[r]}</div></div>`).join('')}</div>
       </div></div>
       <div class="card"><h3>📦 各物料库存与可用周期 <span class="sp muted">剩余 = 实收 − 已领用 · 消耗口径：近 30 天日均</span></h3>
@@ -123,9 +140,65 @@
         <span class="sp"><button class="btn sm" id="dashDetail">${FILTER.qType === 'pend' ? '隐藏明细' : '查看明细'}</button></span></h3>
         ${FILTER.qType === 'pend' ? renderPendingTable() : '<p class="muted">待到货 / 待签收 / 待领用确认的单据会显示在这里。</p>'}
       </div>`;
-    $('#dashMonth').onchange = e => { FILTER.dash = e.target.value || 'all'; W.renderAll(); };
+    $('#dashMonth').onchange = e => { FILTER.dash = e.target.value || W.thisMonth(); W.renderAll(); };
     $('#dashExport').onclick = exportMonth;
+    pane.querySelectorAll('[data-source-detail]').forEach(button => button.onclick = () => openSourceDetail(button.dataset.sourceDetail, button.dataset.sourceMetric));
     const dt = $('#dashDetail'); if (dt) dt.onclick = () => { FILTER.qType = FILTER.qType === 'pend' ? 'all' : 'pend'; W.renderAll(); };
+  }
+  function sourceDetailRecords(source, metric, month) {
+    const purchases = W.list('purchases').filter(purchase => W.purchaseRequestSource(purchase) === source);
+    const purchaseById = new Map(purchases.map(purchase => [purchase.id, purchase]));
+    const records = [];
+    if (metric === 'purchase' || metric === 'pendingReview' || metric === 'pendingApproval') {
+      for (const purchase of purchases) {
+        if (!W.inMonth(purchase.date, month)) continue;
+        const status = W.purchaseApprovalStatus(purchase);
+        if (metric === 'pendingReview' && status !== W.APPROVAL_PENDING) continue;
+        if (metric === 'pendingApproval' && status !== W.APPROVAL_WAITING) continue;
+        const material = W.get('materials', purchase.mid);
+        records.push({
+          date: purchase.date, type: '采购', material: material ? material.name : '（已删物料）',
+          qty: purchase.qty, ref: purchase.id, status: W.purchaseStatus(purchase), by: purchase.by,
+        });
+      }
+    }
+    if (metric === 'arrival') {
+      for (const arrival of W.list('arrivals')) {
+        const purchase = arrival.pid ? purchaseById.get(arrival.pid) : null;
+        if (!purchase || !W.inMonth(arrival.arrDate, month)) continue;
+        const material = W.get('materials', arrival.mid);
+        records.push({
+          date: arrival.arrDate, type: '到货', material: material ? material.name : '（已删物料）',
+          qty: arrival.arrQty, ref: purchase.id, status: '已到货', by: arrival.by,
+        });
+      }
+    }
+    if (metric === 'receipt') {
+      for (const receipt of W.list('receipts')) {
+        if (!W.inMonth(receipt.recvAt, month)) continue;
+        const arrival = W.get('arrivals', receipt.aid);
+        const purchase = arrival && arrival.pid ? purchaseById.get(arrival.pid) : null;
+        if (!purchase) continue;
+        const material = W.get('materials', arrival.mid);
+        records.push({
+          date: receipt.recvAt, type: '实收', material: material ? material.name : '（已删物料）',
+          qty: receipt.recvQty, ref: purchase.id, status: '已签收', by: receipt.recvBy,
+        });
+      }
+    }
+    return records;
+  }
+  function openSourceDetail(source, metric) {
+    const month = FILTER.dash === 'all' ? W.thisMonth() : FILTER.dash;
+    const labels = { purchase: '本月采购', arrival: '本月到货', receipt: '文员实收', pendingReview: '待审核', pendingApproval: '待核准' };
+    const records = sourceDetailRecords(source, metric, month);
+    const rows = records.sort((a, b) => String(b.date).localeCompare(String(a.date))).map(record =>
+      `<tr><td>${W.esc(record.date)}</td><td>${W.esc(record.type)}</td><td>${W.esc(record.material)}</td><td>${W.fmtQty(record.qty)}</td><td>${W.esc(record.status)}</td><td>${W.esc(record.by || '—')}</td><td>${W.esc(record.ref)}</td></tr>`
+    ).join('') || `<tr><td colspan="7" class="empty">${W.esc(month)} 暂无${source}${labels[metric] || ''}记录</td></tr>`;
+    openModal(modalShell(`${source} · ${labels[metric] || '明细'}（${W.esc(month)}）`, `
+      <p class="muted">分类来自采购单来源；到货按到货日期、实收按签收日期归入同一采购来源。</p>
+      <div class="twrap" style="max-height:460px"><table><thead><tr><th>日期</th><th>类型</th><th>物料</th><th>数量</th><th>状态</th><th>经手人</th><th>关联采购</th></tr></thead><tbody>${rows}</tbody></table></div>
+    `, `<button class="btn" onclick="closeModal()">关闭</button><button class="btn pri" onclick="closeModal();goTab('purchases')">去采购台账</button>`));
   }
   function renderPendingTable() {
     const p = W.pendingDocs();
@@ -140,10 +213,22 @@
   window.goTab = switchTab;
 
   async function exportMonth() {
-    const s = W.monthSummary(FILTER.dash);
+    const month = FILTER.dash === 'all' ? W.thisMonth() : FILTER.dash;
+    const s = W.monthSummary(month);
+    const sourceRows = [
+      ['请购来源分类'],
+      ['来源', '本月采购', '采购单数', '本月到货', '到货批次', '文员实收', '签收次数', '待审核', '待核准'],
+      ...['OA请购', '行政请购', '其他'].map(source => {
+        const item = s.sources[source];
+        return [source, item.purchaseQty, item.purchaseCount, item.arriveQty, item.arriveCount, item.recvQty, item.recvCount, item.pendingReview, item.pendingApproval];
+      }),
+      ['全量合计', s.purchaseQty, s.purchaseCount, s.arriveQty, s.arriveCount, s.recvQty, s.recvCount,
+        Object.values(s.sources).reduce((sum, item) => sum + item.pendingReview, 0),
+        Object.values(s.sources).reduce((sum, item) => sum + item.pendingApproval, 0)],
+    ];
     const rows = [
-      ['物资申领与消耗追溯 V1.2.1 · 月度汇总'],
-      ['月份', s.month === 'all' ? W.thisMonth() : s.month],
+      ['物资申领与消耗追溯 V1.2.2 · 月度汇总'],
+      ['月份', month],
       [],
       ['指标', '数值'],
       ['本月采购总量', s.purchaseQty], ['本月采购单数', s.purchaseCount],
@@ -152,14 +237,30 @@
       ['待签字领用单据数', s.pendingSignoffs],
       ...W.REGIONS.map(r => ['分发至 ' + W.REGION_LABEL[r], s.dispatchByRegion[r] || 0]),
       [],
+      ...sourceRows,
+      [],
       ['物料库存明细'],
       ['物料', '规格', '单位', '实收累计', '已领用累计', '剩余库存', '日均消耗', '预估可用天数', '安全库存', '告警'],
       ...s.stocks.map(x => [x.name, x.spec, x.unit, x.recvTotal, x.usedTotal, x.remain, x.rate ? Math.round(x.rate * 100) / 100 : '', x.days == null ? '' : x.days, x.safe, x.alert === 'red' ? '低于安全库存' : x.alert === 'yellow' ? '接近安全库存' : ''])
     ];
+    const detailSheet = source => ({
+      name: source,
+      rows: [
+        ['日期', '类型', '物料', '数量', '状态', '经手人', '关联采购'],
+        ...['purchase', 'arrival', 'receipt']
+          .flatMap(metric => sourceDetailRecords(source, metric, month))
+          .sort((a, b) => String(b.date).localeCompare(String(a.date)))
+          .map(record => [record.date, record.type, record.material, record.qty, record.status, record.by || '', record.ref]),
+      ],
+    });
     try {
-      const bytes = await W.xlsxBuild([{ name: '月度汇总', rows }]);
-      W.downloadBlob(bytes, `物资月度汇总_${s.month === 'all' ? W.thisMonth() : s.month}.xlsx`, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-      W.logOp('导出', 'dashboard', '', '导出月度汇总 Excel'); W.saveState();
+      const bytes = await W.xlsxBuild([
+        { name: '月度汇总', rows },
+        detailSheet('OA请购'),
+        detailSheet('行政请购'),
+      ]);
+      W.downloadBlob(bytes, `物资月度汇总_${month}.xlsx`, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      W.logOp('导出', 'dashboard', '', `导出 ${month} 月度汇总与请购来源明细 Excel`); W.saveState();
     } catch (e) { W.toast('导出失败：' + e.message); }
   }
 
@@ -273,8 +374,8 @@
         : delivery === '已到货' ? '<span class="tag green">已到货</span>'
           : delivery === '部分到货' ? '<span class="tag yellow">部分到货</span>'
             : '<span class="tag gray">已采购未到货</span>';
-      return `<tr><td>${W.esc(p.date)}</td><td>${W.esc(mt ? mt.name : '（已删物料）')}</td><td>${W.esc(mt ? mt.spec : '')}</td><td>${W.fmtQty(p.qty)}</td><td>${W.fmtQty(arrived)}</td><td>${approvalTag(status)}<br>${deliveryTag}</td><td>${W.esc(p.purpose)}</td><td>${W.esc(p.dest)}</td><td>${W.esc(p.dept || '—')}</td><td>${W.esc(p.by)}</td><td>${W.esc(p.reviewedBy || '—')}</td><td>${W.esc(p.approvedBy || '—')}</td><td>${purchaseActionHtml(p)}</td></tr>`;
-    }).join('') || `<tr><td colspan="13" class="empty">本月暂无采购记录</td></tr>`;
+      return `<tr><td>${W.esc(p.date)}</td><td>${W.esc(mt ? mt.name : '（已删物料）')}</td><td>${W.esc(mt ? mt.spec : '')}</td><td>${W.esc(W.purchaseRequestSource(p))}</td><td>${W.fmtQty(p.qty)}</td><td>${W.fmtQty(arrived)}</td><td>${approvalTag(status)}<br>${deliveryTag}</td><td>${W.esc(p.purpose)}</td><td>${W.esc(p.dest)}</td><td>${W.esc(p.dept || '—')}</td><td>${W.esc(p.by)}</td><td>${W.esc(p.reviewedBy || '—')}</td><td>${W.esc(p.approvedBy || '—')}</td><td>${purchaseActionHtml(p)}</td></tr>`;
+    }).join('') || `<tr><td colspan="14" class="empty">本月暂无采购记录</td></tr>`;
     pane.innerHTML = `<div class="card"><h3>🛒 采购台账
       <span class="sp">
         <input type="month" id="buyMonth" value="${month === 'all' ? W.thisMonth() : month}">
@@ -284,7 +385,7 @@
       </span></h3>
       ${scopeNote}
       <p class="muted">采购流程：待审核 → 待核准 → 已核准；进入到货流程后按实际到货、签收和分发继续追溯。</p>
-      <div class="twrap"><table><thead><tr><th>采购日期</th><th>物料</th><th>规格</th><th>采购数量</th><th>已到货</th><th>状态</th><th>用途说明</th><th>使用去向</th><th>申请部门</th><th>申请人</th><th>审核人</th><th>核准人</th><th>操作</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+      <div class="twrap"><table><thead><tr><th>采购日期</th><th>物料</th><th>规格</th><th>请购来源</th><th>采购数量</th><th>已到货</th><th>状态</th><th>用途说明</th><th>使用去向</th><th>申请部门</th><th>申请人</th><th>审核人</th><th>核准人</th><th>操作</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
     $('#buyMonth').onchange = e => { FILTER.buy = e.target.value || 'all'; W.renderAll(); };
     $('#buyMat').onchange = e => { FILTER.buyMat = e.target.value; W.renderAll(); };
     $('#buyAll').onclick = () => { FILTER.buy = 'all'; W.renderAll(); };
@@ -334,7 +435,7 @@
   }
   function purchaseForm(id) {
     if (id) W.markEdit('purchases', id);
-    const p = id ? W.get('purchases', id) : { mid: '', qty: '', date: W.today(), purpose: '', dest: '', dept: '' };
+    const p = id ? W.get('purchases', id) : { mid: '', qty: '', date: W.today(), purpose: '', dest: '', dept: '', requestSource: 'OA请购' };
     if (id && !canEditPurchase(p)) { W.toast('该采购单当前状态不允许修改'); return; }
     const opts = W.list('materials').map(mt => `<option value="${mt.id}" ${p.mid === mt.id ? 'selected' : ''}>${W.esc(mt.name)}${mt.spec ? '（' + W.esc(mt.spec) + '）' : ''}</option>`).join('');
     if (!W.list('materials').length) { W.toast('请先在「物料档案」新增物料'); return; }
@@ -348,6 +449,7 @@
         <label style="flex:1">用途说明<input id="fPurpose" style="width:100%" value="${W.esc(p.purpose)}"></label>
         <label style="flex:1">使用去向<input id="fDest" style="width:100%" value="${W.esc(p.dest)}"></label>
         <label style="flex:1">申请部门<select id="fDept" style="width:100%"><option value="">— 未选择 —</option>${W.DEPTS.map(d0 => `<option ${p.dept === d0 ? 'selected' : ''}>${W.esc(d0)}</option>`).join('')}</select></label>
+        <label style="flex:1">请购来源<select id="fSource">${['OA请购','行政请购','其他'].map(source => `<option ${W.purchaseRequestSource(p) === source ? 'selected' : ''}>${source}</option>`).join('')}</select></label>
       </div>
       <p class="muted">保存后采购单进入「待审核」，一级审核通过后进入「待核准」；已核准后才能登记到货。</p>
     `, `<button class="btn" onclick="closeModal()">取消</button><button class="btn pri" id="fSave">保存并提交审核</button>`));
@@ -356,7 +458,7 @@
       if (qty <= 0) { W.toast('采购数量必须大于 0'); return; }
       const mid = $('#fMid').value, mt = W.get('materials', mid);
       W.upsert('purchases', {
-        id, mid, qty, date: $('#fDate').value || W.today(), purpose: $('#fPurpose').value.trim(), dest: $('#fDest').value.trim(), dept: $('#fDept').value,
+        id, mid, qty, date: $('#fDate').value || W.today(), purpose: $('#fPurpose').value.trim(), dest: $('#fDest').value.trim(), dept: $('#fDept').value, requestSource: $('#fSource').value,
         approvalStatus: W.APPROVAL_PENDING, reviewedBy: '', reviewedAt: '', reviewComment: '',
         approvedBy: '', approvedAt: '', approvalComment: '', rejectedBy: '', rejectedAt: '', rejectionReason: ''
       }, `采购 ${mt ? mt.name : ''} ×${W.fmtQty(qty)}`);
@@ -933,7 +1035,7 @@
       if (x.reason === 'refused') return localHit
         ? '✗ 连不上 ' + where + '：连接被拒绝。本机直连也被拒 → 服务未启动。请在服务器电脑以管理员运行「一键启动_自动放行防火墙.bat」，然后本机浏览器访问 http://localhost:8082/api/health 自检（应返回 {"ok":true}）'
         : '✗ 连不上 ' + where + '：连接被拒绝。服务未启动或端口不对：① 确认服务器已启动且端口为 8082 ② 若服务器本机 localhost 能打开而这里被拒，多为地址写错（看「访问地址.txt」取当前 IP）' + fixed;
-      if (x.reason === 'badreply') return '✗ ' + where + ' 有响应但不是物资申领与消耗追溯 V1.2.1服务（核对地址与端口是否指向别的程序）' + fixed;
+      if (x.reason === 'badreply') return '✗ ' + where + ' 有响应但不是物资申领与消耗追溯 V1.2.2服务（核对地址与端口是否指向别的程序）' + fixed;
       return '✗ 连不上 ' + where + '（' + (x.detail || x.reason || 'HTTP 异常') + '）' + fixed;
     }
     /* 读取输入框地址：升级旧端口并把结果写回输入框（用户可见纠正） */
@@ -1311,7 +1413,7 @@
     impSession = { target, headers, rows: rows.slice(1), mapping };
     const fieldNames = {
       materials: { code: '存货编码', name: '存货名称*', spec: '规格型号', unit: '单位', category: '物品分类', safe: '安全库存', note: '描述/备注' },
-      purchases: { code: '存货编码', materialName: '存货名称*', spec: '规格型号', unit: '单位', category: '物品分类', qty: '请购数量*', date: '申请时间*', purpose: '申请原因/用途', dest: '地点/使用去向', dept: '申请部门' },
+      purchases: { code: '存货编码', materialName: '存货名称*', spec: '规格型号', unit: '单位', category: '物品分类', requestSource: '请购来源', qty: '请购数量*', date: '申请时间*', purpose: '申请原因/用途', dest: '地点/使用去向', dept: '申请部门' },
       arrivals: { code: '存货编码', materialName: '存货名称*', arrQty: '实际到货数量*', arrDate: '到货日期*' },
       dispatches: { code: '存货编码', materialName: '存货名称*', region: '分发区域*', dept: '领用部门', qty: '分发数量*', at: '分发时间' },
       members: { name: '姓名*', username: '品集账号', role: '业务角色*', region: '所属区域', dept: '所属部门', supervisorName: '上级区域领用人', enabled: '启用状态' }
@@ -1490,7 +1592,7 @@
         } else if (target === 'purchases') {
           const qty = W.num(gv('qty'));
           if (qty <= 0) throw new Error('请购数量无效');
-          W.upsert('purchases', { mid: mt.id, qty, date: W.normDate(gv('date')) || W.today(), purpose: gv('purpose'), dest: gv('dest'), dept: gv('dept'), approvalStatus: W.APPROVAL_PENDING }, `导入采购：${matName} ×${W.fmtQty(qty)}`); ok++;
+          W.upsert('purchases', { mid: mt.id, qty, date: W.normDate(gv('date')) || W.today(), purpose: gv('purpose'), dest: gv('dest'), dept: gv('dept'), requestSource: gv('requestSource') || 'OA请购', approvalStatus: W.APPROVAL_PENDING }, `导入采购：${matName} ×${W.fmtQty(qty)}`); ok++;
         } else if (target === 'arrivals') {
           const qty = W.num(gv('arrQty'));
           if (qty <= 0) throw new Error('到货数量无效');
@@ -1531,7 +1633,7 @@
     const sheets = [
       { name: '物料档案', rows: [['存货编码', '存货名称', '规格型号', '单位', '物品分类', '安全库存', '描述/备注'], ...L('materials').map(m => [m.code, m.name, m.spec, m.unit, m.category, m.safe, m.note])] },
       { name: '成员名单', rows: [['姓名', '品集账号', '业务角色', '所属区域', '所属部门', '上级区域领用人', '启用状态'], ...L('members').sort((a, b) => String(a.name).localeCompare(String(b.name))).map(member => { const supervisor = member.supervisorId ? G('members', member.supervisorId) : null; return [member.name, member.username || '', member.role, W.REGION_LABEL[member.region] || member.region || '', member.dept || '', supervisor ? supervisor.name : '', member.enabled === false ? '停用' : '启用']; })] },
-      { name: '采购台账', rows: [['采购日期', '存货编码', '存货名称', '规格型号', '采购数量', '已到货', '状态', '用途说明', '使用去向', '申请部门', '录入人'], ...L('purchases').sort((a, b) => String(a.date).localeCompare(String(b.date))).map(p => { const mt = G('materials', p.mid); return [p.date, mt ? mt.code : '', matName(p.mid), mt ? mt.spec : '', p.qty, W.fmtQty(W.arrivalsOf(p.id).reduce((s, a) => s + W.num(a.arrQty), 0)), W.purchaseStatus(p), p.purpose, p.dest, p.dept || '', p.by]; })] },
+      { name: '采购台账', rows: [['采购日期', '存货编码', '存货名称', '规格型号', '请购来源', '采购数量', '已到货', '状态', '用途说明', '使用去向', '申请部门', '录入人'], ...L('purchases').sort((a, b) => String(a.date).localeCompare(String(b.date))).map(p => { const mt = G('materials', p.mid); return [p.date, mt ? mt.code : '', matName(p.mid), mt ? mt.spec : '', W.purchaseRequestSource(p), p.qty, W.fmtQty(W.arrivalsOf(p.id).reduce((s, a) => s + W.num(a.arrQty), 0)), W.purchaseStatus(p), p.purpose, p.dest, p.dept || '', p.by]; })] },
       { name: '到货签收', rows: [['到货日期', '存货编码', '存货名称', '到货数量', '签收状态', '实收数量', '签收人', '签收时间'], ...L('arrivals').sort((a, b) => String(a.arrDate).localeCompare(String(b.arrDate))).map(a => { const rc = W.receiptOf(a.id); const mt = G('materials', a.mid); return [a.arrDate, mt ? mt.code : '', matName(a.mid), a.arrQty, rc ? '已签收' : '待签收', rc ? rc.recvQty : '', rc ? rc.recvBy : '', rc ? rc.recvAt : '']; })] },
       { name: '分发领用', rows: [['分发时间', '存货编码', '存货名称', '分发区域', '领用部门', '分发数量', '分发人', '确认状态', '领用人', '签名时间'], ...L('dispatches').sort((a, b) => String(a.at).localeCompare(String(b.at))).map(d => { const s = W.signoffOf(d.id); const mt = G('materials', d.mid); return [d.at, mt ? mt.code : '', matName(d.mid), W.REGION_LABEL[d.region] || d.region, d.dept || '', d.qty, d.byWho, s ? '已确认' : '待领用确认', s ? s.signer : '', s ? s.sigAt : '']; })] },
       { name: '操作日志', rows: [['时间', '操作人', '动作', '对象', '详情'], ...L('logs').sort((a, b) => a.ts - b.ts).map(l => [new Date(l.ts).toLocaleString('zh-CN'), l.by, l.action, l.entity, l.detail])] }

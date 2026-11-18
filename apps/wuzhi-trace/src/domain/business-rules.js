@@ -299,6 +299,10 @@ function validateBusinessRecord({ collection, before, after, fullData }) {
     if (!APPROVAL_STATUSES.has(purchaseApprovalStatus(after))) {
       violations.push('采购审批状态无效');
     }
+    const source = String(after.requestSource || '').trim();
+    if (source && !['OA请购', '行政请购', '其他'].includes(source)) {
+      violations.push('请购来源无效');
+    }
   }
 
   if (collection === 'arrivals') {

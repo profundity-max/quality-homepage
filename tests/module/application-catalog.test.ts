@@ -36,7 +36,7 @@ describe("application catalog", () => {
   it("exposes the material trace application through the portal launch route", () => {
     expect(getApplication("wuzhi-trace")).toMatchObject({
       name: "物资申领与消耗追溯",
-      version: "V1.2.1",
+      version: "V1.2.2",
       status: "available",
       href: "/apps/wuzhi-trace",
       runtimeHref: "/apps/wuzhi-trace/launch",

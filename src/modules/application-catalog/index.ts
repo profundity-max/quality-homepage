@@ -45,9 +45,9 @@ const applications: readonly PortalApplication[] = [
     name: "物资申领与消耗追溯",
     shortName: "物资追溯",
     summary:
-      "支持采购两级审批、成员区域归属、到货签收、指定领用人分发、库存预警与台账导出。",
+      "支持采购两级审批、OA/行政请购来源分析、成员区域归属、到货签收、指定领用人分发、库存预警与台账导出。",
     category: "物资管理",
-    version: "V1.2.1",
+    version: "V1.2.2",
     owner: "品质部",
     status: "available",
     href: "/apps/wuzhi-trace",

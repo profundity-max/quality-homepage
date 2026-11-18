@@ -322,3 +322,27 @@ test('系统管理员修改已核准采购时必须重新进入审核流程', ()
   });
   assert.deepEqual(violations, []);
 });
+
+test('采购请购来源只接受 OA请购、行政请购和其他', () => {
+  const data = stateWith({
+    materials: { m1: rec('m1', { name: '无尘布' }) },
+  }).data;
+  const valid = rec('p1', {
+    mid: 'm1', qty: 1, approvalStatus: '待审核', requestSource: '行政请购',
+  }, Date.now(), '领用人甲');
+  assert.deepEqual(validateMutation({
+    previousData: { tomb: {}, purchases: {} },
+    nextData: { tomb: {}, purchases: { p1: valid } },
+    fullData: data,
+    who: areaLead,
+  }), []);
+  const invalid = rec('p2', {
+    mid: 'm1', qty: 1, approvalStatus: '待审核', requestSource: '外部来源',
+  }, Date.now(), '领用人甲');
+  assert.match(validateMutation({
+    previousData: { tomb: {}, purchases: {} },
+    nextData: { tomb: {}, purchases: { p2: invalid } },
+    fullData: data,
+    who: areaLead,
+  }).join('\n'), /请购来源无效/);
+});

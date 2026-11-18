@@ -1,4 +1,4 @@
-/* 物资申领与消耗追溯 V1.2.1 — core.js：数据模型 / 派生计算 / 同步层 / Excel 读写 */
+/* 物资申领与消耗追溯 V1.2.2 — core.js：数据模型 / 派生计算 / 同步层 / Excel 读写 */
 'use strict';
 window.WZ = (function () {
   /* ---------------- 基础工具 ---------------- */
@@ -6,7 +6,7 @@ window.WZ = (function () {
   const FIELDS = ['name', 'spec', 'unit', 'safe', 'note', 'code', 'category', 'mid', 'qty', 'date', 'purpose', 'dest', 'dept',
     'pid', 'arrQty', 'arrDate', 'aid', 'recvQty', 'recvBy', 'recvAt', 'region', 'at', 'byWho',
     'did', 'signer', 'sigData', 'sigAt', 'role', 'action', 'entity', 'refId', 'detail',
-    'username', 'enabled', 'supervisorId', 'approvalStatus', 'reviewedBy', 'reviewedAt',
+    'username', 'enabled', 'supervisorId', 'requestSource', 'approvalStatus', 'reviewedBy', 'reviewedAt',
     'reviewComment', 'approvedBy', 'approvedAt', 'approvalComment', 'rejectedBy',
     'rejectedAt', 'rejectionReason', 'claimantId', 'claimantName'];
   /* ---- 部门 / 区域：可配置清单（设置页维护，localStorage 持久化） ---- */
@@ -711,6 +711,12 @@ window.WZ = (function () {
     const status = String(record && record.approvalStatus || '');
     return APPROVAL_STATUSES.includes(status) ? status : APPROVAL_APPROVED;
   }
+  function purchaseRequestSource(record) {
+    const raw = String(record && record.requestSource || '').trim();
+    if (/^OA/i.test(raw) || raw === 'OA请购') return 'OA请购';
+    if (raw.includes('行政')) return '行政请购';
+    return '其他';
+  }
   function memberById(id) { return id ? get('members', id) : null; }
   function membersForRegion(region) {
     return list('members').filter(member => member.enabled !== false && (!region || String(member.region || '') === String(region)) && AREA_ROLES.includes(member.role));
@@ -1000,8 +1006,41 @@ window.WZ = (function () {
     return pend;
   }
 
+  function sourceSummary(m) {
+    const out = {
+      'OA请购': { purchaseQty: 0, purchaseCount: 0, arriveQty: 0, arriveCount: 0, recvQty: 0, recvCount: 0, pendingReview: 0, pendingApproval: 0 },
+      '行政请购': { purchaseQty: 0, purchaseCount: 0, arriveQty: 0, arriveCount: 0, recvQty: 0, recvCount: 0, pendingReview: 0, pendingApproval: 0 },
+      '其他': { purchaseQty: 0, purchaseCount: 0, arriveQty: 0, arriveCount: 0, recvQty: 0, recvCount: 0, pendingReview: 0, pendingApproval: 0 }
+    };
+    for (const p of list('purchases')) {
+      if (!inMonth(p.date, m)) continue;
+      const bucket = out[purchaseRequestSource(p)];
+      bucket.purchaseQty += num(p.qty);
+      bucket.purchaseCount += 1;
+      const approval = purchaseApprovalStatus(p);
+      if (approval === APPROVAL_PENDING) bucket.pendingReview += 1;
+      if (approval === APPROVAL_WAITING) bucket.pendingApproval += 1;
+    }
+    for (const a of list('arrivals')) {
+      if (!inMonth(a.arrDate, m)) continue;
+      const purchase = a.pid ? get('purchases', a.pid) : null;
+      const bucket = out[purchaseRequestSource(purchase)];
+      bucket.arriveQty += num(a.arrQty);
+      bucket.arriveCount += 1;
+    }
+    for (const rc of list('receipts')) {
+      if (!inMonth(rc.recvAt, m)) continue;
+      const arrival = get('arrivals', rc.aid);
+      const purchase = arrival && arrival.pid ? get('purchases', arrival.pid) : null;
+      const bucket = out[purchaseRequestSource(purchase)];
+      bucket.recvQty += num(rc.recvQty);
+      bucket.recvCount += 1;
+    }
+    return out;
+  }
+
   function monthSummary(m) {
-    const out = { month: m, purchaseQty: 0, purchaseCount: 0, arriveQty: 0, arriveCount: 0, recvQty: 0, recvCount: 0, dispatchByRegion: {}, usedByRegion: {}, pendingSignoffs: 0, stocks: [] };
+    const out = { month: m, purchaseQty: 0, purchaseCount: 0, arriveQty: 0, arriveCount: 0, recvQty: 0, recvCount: 0, dispatchByRegion: {}, usedByRegion: {}, pendingSignoffs: 0, stocks: [], sources: sourceSummary(m) };
     REGIONS.forEach(r => { out.dispatchByRegion[r] = 0; out.usedByRegion[r] = 0; });
     for (const p of list('purchases')) if (inMonth(p.date, m)) { out.purchaseQty += num(p.qty); out.purchaseCount++; }
     for (const a of list('arrivals')) if (inMonth(a.arrDate, m)) { out.arriveQty += num(a.arrQty); out.arriveCount++; }
@@ -1371,6 +1410,7 @@ window.WZ = (function () {
       spec: ['规格型号', '规格', '型号'],
       unit: ['单位', '计量单位'],
       category: ['物品分类', '物品类型', '分类'],
+      requestSource: ['请购来源', '请购类型', '采购来源', '来源'],
       qty: ['请购数量', '采购数量', '数量', '采购量'],
       date: ['申请时间', '采购日期', '日期'],
       purpose: ['申请原因', '用途说明', '用途', '用途描述'],
@@ -1541,7 +1581,7 @@ window.WZ = (function () {
     pullStore, pushStore, pushPending, startAutoSync, stopAutoSync, shareUrl,
     flushOps, scheduleFlush, pendingOps: () => opCount(),
     scopeInfo, scopeLabel, adminKeyHint, normKey, verifyAdminKey, setShowAll, inScope, canOperateRec, teamStats,
-    purchaseApprovalStatus, memberById, membersForRegion, supervisorsForRegion,
+    purchaseApprovalStatus, purchaseRequestSource, sourceSummary, memberById, membersForRegion, supervisorsForRegion,
     syncBundleText, syncBundleName, syncMergeText, syncCounts, getLastExportAt, markExported, recTouchTs,
     stockOf, burnRateOf, daysLeftOf, alertLevel, purchaseStatus, docStatus, pendingDocs, monthSummary,
     arrivalsOf, dispatchesOf, receiptOf, signoffOf, dispatchedOf,

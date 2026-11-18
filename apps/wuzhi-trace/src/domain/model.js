@@ -16,7 +16,7 @@ const FIELDS = Object.freeze([
   'date', 'purpose', 'dest', 'dept', 'pid', 'arrQty', 'arrDate', 'aid',
   'recvQty', 'recvBy', 'recvAt', 'region', 'at', 'byWho', 'did', 'signer',
   'sigData', 'sigAt', 'role', 'action', 'entity', 'refId', 'detail',
-  'username', 'enabled', 'supervisorId', 'approvalStatus', 'reviewedBy',
+  'username', 'enabled', 'supervisorId', 'requestSource', 'approvalStatus', 'reviewedBy',
   'reviewedAt', 'reviewComment', 'approvedBy', 'approvedAt', 'approvalComment',
   'rejectedBy', 'rejectedAt', 'rejectionReason', 'claimantId', 'claimantName',
 ]);
