@@ -9,31 +9,59 @@ function request(headers) {
   return { headers };
 }
 
-test('品集身份映射角色并从成员名单补齐区域', () => {
+function headers(username, displayName, role) {
+  return {
+    'x-q-nexus-subject': `subject-${username}`,
+    'x-q-nexus-username-b64': Buffer.from(username).toString('base64url'),
+    'x-q-nexus-display-name-b64': Buffer.from(displayName).toString('base64url'),
+    'x-q-nexus-role': role,
+  };
+}
+
+test('成员名单可覆盖默认业务角色并补充区域和上级', () => {
   const identity = resolveQnexusIdentity(
-    request({
-      'x-q-nexus-subject': 'subject-1',
-      'x-q-nexus-username-b64': Buffer.from('quality.user').toString('base64url'),
-      'x-q-nexus-display-name-b64': Buffer.from('领用人甲').toString('base64url'),
-      'x-q-nexus-role': 'reader',
-    }),
-    { members: { m1: { name: '领用人甲', region: 'IPQC2' } } },
+    request(headers('area.member', '领用人乙', 'reader')),
+    {
+      members: {
+        lead: { id: 'lead', name: '领用人甲', username: 'area.lead', role: '区域领用人', region: 'IPQC2', enabled: true },
+        member: {
+          id: 'member', name: '领用人乙', username: 'area.member', role: '隶属区域领用人',
+          region: 'IPQC2', supervisorId: 'lead', enabled: true,
+        },
+      },
+    },
   );
-  assert.equal(identity.role, '区域领用人');
+  assert.equal(identity.role, '隶属区域领用人');
   assert.equal(identity.region, 'IPQC2');
+  assert.equal(identity.memberId, 'member');
+  assert.equal(identity.supervisorId, 'lead');
   assert.equal(identity.admin, false);
-  assert.equal(identity.authMode, 'qnexus');
+  assert.equal(identity.systemAdmin, false);
 });
 
-test('管理员角色具有管理员权限，未知角色被拒绝', () => {
-  const base = {
-    'x-q-nexus-subject': 'subject-1',
-    'x-q-nexus-username-b64': Buffer.from('admin').toString('base64url'),
-    'x-q-nexus-role': 'administrator',
-  };
-  assert.equal(resolveQnexusIdentity(request(base), {}).admin, true);
+test('武欣雨使用品集编辑者账号时获得系统管理员权限', () => {
+  const identity = resolveQnexusIdentity(
+    request(headers('wuxinyu', '武欣雨', 'editor')),
+    {},
+  );
+  assert.equal(identity.role, '审核员');
+  assert.equal(identity.admin, true);
+  assert.equal(identity.systemAdmin, true);
+});
+
+test('品集管理员默认映射核准员，但非武欣雨不获得成员维护权限', () => {
+  const identity = resolveQnexusIdentity(
+    request(headers('admin.user', '管理员', 'administrator')),
+    {},
+  );
+  assert.equal(identity.role, '核准员');
+  assert.equal(identity.admin, true);
+  assert.equal(identity.systemAdmin, false);
+});
+
+test('未知品集角色被拒绝', () => {
   assert.equal(
-    resolveQnexusIdentity(request({ ...base, 'x-q-nexus-role': 'owner' }), {}),
+    resolveQnexusIdentity(request(headers('unknown', '未知', 'owner')), {}),
     null,
   );
 });

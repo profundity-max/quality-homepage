@@ -65,6 +65,7 @@ function createServer({
   adminKey,
   adminKeySource = 'default',
   ssoEnabled = false,
+  systemAdminNames = '武欣雨',
   keepBackups = 200,
   now = () => Date.now(),
 }) {
@@ -79,6 +80,7 @@ function createServer({
   const resolveIdentity = createIdentityResolver({
     ssoEnabled,
     adminKey,
+    adminNames: systemAdminNames,
     dataProvider: () => state.data,
   });
 
@@ -98,7 +100,7 @@ function createServer({
     response.setHeader('Access-Control-Allow-Methods', 'GET, PUT, POST, OPTIONS');
     response.setHeader(
       'Access-Control-Allow-Headers',
-      'content-type, x-share-token, x-admin-key, x-user-name, x-user-role, x-user-region',
+      'content-type, x-share-token, x-admin-key, x-user-name, x-user-username, x-user-role, x-user-region',
     );
   }
 

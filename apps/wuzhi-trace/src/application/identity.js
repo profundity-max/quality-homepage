@@ -3,10 +3,17 @@
 const { timingSafeEqual } = require('node:crypto');
 
 const QNEXUS_ROLE_MAP = Object.freeze({
-  administrator: '管理员',
-  editor: '文员',
+  administrator: '核准员',
+  editor: '审核员',
   reader: '区域领用人',
 });
+const VALID_BUSINESS_ROLES = new Set([
+  '审核员',
+  '核准员',
+  '区域领用人',
+  '隶属区域领用人',
+]);
+const DEFAULT_SYSTEM_ADMIN_NAMES = ['武欣雨'];
 
 function normKey(value) {
   return String(value == null ? '' : value)
@@ -39,56 +46,121 @@ function safeEqual(left, right) {
   return a.length === b.length && a.length > 0 && timingSafeEqual(a, b);
 }
 
-function memberRegion(data, name) {
-  const member = Object.values((data && data.members) || {}).find(
-    (record) => String(record.name || '').trim() === String(name || '').trim(),
-  );
-  return member ? String(member.region || '') : '';
+function normalizeAdminNames(names) {
+  const list = Array.isArray(names)
+    ? names
+    : String(names || '')
+      .split(',')
+      .map((value) => value.trim());
+  const cleaned = list.map((value) => value.trim()).filter(Boolean);
+  return cleaned.length ? cleaned : DEFAULT_SYSTEM_ADMIN_NAMES;
 }
 
-function resolveQnexusIdentity(request, data) {
+function findMember(data, username, name) {
+  const members = Object.values((data && data.members) || {});
+  const normalizedUsername = String(username || '').trim().toLowerCase();
+  const normalizedName = String(name || '').trim();
+  return (
+    members.find(
+      (record) =>
+        record.enabled !== false
+        && normalizedUsername
+        && String(record.username || '').trim().toLowerCase() === normalizedUsername,
+    )
+    || members.find(
+      (record) =>
+        record.enabled !== false
+        && normalizedName
+        && String(record.name || '').trim() === normalizedName,
+    )
+    || null
+  );
+}
+
+function isSystemAdminIdentity({ username, name, adminNames }) {
+  const candidates = new Set(
+    [username, name].map((value) => String(value || '').trim()).filter(Boolean),
+  );
+  return adminNames.some((candidate) => candidates.has(candidate));
+}
+
+function resolveQnexusIdentity(request, data, adminNames = DEFAULT_SYSTEM_ADMIN_NAMES) {
   const subject = String(request.headers['x-q-nexus-subject'] || '').trim();
   const username = decodeBase64Url(request.headers['x-q-nexus-username-b64']).trim();
   const displayName = decodeBase64Url(
     request.headers['x-q-nexus-display-name-b64'],
   ).trim();
   const portalRole = String(request.headers['x-q-nexus-role'] || '').trim();
-  const role = QNEXUS_ROLE_MAP[portalRole];
-  if (!subject || !username || !role) return null;
+  const mappedRole = QNEXUS_ROLE_MAP[portalRole];
+  if (!subject || !username || !mappedRole) return null;
   const name = displayName || username;
+  const member = findMember(data, username, name);
+  const memberRole = member && VALID_BUSINESS_ROLES.has(member.role)
+    ? String(member.role)
+    : '';
+  const systemAdmin = isSystemAdminIdentity({
+    username,
+    name,
+    adminNames: normalizeAdminNames(adminNames),
+  });
   return {
     authMode: 'qnexus',
     subject,
     username,
     name,
-    role,
-    region: role === '区域领用人' ? memberRegion(data, name) : '',
-    admin: role === '管理员',
+    role: memberRole || mappedRole,
+    region: member ? String(member.region || '') : '',
+    memberId: member ? member.id : '',
+    supervisorId: member ? String(member.supervisorId || '') : '',
+    systemAdmin,
+    admin: systemAdmin || portalRole === 'administrator',
   };
 }
 
-function resolveStandaloneIdentity(request, body, data, adminKey) {
+function resolveStandaloneIdentity(
+  request,
+  body,
+  data,
+  adminKey,
+  adminNames = DEFAULT_SYSTEM_ADMIN_NAMES,
+) {
   const bodyData = body && typeof body === 'object' ? body : {};
   const name = String(
     bodyData.name || decodeLegacyHeader(request.headers['x-user-name']) || '',
   ).trim();
-  const role = String(
+  const username = String(
+    bodyData.username || decodeLegacyHeader(request.headers['x-user-username']) || name,
+  ).trim();
+  const requestedRole = String(
     bodyData.role || decodeLegacyHeader(request.headers['x-user-role']) || '',
   ).trim();
-  const region = String(
+  const requestedRegion = String(
     bodyData.region || decodeLegacyHeader(request.headers['x-user-region']) || '',
   ).trim();
+  const member = findMember(data, username, name);
+  const memberRole = member && VALID_BUSINESS_ROLES.has(member.role)
+    ? String(member.role)
+    : '';
+  const role = memberRole || (VALID_BUSINESS_ROLES.has(requestedRole) ? requestedRole : '区域领用人');
   const headerAdmin = request.headers['x-admin-key'];
   const bodyAdmin = bodyData.adminKey;
   const admin =
     safeEqual(headerAdmin, adminKey) || safeEqual(bodyAdmin, adminKey);
+  const systemAdmin = admin && isSystemAdminIdentity({
+    username,
+    name,
+    adminNames: normalizeAdminNames(adminNames),
+  });
   return {
     authMode: 'standalone',
     subject: '',
-    username: name,
+    username,
     name,
     role,
-    region,
+    region: member ? String(member.region || '') : requestedRegion,
+    memberId: member ? member.id : '',
+    supervisorId: member ? String(member.supervisorId || '') : '',
+    systemAdmin,
     admin,
   };
 }
@@ -100,7 +172,10 @@ function publicIdentity(who) {
     username: who.username || '',
     role: who.role,
     region: who.region || '',
+    memberId: who.memberId || '',
+    supervisorId: who.supervisorId || '',
     admin: Boolean(who.admin),
+    systemAdmin: Boolean(who.systemAdmin),
     authMode: who.authMode,
   };
 }
@@ -108,19 +183,25 @@ function publicIdentity(who) {
 function createIdentityResolver({
   ssoEnabled,
   adminKey,
+  adminNames = DEFAULT_SYSTEM_ADMIN_NAMES,
   dataProvider = () => null,
 }) {
   return function resolveIdentity(request, body = null) {
     const data = dataProvider();
-    if (ssoEnabled) return resolveQnexusIdentity(request, data);
-    return resolveStandaloneIdentity(request, body, data, adminKey);
+    if (ssoEnabled) return resolveQnexusIdentity(request, data, adminNames);
+    return resolveStandaloneIdentity(request, body, data, adminKey, adminNames);
   };
 }
 
 module.exports = {
+  DEFAULT_SYSTEM_ADMIN_NAMES,
   QNEXUS_ROLE_MAP,
+  VALID_BUSINESS_ROLES,
   createIdentityResolver,
+  findMember,
+  isSystemAdminIdentity,
   normKey,
+  normalizeAdminNames,
   publicIdentity,
   resolveQnexusIdentity,
   resolveStandaloneIdentity,

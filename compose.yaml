@@ -73,6 +73,7 @@ services:
     environment:
       QNEXUS_SSO: "1"
       SHARE_DATA_DIR: /app/data/wuzhi-trace
+      WZ_SYSTEM_ADMIN_NAMES: "武欣雨"
       TZ: Asia/Shanghai
     expose: ["8082"]
     volumes:

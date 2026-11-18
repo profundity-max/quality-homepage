@@ -1,4 +1,4 @@
-/* 物资申领与消耗追溯 V1.1.1 — views.js：视图 / 表单 / 签名板 / 导入导出 UI */
+/* 物资申领与消耗追溯 V1.2.0 — views.js：视图 / 表单 / 签名板 / 导入导出 UI */
 'use strict';
 (function () {
   const W = window.WZ;
@@ -106,7 +106,9 @@
       <div class="kpis">
         ${kpi('本月采购总量', W.fmtQty(s.purchaseQty), s.purchaseCount + ' 单')}
         ${kpi('本月实际到货总量', W.fmtQty(s.arriveQty), s.arriveCount + ' 批')}
-        ${kpi('文员实收总量', W.fmtQty(s.recvQty), s.recvCount + ' 次签收')}
+        ${kpi('实收总量', W.fmtQty(s.recvQty), s.recvCount + ' 次签收')}
+        ${kpi('待审核采购', pend['待审核'].length, '等待一级审核', pend['待审核'].length > 0 ? 'warn' : '')}
+        ${kpi('待核准采购', pend['待核准'].length, '等待最终核准', pend['待核准'].length > 0 ? 'warn' : '')}
         ${kpi('待签字领用单据', s.pendingSignoffs, '待领用确认', s.pendingSignoffs > 0 ? 'warn' : '')}
         ${W.REGIONS.map(r => kpi('分发至 ' + W.REGION_LABEL[r], W.fmtQty(s.dispatchByRegion[r] || 0), '本月分发')).join('')}
       </div>
@@ -128,6 +130,8 @@
   function renderPendingTable() {
     const p = W.pendingDocs();
     const rows = [];
+    p['待审核'].forEach(r => { const mt = W.get('materials', r.mid); rows.push(`<tr><td><span class="tag yellow">待审核</span></td><td>${W.esc(mt ? mt.name : '?')}</td><td>采购 ${W.fmtQty(r.qty)}</td><td>${W.esc(r.date || '')}</td><td>${W.esc(r.by || '')}</td><td><button class="btn sm" onclick="goTab('purchases')">去审核</button></td></tr>`); });
+    p['待核准'].forEach(r => { const mt = W.get('materials', r.mid); rows.push(`<tr><td><span class="tag blue">待核准</span></td><td>${W.esc(mt ? mt.name : '?')}</td><td>采购 ${W.fmtQty(r.qty)}</td><td>${W.esc(r.date || '')}</td><td>${W.esc(r.reviewedBy || r.by || '')}</td><td><button class="btn sm" onclick="goTab('purchases')">去核准</button></td></tr>`); });
     p['待到货'].forEach(r => { const mt = W.get('materials', r.mid); rows.push(`<tr><td><span class="tag blue">待到货</span></td><td>${W.esc(mt ? mt.name : '?')}</td><td>采购 ${W.fmtQty(r.qty)}</td><td>${W.esc(r.date || '')}</td><td>${W.esc(r.by || '')}</td><td><button class="btn sm" onclick="goTab('purchases')">去处理</button></td></tr>`); });
     p['待签收'].forEach(r => { const mt = W.get('materials', r.mid); rows.push(`<tr><td><span class="tag yellow">待签收</span></td><td>${W.esc(mt ? mt.name : '?')}</td><td>到货 ${W.fmtQty(r.arrQty)}</td><td>${W.esc(r.arrDate || '')}</td><td>${W.esc(r.by || '')}</td><td><button class="btn sm" onclick="goTab('arrivals')">去处理</button></td></tr>`); });
     p['待领用确认'].forEach(r => { const mt = W.get('materials', r.mid); rows.push(`<tr><td><span class="tag red">待领用确认</span></td><td>${W.esc(mt ? mt.name : '?')}</td><td>分发 ${W.fmtQty(r.qty)} → ${W.esc(W.REGION_LABEL[r.region] || r.region)}</td><td>${W.esc(r.at || '')}</td><td>${W.esc(r.byWho || '')}</td><td><button class="btn sm" onclick="goTab('dispatch')">去签字</button></td></tr>`); });
@@ -138,13 +142,13 @@
   async function exportMonth() {
     const s = W.monthSummary(FILTER.dash);
     const rows = [
-      ['物资申领与消耗追溯 V1.1.1 · 月度汇总'],
+      ['物资申领与消耗追溯 V1.2.0 · 月度汇总'],
       ['月份', s.month === 'all' ? W.thisMonth() : s.month],
       [],
       ['指标', '数值'],
       ['本月采购总量', s.purchaseQty], ['本月采购单数', s.purchaseCount],
       ['本月实际到货总量', s.arriveQty], ['本月到货批次', s.arriveCount],
-      ['文员实收总量', s.recvQty], ['签收次数', s.recvCount],
+      ['实收总量', s.recvQty], ['签收次数', s.recvCount],
       ['待签字领用单据数', s.pendingSignoffs],
       ...W.REGIONS.map(r => ['分发至 ' + W.REGION_LABEL[r], s.dispatchByRegion[r] || 0]),
       [],
@@ -162,7 +166,7 @@
   /* ================= 物料档案 ================= */
   function renderMaterials() {
     const pane = $('#pane-materials');
-    const editable = W.canEditBase();
+    const editable = W.canManageMaterials();
     const all = W.list('materials').sort((a, b) => String(a.name).localeCompare(String(b.name)));
     /* 修复（2026-11-17）：档案页头部显示数据条数与来源（本地缓存/云端版本），
        保存后数据有没有进档案页一眼可查，避免「存了但看不到」无法定位。 */
@@ -213,9 +217,41 @@
   }
 
   /* ================= 采购台账 ================= */
+  function approvalTag(status) {
+    if (status === W.APPROVAL_PENDING) return '<span class="tag yellow">待审核</span>';
+    if (status === W.APPROVAL_WAITING) return '<span class="tag blue">待核准</span>';
+    if (status === W.APPROVAL_APPROVED) return '<span class="tag green">已核准</span>';
+    if (status === W.APPROVAL_REJECTED) return '<span class="tag red">已驳回</span>';
+    return `<span class="tag gray">${W.esc(status)}</span>`;
+  }
+  function canEditPurchase(p) {
+    if (W.SYNC.admin) return true;
+    if (W.purchaseApprovalStatus(p) === W.APPROVAL_APPROVED) return false;
+    return W.canOperateRec('purchases', p);
+  }
+  function purchaseActionHtml(p) {
+    const status = W.purchaseApprovalStatus(p);
+    const actions = [];
+    if (canEditPurchase(p)) {
+      actions.push(`<button class="btn sm" data-edit="${p.id}">编辑</button>`);
+      actions.push(`<button class="btn sm danger" data-del="${p.id}">删除</button>`);
+    }
+    if (status === W.APPROVAL_PENDING && W.canReviewPurchase()) {
+      actions.push(`<button class="btn sm pri" data-review="${p.id}">审核</button>`);
+      actions.push(`<button class="btn sm danger" data-reject-review="${p.id}">驳回</button>`);
+    }
+    if (status === W.APPROVAL_WAITING && W.canApprovePurchase()) {
+      actions.push(`<button class="btn sm pri" data-approve="${p.id}">核准</button>`);
+      actions.push(`<button class="btn sm danger" data-reject-approve="${p.id}">驳回</button>`);
+    }
+    if (status === W.APPROVAL_REJECTED && String(p.by || '') === String(W.me().name || '')) {
+      actions.push(`<button class="btn sm" data-resubmit="${p.id}">重新提交</button>`);
+    }
+    return actions.length ? actions.join(' ') : '<span class="muted">—</span>';
+  }
   function renderPurchases() {
     const pane = $('#pane-purchases');
-    const editable = W.canEditFlow();
+    const canCreate = W.canCreatePurchase();
     const month = FILTER.buy;
     const q = FILTER.buyMat || '';
     const items = W.list('purchases')
@@ -225,31 +261,31 @@
       .sort((a, b) => String(b.date).localeCompare(String(a.date)));
     const sc = W.scopeInfo();
     const scopeNote = sc.mineOnly
-      ? `<p class="muted" style="margin:-2px 0 8px">当前为<b>区域领用人</b>身份：默认只显示本人录入的申领单（${items.length} 条）。<button class="btn sm" id="buyScope">看全部台账</button>　<span>库存与到货仍按全量数据计算。</span></p>`
+      ? `<p class="muted" style="margin:-2px 0 8px">当前为<b>${W.esc(sc.role)}</b>身份：仅显示本人提交的采购单（${items.length} 条）。</p>`
       : '';
     const matOpts = W.list('materials').map(mt => `<option value="${W.esc(mt.name)}">${W.esc(mt.name)}</option>`).join('');
     const rows = items.map(p => {
       const mt = W.get('materials', p.mid);
-      const st = W.purchaseStatus(p);
-      const tag = st === '已到货' ? '<span class="tag green">已到货</span>' : st === '部分到货' ? '<span class="tag yellow">部分到货</span>' : '<span class="tag gray">已采购未到货</span>';
-      const arrived = W.arrivalsOf(p.id).reduce((s, a) => s + W.num(a.arrQty), 0);
-      return `<tr><td>${W.esc(p.date)}</td><td>${W.esc(mt ? mt.name : '（已删物料）')}</td><td>${W.esc(mt ? mt.spec : '')}</td><td>${W.fmtQty(p.qty)}</td><td>${W.fmtQty(arrived)}</td><td>${tag}</td><td>${W.esc(p.purpose)}</td><td>${W.esc(p.dest)}</td><td>${W.esc(p.dept || '—')}</td><td>${W.esc(p.by)}</td>
-        ${editable ? `<td>${W.canOperateRec('purchases', p)
-          ? `<button class="btn sm" data-edit="${p.id}">编辑</button> <button class="btn sm danger" data-del="${p.id}">删除</button>`
-          : '<span class="muted">他人单据</span>'}</td>` : ''}</tr>`;
-    }).join('') || `<tr><td colspan="11" class="empty">本月暂无采购记录</td></tr>`;
+      const status = W.purchaseApprovalStatus(p);
+      const delivery = W.purchaseStatus(p);
+      const arrived = W.arrivalsOf(p.id).reduce((sum, a) => sum + W.num(a.arrQty), 0);
+      const deliveryTag = status !== W.APPROVAL_APPROVED ? '<span class="muted">未进入到货流程</span>'
+        : delivery === '已到货' ? '<span class="tag green">已到货</span>'
+          : delivery === '部分到货' ? '<span class="tag yellow">部分到货</span>'
+            : '<span class="tag gray">已采购未到货</span>';
+      return `<tr><td>${W.esc(p.date)}</td><td>${W.esc(mt ? mt.name : '（已删物料）')}</td><td>${W.esc(mt ? mt.spec : '')}</td><td>${W.fmtQty(p.qty)}</td><td>${W.fmtQty(arrived)}</td><td>${approvalTag(status)}<br>${deliveryTag}</td><td>${W.esc(p.purpose)}</td><td>${W.esc(p.dest)}</td><td>${W.esc(p.dept || '—')}</td><td>${W.esc(p.by)}</td><td>${W.esc(p.reviewedBy || '—')}</td><td>${W.esc(p.approvedBy || '—')}</td><td>${purchaseActionHtml(p)}</td></tr>`;
+    }).join('') || `<tr><td colspan="13" class="empty">本月暂无采购记录</td></tr>`;
     pane.innerHTML = `<div class="card"><h3>🛒 采购台账
       <span class="sp">
         <input type="month" id="buyMonth" value="${month === 'all' ? W.thisMonth() : month}">
         <select id="buyMat"><option value="">全部物料</option>${matOpts}</select>
         <button class="btn sm" id="buyAll">全部月份</button>
-        ${editable ? '<button class="btn pri sm" id="btnAddPurchase">＋ 采购登记</button>' : ''}
+        ${canCreate ? '<button class="btn pri sm" id="btnAddPurchase">＋ 采购登记</button>' : ''}
       </span></h3>
       ${scopeNote}
-      <div class="twrap"><table><thead><tr><th>采购日期</th><th>物料</th><th>规格</th><th>采购数量</th><th>已到货</th><th>状态</th><th>用途说明</th><th>使用去向</th><th>申请部门</th><th>录入人</th>${editable ? '<th>操作</th>' : ''}</tr></thead><tbody>${rows}</tbody></table></div></div>`;
+      <p class="muted">采购流程：待审核 → 待核准 → 已核准；进入到货流程后按实际到货、签收和分发继续追溯。</p>
+      <div class="twrap"><table><thead><tr><th>采购日期</th><th>物料</th><th>规格</th><th>采购数量</th><th>已到货</th><th>状态</th><th>用途说明</th><th>使用去向</th><th>申请部门</th><th>申请人</th><th>审核人</th><th>核准人</th><th>操作</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
     $('#buyMonth').onchange = e => { FILTER.buy = e.target.value || 'all'; W.renderAll(); };
-    const buyScope = $('#buyScope');
-    if (buyScope) buyScope.onclick = () => { W.setShowAll(true); W.toast('已显示全部台账（仍只能改本人录入的单据）'); };
     $('#buyMat').onchange = e => { FILTER.buyMat = e.target.value; W.renderAll(); };
     $('#buyAll').onclick = () => { FILTER.buy = 'all'; W.renderAll(); };
     const add = $('#btnAddPurchase');
@@ -259,10 +295,47 @@
       const p = W.get('purchases', b.dataset.del);
       if (confirm('确认删除该采购记录？')) W.remove('purchases', p.id, `删除采购：${p.date} ${W.fmtQty(p.qty)}`);
     });
+    pane.querySelectorAll('[data-review]').forEach(b => b.onclick = () => approvalForm(b.dataset.review, 'review-pass'));
+    pane.querySelectorAll('[data-reject-review]').forEach(b => b.onclick = () => approvalForm(b.dataset.rejectReview, 'review-reject'));
+    pane.querySelectorAll('[data-approve]').forEach(b => b.onclick = () => approvalForm(b.dataset.approve, 'approve-pass'));
+    pane.querySelectorAll('[data-reject-approve]').forEach(b => b.onclick = () => approvalForm(b.dataset.rejectApprove, 'approve-reject'));
+    pane.querySelectorAll('[data-resubmit]').forEach(b => b.onclick = () => {
+      const p = W.get('purchases', b.dataset.resubmit);
+      W.upsert('purchases', { id: p.id, approvalStatus: W.APPROVAL_PENDING, rejectedBy: '', rejectedAt: '', rejectionReason: '' }, `重新提交采购审核：${p.id}`);
+      W.toast('已重新提交审核');
+    });
+  }
+  function approvalForm(id, action) {
+    const p = W.get('purchases', id);
+    const mt = W.get('materials', p.mid);
+    const review = action.startsWith('review');
+    const pass = action.endsWith('pass');
+    const title = review ? (pass ? '采购一级审核' : '采购审核驳回') : (pass ? '采购最终核准' : '采购核准驳回');
+    openModal(modalShell(title, `
+      <p>物料：<b>${W.esc(mt ? mt.name : '?')}</b> · 数量 ${W.fmtQty(p.qty)} · 申请人 ${W.esc(p.by || '')}</p>
+      <div class="frow"><label style="flex:1">${pass ? '审批意见（可选）' : '驳回原因 *'}<textarea id="approvalNote" rows="3" style="width:100%"></textarea></label></div>
+    `, `<button class="btn" onclick="closeModal()">取消</button><button class="btn ${pass ? 'pri' : 'danger'}" id="approvalSave">${pass ? '确认' : '确认驳回'}</button>`));
+    $('#approvalSave').onclick = () => {
+      const note = $('#approvalNote').value.trim();
+      if (!pass && !note) { W.toast('驳回必须填写原因'); return; }
+      const at = W.nowStr();
+      if (review && pass) {
+        W.upsert('purchases', { id, approvalStatus: W.APPROVAL_WAITING, reviewedBy: W.me().name, reviewedAt: at, reviewComment: note, rejectedBy: '', rejectedAt: '', rejectionReason: '' }, `采购一级审核通过：${p.id}`);
+      } else if (review && !pass) {
+        W.upsert('purchases', { id, approvalStatus: W.APPROVAL_REJECTED, reviewedBy: W.me().name, reviewedAt: at, reviewComment: note, rejectedBy: W.me().name, rejectedAt: at, rejectionReason: note }, `采购审核驳回：${p.id}`);
+      } else if (!review && pass) {
+        W.upsert('purchases', { id, approvalStatus: W.APPROVAL_APPROVED, approvedBy: W.me().name, approvedAt: at, approvalComment: note }, `采购最终核准：${p.id}`);
+      } else {
+        W.upsert('purchases', { id, approvalStatus: W.APPROVAL_REJECTED, rejectedBy: W.me().name, rejectedAt: at, rejectionReason: note }, `采购核准驳回：${p.id}`);
+      }
+      closeModal();
+      W.toast(pass ? '审批完成' : '已驳回');
+    };
   }
   function purchaseForm(id) {
     if (id) W.markEdit('purchases', id);
     const p = id ? W.get('purchases', id) : { mid: '', qty: '', date: W.today(), purpose: '', dest: '', dept: '' };
+    if (id && !canEditPurchase(p)) { W.toast('该采购单当前状态不允许修改'); return; }
     const opts = W.list('materials').map(mt => `<option value="${mt.id}" ${p.mid === mt.id ? 'selected' : ''}>${W.esc(mt.name)}${mt.spec ? '（' + W.esc(mt.spec) + '）' : ''}</option>`).join('');
     if (!W.list('materials').length) { W.toast('请先在「物料档案」新增物料'); return; }
     openModal(modalShell(id ? '✏️ 编辑采购' : '🛒 采购登记', `
@@ -276,13 +349,18 @@
         <label style="flex:1">使用去向<input id="fDest" style="width:100%" value="${W.esc(p.dest)}"></label>
         <label style="flex:1">申请部门<select id="fDept" style="width:100%"><option value="">— 未选择 —</option>${W.DEPTS.map(d0 => `<option ${p.dept === d0 ? 'selected' : ''}>${W.esc(d0)}</option>`).join('')}</select></label>
       </div>
-    `, `<button class="btn" onclick="closeModal()">取消</button><button class="btn pri" id="fSave">保存</button>`));
+      <p class="muted">保存后采购单进入「待审核」，一级审核通过后进入「待核准」；已核准后才能登记到货。</p>
+    `, `<button class="btn" onclick="closeModal()">取消</button><button class="btn pri" id="fSave">保存并提交审核</button>`));
     $('#fSave').onclick = () => {
       const qty = W.num($('#fQty').value);
       if (qty <= 0) { W.toast('采购数量必须大于 0'); return; }
       const mid = $('#fMid').value, mt = W.get('materials', mid);
-      W.upsert('purchases', { id, mid, qty, date: $('#fDate').value || W.today(), purpose: $('#fPurpose').value.trim(), dest: $('#fDest').value.trim(), dept: $('#fDept').value }, `采购 ${mt ? mt.name : ''} ×${W.fmtQty(qty)}`);
-      closeModal(); W.toast('已保存');
+      W.upsert('purchases', {
+        id, mid, qty, date: $('#fDate').value || W.today(), purpose: $('#fPurpose').value.trim(), dest: $('#fDest').value.trim(), dept: $('#fDept').value,
+        approvalStatus: W.APPROVAL_PENDING, reviewedBy: '', reviewedAt: '', reviewComment: '',
+        approvedBy: '', approvedAt: '', approvalComment: '', rejectedBy: '', rejectedAt: '', rejectionReason: ''
+      }, `采购 ${mt ? mt.name : ''} ×${W.fmtQty(qty)}`);
+      closeModal(); W.toast('已提交审核');
     };
   }
 
@@ -301,7 +379,7 @@
       return `<tr><td>${W.esc(a.arrDate)}</td><td>${W.esc(mt ? mt.name : '（已删物料）')}</td><td>${p ? W.esc(p.date) + ' 采购' + W.fmtQty(p.qty) : '—'}</td><td>${W.fmtQty(a.arrQty)}</td><td>${W.fmtQty(disp)}</td><td>${recvTag}<br><span class="muted">${rc ? W.esc(rc.recvBy) + ' ' + W.esc(rc.recvAt || '') : ''}</span></td>
         <td>${editable && !rc ? `<button class="btn sm pri" data-recv="${a.id}">签收</button> ` : ''}${editable ? `<button class="btn sm" data-edit="${a.id}">编辑</button> <button class="btn sm danger" data-del="${a.id}">删除</button>` : ''}</td></tr>`;
     }).join('') || `<tr><td colspan="7" class="empty">暂无到货记录</td></tr>`;
-    pane.innerHTML = `<div class="card"><h3>🚚 到货登记 & 文员签收
+    pane.innerHTML = `<div class="card"><h3>🚚 到货登记 & 实收签收
       <span class="sp">
         <input type="month" id="arrMonth" value="${month === 'all' ? W.thisMonth() : month}">
         <button class="btn sm" id="arrAll">全部月份</button>
@@ -321,8 +399,10 @@
   function arrivalForm(id) {
     if (id) W.markEdit('arrivals', id);
     const a = id ? W.get('arrivals', id) : { pid: '', arrQty: '', arrDate: W.today() };
-    const purchases = W.list('purchases').sort((x, y) => String(y.date).localeCompare(String(x.date)));
-    if (!purchases.length) { W.toast('请先在「采购台账」登记采购'); return; }
+    const purchases = W.list('purchases')
+      .filter(p => W.purchaseApprovalStatus(p) === W.APPROVAL_APPROVED)
+      .sort((x, y) => String(y.date).localeCompare(String(x.date)));
+    if (!purchases.length) { W.toast('没有已完成审核和核准的采购单，不能登记到货'); return; }
     const opts = purchases.map(p => {
       const mt = W.get('materials', p.mid);
       return `<option value="${p.id}" ${a.pid === p.id ? 'selected' : ''}>${W.esc(p.date)} ${W.esc(mt ? mt.name : '?')} 采购${W.fmtQty(p.qty)}</option>`;
@@ -333,7 +413,7 @@
         <label>实际到货数量 *<input id="fArrQty" type="number" min="0" step="any" value="${W.esc(a.arrQty)}"></label>
         <label>到货日期 *<input id="fArrDate" type="date" value="${W.esc(a.arrDate)}"></label>
       </div>
-      <p class="muted">一单采购可分批多次到货；到货后由文员在本页「签收」。</p>
+      <p class="muted">一单采购可分批多次到货；到货后由审核员或核准员在本页「签收」。</p>
     `, `<button class="btn" onclick="closeModal()">取消</button><button class="btn pri" id="fSave">保存</button>`));
     $('#fSave').onclick = () => {
       const qty = W.num($('#fArrQty').value);
@@ -346,7 +426,7 @@
   function recvForm(aid) {
     const a = W.get('arrivals', aid);
     const mt = W.get('materials', a.mid);
-    openModal(modalShell('✍️ 文员签收', `
+    openModal(modalShell('✍️ 实收签收', `
       <p style="margin-bottom:10px">物料：<b>${W.esc(mt ? mt.name : '?')}</b> · 到货数量 <b>${W.fmtQty(a.arrQty)}</b> · 到货日期 ${W.esc(a.arrDate)}</p>
       <div class="frow">
         <label>实收数量 *<input id="fRecvQty" type="number" min="0" step="any" value="${W.esc(a.arrQty)}"></label>
@@ -355,7 +435,7 @@
     `, `<button class="btn" onclick="closeModal()">取消</button><button class="btn pri" id="fSave">确认签收</button>`));
     $('#fSave').onclick = () => {
       const qty = W.num($('#fRecvQty').value);
-      if (qty < 0) { W.toast('数量无效'); return; }
+      if (qty <= 0) { W.toast('实收数量必须大于 0'); return; }
       W.upsert('receipts', { aid, recvQty: qty, recvBy: W.me().name || '—', recvAt: W.nowStr() }, `签收 ${W.fmtQty(qty)}`);
       closeModal(); W.toast('签收完成');
     };
@@ -375,9 +455,10 @@
       const s = W.signoffOf(d.id);
       const sigTag = s ? `<span class="tag green">已确认</span>` : `<span class="tag red">待领用确认</span>`;
       const canOp = W.canOperateRec('dispatches', d);
-      return `<tr><td>${W.esc(d.at)}</td><td>${W.esc(mt ? mt.name : '（已删物料）')}</td><td>${W.esc(W.REGION_LABEL[d.region] || d.region)}</td><td>${W.esc(d.dept || '—')}</td><td>${W.fmtQty(d.qty)}</td><td>${W.esc(d.byWho)}</td><td>${sigTag}<br><span class="muted">${s ? W.esc(s.signer) + ' ' + W.esc(s.sigAt || '') : ''}</span></td>
-        <td>${!s && W.canConfirm() ? `<button class="btn sm pri" data-sign="${d.id}">签字确认</button> ` : ''}${s && s.sigData ? `<button class="btn sm" data-view="${d.id}">查看签名</button>` : ''}${editable ? (canOp ? `<button class="btn sm" data-edit="${d.id}">编辑</button> <button class="btn sm danger" data-del="${d.id}">删除</button>` : '<span class="muted">他人单据</span>') : ''}</td></tr>`;
-    }).join('') || `<tr><td colspan="8" class="empty">暂无分发记录</td></tr>`;
+      const canSign = !s && W.canConfirmDispatch(d);
+      return `<tr><td>${W.esc(d.at)}</td><td>${W.esc(mt ? mt.name : '（已删物料）')}</td><td>${W.esc(W.REGION_LABEL[d.region] || d.region)}</td><td>${W.esc(d.claimantName || '—')}</td><td>${W.esc(d.dept || '—')}</td><td>${W.fmtQty(d.qty)}</td><td>${W.esc(d.byWho)}</td><td>${sigTag}<br><span class="muted">${s ? W.esc(s.signer) + ' ' + W.esc(s.sigAt || '') : ''}</span></td>
+        <td>${canSign ? `<button class="btn sm pri" data-sign="${d.id}">签字确认</button> ` : ''}${s && s.sigData ? `<button class="btn sm" data-view="${d.id}">查看签名</button>` : ''}${editable ? (canOp ? `<button class="btn sm" data-edit="${d.id}">编辑</button> <button class="btn sm danger" data-del="${d.id}">删除</button>` : '<span class="muted">他人单据</span>') : ''}</td></tr>`;
+    }).join('') || `<tr><td colspan="9" class="empty">暂无分发记录</td></tr>`;
     pane.innerHTML = `<div class="card"><h3>📤 物料分发 & 领用签字确认
       <span class="sp">
         <input type="month" id="dspMonth" value="${month === 'all' ? W.thisMonth() : month}">
@@ -385,7 +466,8 @@
         <button class="btn sm" id="dspAll">全部月份</button>
         ${editable ? '<button class="btn pri sm" id="btnAddDispatch">＋ 物料下发</button>' : ''}
       </span></h3>
-      <div class="twrap"><table><thead><tr><th>分发时间</th><th>物料</th><th>分发区域</th><th>领用部门</th><th>分发数量</th><th>分发人</th><th>领用确认</th><th>操作</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+      <p class="muted">区域领用人可确认本区域分配单；隶属区域领用人只能确认分配给本人的单据。</p>
+      <div class="twrap"><table><thead><tr><th>分发时间</th><th>物料</th><th>分发区域</th><th>领用人</th><th>领用部门</th><th>分发数量</th><th>分发人</th><th>领用确认</th><th>操作</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
     $('#dspMonth').onchange = e => { FILTER.dsp = e.target.value || 'all'; W.renderAll(); };
     $('#dspRegion').onchange = e => { FILTER.dspRegion = e.target.value; W.renderAll(); };
     $('#dspAll').onclick = () => { FILTER.dsp = 'all'; FILTER.dspRegion = ''; W.renderAll(); };
@@ -401,13 +483,18 @@
       openModal(modalShell('🖼️ 领用签名', `<p>领用人：<b>${W.esc(s.signer)}</b> · ${W.esc(s.sigAt || '')}</p>${s.sigData ? `<img src="${s.sigData}" alt="签名" style="max-width:100%;border:1px solid var(--line);border-radius:8px">` : '<p class="muted">（姓名确认，无手写笔迹）</p>'}`));
     });
   }
+  function claimantOptions(region, selectedId) {
+    const members = W.membersForRegion(region);
+    return members.map(member => `<option value="${member.id}" ${selectedId === member.id ? 'selected' : ''}>${W.esc(member.name)}（${W.esc(member.role)}）</option>`).join('');
+  }
   function dispatchForm(id) {
     if (id) W.markEdit('dispatches', id);
-    const d = id ? W.get('dispatches', id) : { aid: '', region: '', dept: '', qty: '', at: W.nowStr() };
+    const d = id ? W.get('dispatches', id) : { aid: '', region: W.REGIONS[0] || '', dept: '', qty: '', at: W.nowStr(), claimantId: '', claimantName: '' };
     const arrivals = W.list('arrivals')
       .filter(a => W.receiptOf(a.id))
       .sort((x, y) => String(y.arrDate).localeCompare(String(x.arrDate)));
-    if (!arrivals.length) { W.toast('请先完成到货批次的文员签收，再进行分发'); return; }
+    if (!arrivals.length) { W.toast('请先完成到货批次的实收签收，再进行分发'); return; }
+    if (!W.membersForRegion(d.region).length) { W.toast('当前区域没有可用的区域领用人，请先由系统管理员维护成员名单'); return; }
     const opts = arrivals.map(a => {
       const mt = W.get('materials', a.mid);
       const disp = W.dispatchedOf(a.id);
@@ -419,18 +506,30 @@
       <div class="frow">
         <label>选择到货批次 *<select id="fAid">${opts}</select></label>
         <label>分发区域 *<select id="fRegion">${W.REGIONS.map(r => `<option value="${r}" ${d.region === r ? 'selected' : ''}>${W.REGION_LABEL[r]}</option>`).join('')}</select></label>
+        <label>领用人 *<select id="fClaimant">${claimantOptions(d.region, d.claimantId)}</select></label>
         <label>领用部门<select id="fDept"><option value="">— 未选择 —</option>${W.DEPTS.map(d0 => `<option ${d.dept === d0 ? 'selected' : ''}>${W.esc(d0)}</option>`).join('')}</select></label>
         <label>分发数量 *<input id="fQty" type="number" min="0" step="any" value="${W.esc(d.qty)}"></label>
         <label>分发时间<input id="fAt" value="${W.esc(d.at)}"></label>
       </div>
-      <p class="muted">下发后由对应区域领用人「签字确认」；未签字单据会标记待确认。</p>
+      <p class="muted">下发后由指定领用人确认；区域领用人可确认本区域单据，隶属区域领用人只能确认分配给自己的单据。</p>
     `, `<button class="btn" onclick="closeModal()">取消</button><button class="btn pri" id="fSave">保存</button>`));
+    $('#fRegion').onchange = e => {
+      const options = claimantOptions(e.target.value, '');
+      $('#fClaimant').innerHTML = options;
+      if (!options) W.toast('该区域尚未配置区域领用人');
+    };
     $('#fSave').onclick = () => {
       const qty = W.num($('#fQty').value);
       if (qty <= 0) { W.toast('分发数量必须大于 0'); return; }
       const aid = $('#fAid').value, a = W.get('arrivals', aid);
       const region = $('#fRegion').value;
-      W.upsert('dispatches', { id, aid, mid: a ? a.mid : '', region, dept: $('#fDept').value, qty, at: $('#fAt').value || W.nowStr(), byWho: W.me().name || '—' }, `下发 ${W.REGION_LABEL[region]} ${W.fmtQty(qty)}`);
+      const claimant = W.memberById($('#fClaimant').value);
+      if (!claimant) { W.toast('请选择领用人'); return; }
+      W.upsert('dispatches', {
+        id, aid, mid: a ? a.mid : '', region, dept: $('#fDept').value, qty,
+        at: $('#fAt').value || W.nowStr(), byWho: W.me().name || '—',
+        claimantId: claimant.id, claimantName: claimant.name
+      }, `下发 ${W.REGION_LABEL[region]} ${claimant.name} ${W.fmtQty(qty)}`);
       closeModal(); W.toast('已下发，等待领用人签字确认');
     };
   }
@@ -441,7 +540,7 @@
     const mt = W.get('materials', d.mid);
     let ctx = null;
     openModal(modalShell('✍️ 领用签字确认', `
-      <p style="margin-bottom:10px">物料：<b>${W.esc(mt ? mt.name : '?')}</b> · 数量 <b>${W.fmtQty(d.qty)}</b> → ${W.esc(W.REGION_LABEL[d.region] || d.region)}<br><span class="muted">分发时间 ${W.esc(d.at)} · 分发人 ${W.esc(d.byWho)}</span></p>
+      <p style="margin-bottom:10px">物料：<b>${W.esc(mt ? mt.name : '?')}</b> · 数量 <b>${W.fmtQty(d.qty)}</b> → ${W.esc(W.REGION_LABEL[d.region] || d.region)}<br><span class="muted">领用人 ${W.esc(d.claimantName || '未指定')} · 分发时间 ${W.esc(d.at)} · 分发人 ${W.esc(d.byWho)}</span></p>
       <canvas id="sigCanvas" class="sigpad" width="560" height="200" style="width:100%"></canvas>
       <div class="frow" style="margin-top:8px">
         <label>领用人姓名 *<input id="fSigner" value="${W.esc(W.me().name || '')}"></label>
@@ -498,12 +597,12 @@
     const matNames = [...new Set(W.list('materials').map(m => m.name))];
     const sec = FILTER.qTab || 'docs';
     const docsRows = [];
-    if (st === '' || st === '待到货' || st === 'all') {
-      for (const p of W.list('purchases')) {
+    if (st === '' || st === 'all' || ['待审核', '待核准', '已驳回', '待到货'].includes(st)) {
+      for (const p of W.list('purchases').filter(record => W.inScope('purchases', record))) {
         const s = W.purchaseStatus(p);
-        const ps = s === '已到货' ? null : '待到货';
-        if (st && st !== 'all' && ps !== st) continue;
-        if (st === 'all' && !ps) continue;
+        const deliveryPending = ['已采购未到货', '部分到货'].includes(s);
+        const matchesStatus = !st || st === 'all' || s === st || (st === '待到货' && deliveryPending);
+        if (!matchesStatus) continue;
         if (!W.inMonth(p.date, month)) continue;
         const mt = W.get('materials', p.mid);
         if (mat && (!mt || mt.name !== mat)) continue;
@@ -524,7 +623,7 @@
       }
     }
     if (st === '' || st === '待领用确认' || st === 'all') {
-      for (const d of W.list('dispatches')) {
+      for (const d of W.list('dispatches').filter(record => W.inScope('dispatches', record))) {
         const s = W.signoffOf(d.id);
         const ps = s ? null : '待领用确认';
         if (st && st !== 'all' && ps !== st) continue;
@@ -547,7 +646,7 @@
         <select id="qMat"><option value="">全部物料</option>${matNames.map(n => `<option ${mat === n ? 'selected' : ''}>${W.esc(n)}</option>`).join('')}</select>
         <select id="qRegion"><option value="">全部区域</option>${W.REGIONS.map(r => `<option value="${r}" ${region === r ? 'selected' : ''}>${W.REGION_LABEL[r]}</option>`).join('')}</select>
         <select id="qDept"><option value="">全部部门</option>${W.DEPTS.map(d0 => `<option ${dept === d0 ? 'selected' : ''}>${W.esc(d0)}</option>`).join('')}</select>
-        <select id="qStatus"><option value="">全部状态</option>${['待到货', '待签收', '待领用确认'].map(s => `<option ${st === s ? 'selected' : ''}>${s}</option>`).join('')}</select>
+        <select id="qStatus"><option value="">全部状态</option>${['待审核', '待核准', '待到货', '待签收', '待领用确认', '已驳回'].map(s => `<option ${st === s ? 'selected' : ''}>${s}</option>`).join('')}</select>
         <button class="btn sm" id="qAll">全部月份</button>
       </span></h3>
       <div class="twrap"><table><thead><tr><th>类型</th><th>日期</th><th>物料</th><th>数量/状态</th><th>区域</th><th>经手人</th></tr></thead><tbody>${docHtml}</tbody></table></div></div>
@@ -564,7 +663,9 @@
   function renderSettings() {
     const pane = $('#pane-settings');
     const m = W.me();
-    const isAdmin = W.canEditBase();   /* 在线＝服务端认可的管理员；离线＝本机角色管理员 */
+    const canManageMaterials = W.canManageMaterials();
+    const canManageMembers = W.canManageMembers();
+    const isAdmin = canManageMaterials;
     const members = W.list('members').sort((a, b) => String(a.name).localeCompare(String(b.name)));
 
     /* ---- 云端共享：状态条 / 团队概览 / 分享网址（与送测 cloudStatus、cloudTeam、cloudShare 同结构） ---- */
@@ -600,7 +701,7 @@
             '<div style="margin-top:4px">修复后操作：在口令框内点一下再点别处（或回车）→ 框下方<b>当场显示校验结果</b>；出现「✓ 校验通过」后点「保存并连接」，状态条出现「身份：管理员」即成功。</div></div>';
         }
         else {
-          t += '<div class="note info">当前不是管理员：物料档案与成员名单只读；区域领用人只能改本人录入的单据，申领台账默认只看自己的。要看全员数据 / 维护物料档案 → 在上方填管理员口令后点「保存并连接」。</div>';
+          t += '<div class="note info">当前不是管理员：物料档案只读；成员名单仅系统管理员武欣雨可维护。审核员、核准员和区域角色按各自权限处理业务。</div>';
         }
       }
       if (S.mode === 'server' && !S.lastSyncAt && S.lastError) {
@@ -611,8 +712,8 @@
     function teamTableHtml() {
       const st = W.teamStats();
       if (!st.total) return '<span class="muted">暂无申领单数据</span>';
-      const head = st.admin
-        ? '团队数据（管理员视角 · 全员 ' + st.total + ' 单）'
+      const head = (st.admin || W.canEditFlow())
+        ? '团队数据（全员 ' + st.total + ' 单）'
         : '我的数据（' + W.esc(W.me().name || '未设身份') + ' · ' + st.total + ' 单，仅本人录入）';
       const rows = st.rows.map(r => `<tr><td>${W.esc(r.name)}</td><td>${r.n}</td><td>${r.pct.toFixed(1)}%</td></tr>`).join('');
       return `<div style="font-size:13px;font-weight:600;margin-bottom:6px">${head}</div>
@@ -626,18 +727,22 @@
     function scopeBtnHtml() {
       const sc = W.scopeInfo();
       if (!sc.online || sc.admin) return '';
-      if (sc.role !== '区域领用人') return '<span class="muted" style="align-self:center">视图：全部台账</span>';
-      return '<button class="btn sm" id="btnScope">' + (sc.showAll ? '视图：全部（改回只看我的）' : '视图：只看我的（切到全部）') + '</button>';
+      if (sc.role === '区域领用人') return '<span class="muted" style="align-self:center">视图：本人采购 + 本区域分发</span>';
+      if (sc.role === '隶属区域领用人') return '<span class="muted" style="align-self:center">视图：本人采购 + 分配给我的分发</span>';
+      return '<span class="muted" style="align-self:center">视图：全部业务台账</span>';
     }
-    const memberRows = members.map(x => `<tr><td>${W.esc(x.name)}</td><td>${W.esc(x.dept || '—')}</td><td>${W.esc(x.role)}</td><td>${x.region ? W.esc(W.REGION_LABEL[x.region]) : '—'}</td><td>${W.esc(x.by)}</td>${isAdmin ? `<td><button class="btn sm danger" data-delmem="${x.id}">删除</button></td>` : ''}</tr>`).join('') || `<tr><td colspan="6" class="empty">暂无成员${isAdmin ? '，点击「添加成员」' : ''}</td></tr>`;
+    const memberRows = members.map(x => {
+      const supervisor = x.supervisorId ? W.memberById(x.supervisorId) : null;
+      return `<tr><td>${W.esc(x.name)}</td><td>${W.esc(x.username || '—')}</td><td>${W.esc(x.dept || '—')}</td><td>${W.esc(x.role)}</td><td>${x.region ? W.esc(W.REGION_LABEL[x.region] || x.region) : '—'}</td><td>${W.esc(supervisor ? supervisor.name : '—')}</td><td>${x.enabled === false ? '<span class="tag gray">停用</span>' : '<span class="tag green">启用</span>'}</td><td>${W.esc(x.by)}</td>${canManageMembers ? `<td><button class="btn sm" data-editmem="${x.id}">编辑</button> <button class="btn sm danger" data-delmem="${x.id}">删除</button></td>` : ''}</tr>`;
+    }).join('') || `<tr><td colspan="9" class="empty">暂无成员${canManageMembers ? '，点击「添加成员」' : ''}</td></tr>`;
     pane.innerHTML = `
       <div class="card"><h3>👤 我的身份</h3>
         <p>当前：<b>${W.esc(m.name || '未设置')}</b> · ${W.esc(m.role || '—')}${m.dept ? ' · ' + W.esc(m.dept) : ''}${m.region ? ' · ' + W.esc(W.REGION_LABEL[m.region]) : ''} <button class="btn sm" id="btnMe">切换身份</button></p>
       </div>
-      <div class="card"><h3>👥 成员名单 <span class="sp">${isAdmin ? '<button class="btn pri sm" id="btnAddMember">＋ 添加成员</button>' : '<span class="muted">仅管理员可维护</span>'}</span></h3>
-        <div class="twrap"><table><thead><tr><th>姓名</th><th>部门</th><th>角色</th><th>区域</th><th>录入人</th>${isAdmin ? '<th>操作</th>' : ''}</tr></thead><tbody>${memberRows}</tbody></table></div></div>
+      <div class="card"><h3>👥 成员名单 <span class="sp">${canManageMembers ? '<button class="btn pri sm" id="btnAddMember">＋ 添加成员</button>' : '<span class="muted">仅系统管理员武欣雨可维护</span>'}</span></h3>
+        <div class="twrap"><table><thead><tr><th>姓名</th><th>品集账号</th><th>部门</th><th>角色</th><th>区域</th><th>上级</th><th>状态</th><th>录入人</th>${canManageMembers ? '<th>操作</th>' : ''}</tr></thead><tbody>${memberRows}</tbody></table></div></div>
       <div class="card"><h3>🏢 部门与区域 <span class="sp muted">全公司部门 / 全部区域 · 表单下拉、仪表盘、筛选器的取值来源</span></h3>
-        ${isAdmin ? `
+        ${canManageMembers ? `
         <div class="frow">
           <label style="flex:1">部门清单（每行一个部门）<textarea id="orgDepts" rows="7" style="width:100%;font-family:inherit">${W.esc(W.DEPTS.join('\n'))}</textarea></label>
           <label style="flex:1">区域清单（每行一个区域）<textarea id="orgRegions" rows="7" style="width:100%;font-family:inherit">${W.esc(W.REGIONS.map(r => W.REGION_LABEL[r] || r).join('\n'))}</textarea></label>
@@ -658,7 +763,7 @@
         <div id="syncArea" class="muted">${syncResult || syncDefaultHtml()}</div>
       </div>
       <div class="card"><h3>🔗 云端共享（多人实时） <span class="sp muted">同一地址 · 口令鉴权 · 服务端权限校验 · 实时同步（需服务端在线）</span></h3>
-        <p class="muted" style="margin-bottom:8px">所有人在同一个地址录入，数据实时汇总到同一份台账：<b>管理员</b>（口令经服务端校验通过）看到全员数据、可改删任何记录、可维护物料档案；<b>区域领用人</b>只能改本人录入的单据，申领台账默认只看自己的；<b>文员</b>负责汇总登记。</p>
+        <p class="muted" style="margin-bottom:8px">采购由申请人提交，<b>审核员</b>执行一级审核，<b>核准员</b>执行最终核准；<b>审核员/核准员</b>负责到货、签收和分发；<b>区域领用人</b>确认本区域领用，<b>隶属区域领用人</b>只确认分配给本人的单据；成员名单仅系统管理员武欣雨维护。</p>
         <div class="frow">
           <label style="flex:2 1 220px">服务地址<input id="srvAddr" value="${W.esc(W.SYNC.server)}" placeholder="http://192.168.x.x:8082 或站点网址"></label>
           <label style="flex:1 1 170px">管理员口令<span style="display:flex;gap:4px"><input id="admKey" type="password" value="${W.esc(W.cloudCfg.adminKey)}" placeholder="仅管理员填写" style="flex:1;min-width:0"><button class="btn sm" id="btnEye" title="显示/隐藏口令原文（核对大小写与空格）" style="padding:6px 9px">👁</button></span></label>
@@ -684,7 +789,7 @@
         <div id="connInfo" style="${connStyle()}">${cloudStatusHtml()}</div>
         <div id="teamBox" style="margin-top:12px">${teamTableHtml()}</div>
         <p class="muted" id="shareLine" style="margin-top:10px">${shareHtml()}</p>
-        <p class="muted">权限口径：<b>管理员</b>（填对口令）＝全员可见 + 可改删任何记录 + 维护物料档案/成员；<b>文员</b>＝可登记采购/到货/签收/分发，档案只读；<b>区域领用人</b>＝可提交申领、签收本区域单据，只能改本人录入的单据，档案只读。删除仅限本人创建或管理员；任何越权写操作由服务端拒绝并回滚。口令默认 wuzhi-admin-2026（服务器 config.json / 环境变量可改）。</p></div>
+        <p class="muted">权限口径：采购申请人提交后进入待审核；<b>审核员</b>执行一级审核，<b>核准员</b>执行最终核准；审核员/核准员负责到货、签收和分发；<b>区域领用人</b>确认本区域单据，<b>隶属区域领用人</b>只确认分配给本人的单据；成员名单仅系统管理员武欣雨维护。已核准采购不能由普通用户直接修改。</p></div>
       <div class="card"><h3>💾 数据备份与恢复 <span class="sp muted">自动备份在服务器 data/backup/ 目录</span></h3>
         <div class="frow">
           <button class="btn" id="btnBackup">下载整库备份（store.json）</button>
@@ -713,15 +818,16 @@
         localCard.insertAdjacentHTML('beforebegin', `<div class="card"><h3>🔐 品集身份</h3>
           <p><b>${W.esc(m.name || '')}</b> · ${W.esc(m.role || '')}${m.region ? ' · ' + W.esc(W.REGION_LABEL[m.region] || m.region) : ''}</p>
           <p class="muted">本应用由品集应用中心统一登录，不保存管理员口令，也不能在应用内切换身份。成员名单中配置的同名区域会自动用于领用签字校验。</p>
-          <p>${isAdmin ? '✅ 当前具备管理员权限。' : '当前不是管理员：基础档案只读，可提交本人业务单据并在授权区域确认领用。'}</p>
+          <p>${W.SYNC.systemAdmin ? '✅ 当前为系统管理员，可维护成员名单及全部业务。' : isAdmin ? '✅ 当前具备管理员权限，可维护物料并处理审批业务。' : '当前为业务角色：按角色提交、审核、核准或确认相关单据。'}</p>
           <a class="btn" href="/apps">返回品集应用中心</a></div>`);
       }
       const restoreButton = $('#btnRestore');
       if (restoreButton && !isAdmin) restoreButton.style.display = 'none';
     }
     $('#btnMe').onclick = showMeModal;
-    if (isAdmin) {
+    if (canManageMembers) {
       $('#btnAddMember').onclick = () => memberForm(null);
+      pane.querySelectorAll('[data-editmem]').forEach(b => b.onclick = () => memberForm(b.dataset.editmem));
       pane.querySelectorAll('[data-delmem]').forEach(b => b.onclick = () => {
         if (confirm('确认删除该成员？')) W.remove('members', b.dataset.delmem, '删除成员');
       });
@@ -827,7 +933,7 @@
       if (x.reason === 'refused') return localHit
         ? '✗ 连不上 ' + where + '：连接被拒绝。本机直连也被拒 → 服务未启动。请在服务器电脑以管理员运行「一键启动_自动放行防火墙.bat」，然后本机浏览器访问 http://localhost:8082/api/health 自检（应返回 {"ok":true}）'
         : '✗ 连不上 ' + where + '：连接被拒绝。服务未启动或端口不对：① 确认服务器已启动且端口为 8082 ② 若服务器本机 localhost 能打开而这里被拒，多为地址写错（看「访问地址.txt」取当前 IP）' + fixed;
-      if (x.reason === 'badreply') return '✗ ' + where + ' 有响应但不是物资申领与消耗追溯 V1.1.1服务（核对地址与端口是否指向别的程序）' + fixed;
+      if (x.reason === 'badreply') return '✗ ' + where + ' 有响应但不是物资申领与消耗追溯 V1.2.0服务（核对地址与端口是否指向别的程序）' + fixed;
       return '✗ 连不上 ' + where + '（' + (x.detail || x.reason || 'HTTP 异常') + '）' + fixed;
     }
     /* 读取输入框地址：升级旧端口并把结果写回输入框（用户可见纠正） */
@@ -961,12 +1067,6 @@
       try { const had = await W.pushPending(); W.toast(had ? '已上传本机未同步的改动' : '本机没有待上传的改动'); renderSettings(); }
       catch (e) { W.toast('上传失败：' + e.message); }
     };
-    const scopeBtn = $('#btnScope');
-    if (scopeBtn) scopeBtn.onclick = () => {
-      const toAll = !W.scopeInfo().showAll;
-      W.setShowAll(toAll);
-      W.toast(toAll ? '视图已切换为全部台账（仍只能改本人录入的单据）' : '视图已切回只看我的');
-    };
     const wipeBtn = $('#btnWipe');
     if (wipeBtn) wipeBtn.onclick = async () => {
       if (!confirm('⚠️ 将清空云端服务器上的全部数据（物料/采购/到货/分发/签字/成员/日志），且不可恢复！所有同事下次同步会一并清掉。确定继续？')) return;
@@ -976,21 +1076,48 @@
   }
 
   function memberForm(id) {
+    if (!W.canManageMembers()) { W.toast('成员名单仅系统管理员武欣雨可维护'); return; }
     if (id) W.markEdit('members', id);
-    const x = id ? W.get('members', id) : { name: '', role: '区域领用人', region: '', dept: '' };
+    const x = id ? W.get('members', id) : { name: '', username: '', role: '区域领用人', region: '', dept: '', enabled: true, supervisorId: '' };
+    function supervisors(region, selected) {
+      return W.supervisorsForRegion(region).filter(member => member.id !== id)
+        .map(member => `<option value="${member.id}" ${selected === member.id ? 'selected' : ''}>${W.esc(member.name)}（${W.esc(W.REGION_LABEL[member.region] || member.region)}）</option>`).join('');
+    }
     openModal(modalShell(id ? '✏️ 编辑成员' : '＋ 添加成员', `
       <div class="frow">
         <label>姓名 *<input id="fName" value="${W.esc(x.name)}"></label>
+        <label>品集账号<input id="fUsername" value="${W.esc(x.username || '')}" placeholder="用于匹配品集登录账号"></label>
         <label>部门<select id="fDept"><option value="">— 未选择 —</option>${W.DEPTS.map(d0 => `<option ${x.dept === d0 ? 'selected' : ''}>${W.esc(d0)}</option>`).join('')}</select></label>
         <label>角色<select id="fRole">${W.ROLES.map(r => `<option ${x.role === r ? 'selected' : ''}>${r}</option>`).join('')}</select></label>
         <label>区域<select id="fRegion"><option value=""></option>${W.REGIONS.map(r => `<option value="${r}" ${x.region === r ? 'selected' : ''}>${W.REGION_LABEL[r]}</option>`).join('')}</select></label>
+        <label>状态<select id="fEnabled"><option value="true" ${x.enabled !== false ? 'selected' : ''}>启用</option><option value="false" ${x.enabled === false ? 'selected' : ''}>停用</option></select></label>
+        <label id="supervisorRow">上级区域领用人 *<select id="fSupervisor"><option value="">— 请选择 —</option>${supervisors(x.region, x.supervisorId)}</select></label>
       </div>
+      <p class="muted">审核员和核准员不绑定区域；区域领用人负责本区域确认；隶属区域领用人必须指定同区域的区域领用人作为上级。</p>
     `, `<button class="btn" onclick="closeModal()">取消</button><button class="btn pri" id="fSave">保存</button>`));
+    function refreshSupervisor() {
+      const role = $('#fRole').value;
+      const region = $('#fRegion').value;
+      const subordinate = role === '隶属区域领用人';
+      $('#supervisorRow').style.display = subordinate ? '' : 'none';
+      if (subordinate) $('#fSupervisor').innerHTML = `<option value="">— 请选择 —</option>${supervisors(region, '')}`;
+    }
+    $('#fRole').onchange = refreshSupervisor;
+    $('#fRegion').onchange = refreshSupervisor;
+    refreshSupervisor();
     $('#fSave').onclick = () => {
       const name = $('#fName').value.trim();
+      const role = $('#fRole').value;
+      const region = $('#fRegion').value;
+      const supervisorId = role === '隶属区域领用人' ? $('#fSupervisor').value : '';
       if (!name) { W.toast('姓名必填'); return; }
-      W.upsert('members', { id, name, role: $('#fRole').value, region: $('#fRegion').value, dept: $('#fDept').value }, `成员：${name}`);
-      closeModal(); W.toast('已保存');
+      if (['区域领用人', '隶属区域领用人'].includes(role) && !region) { W.toast('该角色必须选择所属区域'); return; }
+      if (role === '隶属区域领用人' && !supervisorId) { W.toast('请选择上级区域领用人'); return; }
+      W.upsert('members', {
+        id, name, username: $('#fUsername').value.trim().toLowerCase(), role, region,
+        dept: $('#fDept').value, supervisorId, enabled: $('#fEnabled').value === 'true'
+      }, `成员：${name}（${role}）`);
+      closeModal(); W.toast('成员已保存');
     };
   }
 
@@ -1212,6 +1339,8 @@
   }
   function importGo() {
     const { target, rows, mapping } = impSession;
+    if (target === 'materials' && !W.canManageMaterials()) { W.toast('物料档案导入仅管理员可执行'); return; }
+    if (['arrivals', 'dispatches'].includes(target) && !W.SYNC.admin) { W.toast('历史到货/分发链路导入仅管理员可执行'); return; }
     if (mapping.name == null && mapping.materialName == null) { W.toast('物料名称列必须映射'); return; }
     let ok = 0, fail = 0, warn = 0;
     const errs = [];
@@ -1236,12 +1365,12 @@
         } else if (target === 'purchases') {
           const qty = W.num(gv('qty'));
           if (qty <= 0) throw new Error('请购数量无效');
-          W.upsert('purchases', { mid: mt.id, qty, date: W.normDate(gv('date')) || W.today(), purpose: gv('purpose'), dest: gv('dest'), dept: gv('dept') }, `导入采购：${matName} ×${W.fmtQty(qty)}`); ok++;
+          W.upsert('purchases', { mid: mt.id, qty, date: W.normDate(gv('date')) || W.today(), purpose: gv('purpose'), dest: gv('dest'), dept: gv('dept'), approvalStatus: W.APPROVAL_PENDING }, `导入采购：${matName} ×${W.fmtQty(qty)}`); ok++;
         } else if (target === 'arrivals') {
           const qty = W.num(gv('arrQty'));
           if (qty <= 0) throw new Error('到货数量无效');
           const arrDate = W.normDate(gv('arrDate')) || W.today();
-          const purchase = W.upsert('purchases', { mid: mt.id, qty, date: arrDate, purpose: '导入到货自动关联', dest: '', dept: '' }, `导入到货补建采购：${matName} ×${W.fmtQty(qty)}`);
+          const purchase = W.upsert('purchases', { mid: mt.id, qty, date: arrDate, purpose: '导入到货自动关联', dest: '', dept: '', approvalStatus: W.APPROVAL_APPROVED, approvedBy: W.me().name || '导入', approvedAt: W.nowStr(), approvalComment: '历史导入自动核准' }, `导入到货补建采购：${matName} ×${W.fmtQty(qty)}`);
           W.upsert('arrivals', { pid: purchase.id, mid: mt.id, arrQty: qty, arrDate }, `导入到货：${matName} ×${W.fmtQty(qty)}`); ok++;
         } else if (target === 'dispatches') {
           const qty = W.num(gv('qty'));
@@ -1253,10 +1382,12 @@
           if (!region) throw new Error(`区域「${gv('region')}」无效（当前可选：${W.REGIONS.map(r => W.REGION_LABEL[r] || r).join('、')}，可在设置页维护清单）`);
           if (qty <= 0) throw new Error('分发数量无效');
           const at = W.normDate(gv('at')) || W.nowStr();
-          const purchase = W.upsert('purchases', { mid: mt.id, qty, date: at.slice(0, 10), purpose: '导入分发自动补链', dest: '', dept: '' }, `导入分发补建采购：${matName} ×${W.fmtQty(qty)}`);
+          const purchase = W.upsert('purchases', { mid: mt.id, qty, date: at.slice(0, 10), purpose: '导入分发自动补链', dest: '', dept: '', approvalStatus: W.APPROVAL_APPROVED, approvedBy: W.me().name || '导入', approvedAt: W.nowStr(), approvalComment: '历史导入自动核准' }, `导入分发补建采购：${matName} ×${W.fmtQty(qty)}`);
           const arrival = W.upsert('arrivals', { pid: purchase.id, mid: mt.id, arrQty: qty, arrDate: at.slice(0, 10) }, `导入分发补建到货：${matName} ×${W.fmtQty(qty)}`);
           W.upsert('receipts', { aid: arrival.id, recvQty: qty, recvBy: W.me().name || '导入', recvAt: at }, `导入分发补建签收：${matName} ×${W.fmtQty(qty)}`);
-          W.upsert('dispatches', { aid: arrival.id, mid: mt.id, region, dept: gv('dept'), qty, at, byWho: W.me().name || '导入' }, `导入分发：${matName} →${region} ×${W.fmtQty(qty)}`); ok++;
+          const claimant = W.membersForRegion(region)[0];
+          if (!claimant) throw new Error(`区域「${W.REGION_LABEL[region] || region}」没有可用的区域领用人，无法导入分发`);
+          W.upsert('dispatches', { aid: arrival.id, mid: mt.id, region, dept: gv('dept'), qty, at, byWho: W.me().name || '导入', claimantId: claimant.id, claimantName: claimant.name }, `导入分发：${matName} →${region} ${claimant.name} ×${W.fmtQty(qty)}`); ok++;
         }
       } catch (e) { fail++; errs.push(`行${lineNo}：${e.message}`); }
     });
@@ -1310,7 +1441,7 @@
   async function restoreBackup() {
     const f = $('#restoreFile').files[0];
     if (!f) { W.toast('请先选择备份 json 文件'); return; }
-    if (!W.canEditBase()) { W.toast('整库恢复仅限管理员'); return; }
+    if (!W.SYNC.admin) { W.toast('整库恢复仅限管理员'); return; }
     if (!confirm('⚠️ 恢复会用备份文件整体覆盖当前云端数据，确定继续？')) return;
     if (!confirm('再次确认：此操作不可撤销，建议先「下载整库备份」。确定恢复？')) return;
     try {
@@ -1355,7 +1486,7 @@
         case 'query': renderQuery(); break;
         case 'settings': renderSettings(); break;
       }
-      const meB = $('#meName'); if (meB) meB.textContent = W.me().name ? `${W.me().name} · ${W.me().role}` : '未设置身份';
+      const meB = $('#meName'); if (meB) meB.textContent = W.me().name ? `${W.me().name} · ${W.scopeLabel()}` : '未设置身份';
     } catch (e) { console.error(e); if (window.PAGE_ERRORS != null) window.PAGE_ERRORS++; }
   });
   window.__TEST__ = Object.assign({}, window.__TEST__, { oaExportBytes: oaExportBytes, oaImportPlan: oaImportPlan });

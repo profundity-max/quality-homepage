@@ -1,11 +1,14 @@
-/* 物资申领与消耗追溯 V1.1.1 — core.js：数据模型 / 派生计算 / 同步层 / Excel 读写 */
+/* 物资申领与消耗追溯 V1.2.0 — core.js：数据模型 / 派生计算 / 同步层 / Excel 读写 */
 'use strict';
 window.WZ = (function () {
   /* ---------------- 基础工具 ---------------- */
   const COLLS = ['materials', 'purchases', 'arrivals', 'receipts', 'dispatches', 'signoffs', 'members', 'logs'];
   const FIELDS = ['name', 'spec', 'unit', 'safe', 'note', 'code', 'category', 'mid', 'qty', 'date', 'purpose', 'dest', 'dept',
     'pid', 'arrQty', 'arrDate', 'aid', 'recvQty', 'recvBy', 'recvAt', 'region', 'at', 'byWho',
-    'did', 'signer', 'sigData', 'sigAt', 'role', 'action', 'entity', 'refId', 'detail'];
+    'did', 'signer', 'sigData', 'sigAt', 'role', 'action', 'entity', 'refId', 'detail',
+    'username', 'enabled', 'supervisorId', 'approvalStatus', 'reviewedBy', 'reviewedAt',
+    'reviewComment', 'approvedBy', 'approvedAt', 'approvalComment', 'rejectedBy',
+    'rejectedAt', 'rejectionReason', 'claimantId', 'claimantName'];
   /* ---- 部门 / 区域：可配置清单（设置页维护，localStorage 持久化） ---- */
   const ORG_KEY = 'WZ_ORG_CFG';
   const DEFAULT_DEPTS = ['品质部', '生产部', '工程部', '设备部', '仓储部', '采购部', '计划部', '业务部', '研发部', '行政部', '人力资源部', '财务部', 'IT信息部'];
@@ -41,7 +44,11 @@ window.WZ = (function () {
     try { localStorage.setItem(ORG_KEY, JSON.stringify(ORG)); } catch (e) { }
     try { document.dispatchEvent(new CustomEvent('wz:org-changed')); } catch (e) { }
   }
-  const ROLES = ['管理员', '文员', '区域领用人'];
+  const ROLES = ['审核员', '核准员', '区域领用人', '隶属区域领用人'];
+  const AREA_ROLES = ['区域领用人', '隶属区域领用人'];
+  const OFFICE_ROLES = ['审核员', '核准员'];
+  const APPROVAL_PENDING = '待审核', APPROVAL_WAITING = '待核准', APPROVAL_APPROVED = '已核准', APPROVAL_REJECTED = '已驳回';
+  const APPROVAL_STATUSES = [APPROVAL_PENDING, APPROVAL_WAITING, APPROVAL_APPROVED, APPROVAL_REJECTED];
 
   const uid = p => p + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
   const pad = n => String(n).padStart(2, '0');
@@ -155,7 +162,7 @@ window.WZ = (function () {
   }
 
   /* ---------------- 同步层 ---------------- */
-  const SYNC = { mode: 'local', ver: 0, seq: 0, server: '', online: [], conflict: 0, es: null, pollT: null, pushT: null, autoT: null, connected: false, admin: false, scope: 'all', lastSyncAt: 0, lastError: null, pushing: false, adminKeySource: '', authMode: 'standalone' };
+  const SYNC = { mode: 'local', ver: 0, seq: 0, server: '', online: [], conflict: 0, es: null, pollT: null, pushT: null, autoT: null, connected: false, admin: false, systemAdmin: false, scope: 'all', lastSyncAt: 0, lastError: null, pushing: false, adminKeySource: '', authMode: 'standalone' };
 
   /* 云端共享配置（与送测工作台同模式）：管理员口令存本机，随每个请求带给服务端校验 */
   const cloudCfg = { adminKey: '', auto: 1 };
@@ -478,7 +485,7 @@ window.WZ = (function () {
     if (SYNC.es) { try { SYNC.es.close(); } catch (e) { } SYNC.es = null; }
     if (SYNC.pollT) { clearInterval(SYNC.pollT); SYNC.pollT = null; }
     stopAutoSync();
-    SYNC.mode = 'local'; SYNC.connected = false; SYNC.online = []; SYNC.admin = false; SYNC.scope = 'all';
+    SYNC.mode = 'local'; SYNC.connected = false; SYNC.online = []; SYNC.admin = false; SYNC.systemAdmin = false; SYNC.scope = 'all';
     if (SYNC.authMode !== 'qnexus') SYNC.authMode = 'standalone';
     updatePill();
   }
@@ -666,24 +673,59 @@ window.WZ = (function () {
   function applyServerIdentity(payload) {
     if (!payload || !payload.authMode) return;
     SYNC.authMode = payload.authMode;
-    if (payload.authMode !== 'qnexus') return;
     const user = payload.user || {};
+    if (typeof user.admin === 'boolean') SYNC.admin = user.admin;
+    if (typeof user.systemAdmin === 'boolean') SYNC.systemAdmin = user.systemAdmin;
+    if (payload.authMode !== 'qnexus') return;
     ME = {
       name: String(user.name || user.username || ''),
       role: String(user.role || ''),
       region: String(user.region || ''),
       username: String(user.username || ''),
-      admin: !!user.admin
+      memberId: String(user.memberId || ''),
+      supervisorId: String(user.supervisorId || ''),
+      admin: !!user.admin,
+      systemAdmin: !!user.systemAdmin
     };
     SYNC.admin = !!user.admin;
+    SYNC.systemAdmin = !!user.systemAdmin;
     SYNC.adminKeySource = 'qnexus';
   }
   const isRole = r => ME.role === r;
-  /* 基础档案（物料/成员/部门区域）只有「服务端认可的管理员」能改；
-     未连共享时退回本机角色判断，保证单机使用不失效（与送测：在线以口令为准、离线不受限 一致） */
-  const canEditBase = () => SYNC.mode === 'server' ? !!SYNC.admin : isRole('管理员');
-  const canEditFlow = () => isRole('管理员') || isRole('文员') || SYNC.admin;     // 采购/到货/签收/分发
-  const canConfirm = () => !!ME.name;                                // 领用签字（所有已设身份）
+  const isSystemAdmin = () => Boolean(SYNC.systemAdmin);
+  const canManageMaterials = () => Boolean(SYNC.admin);
+  const canManageMembers = () => Boolean(SYNC.systemAdmin);
+  const canEditFlow = () => Boolean(SYNC.admin || OFFICE_ROLES.includes(ME.role));
+  const canCreatePurchase = () => Boolean(ME.name && (SYNC.admin || ROLES.includes(ME.role)));
+  const canReviewPurchase = () => Boolean(SYNC.admin || ME.role === '审核员');
+  const canApprovePurchase = () => Boolean(SYNC.admin || ME.role === '核准员');
+  const canConfirm = () => Boolean(SYNC.admin || AREA_ROLES.includes(ME.role));
+  function canConfirmDispatch(d) {
+    if (!d || !canConfirm()) return false;
+    if (SYNC.admin) return true;
+    if (!ME.region || String(d.region || '') !== String(ME.region)) return false;
+    if (ME.role === '区域领用人') return true;
+    return Boolean((ME.memberId && d.claimantId === ME.memberId) || (ME.name && d.claimantName === ME.name));
+  }
+  function purchaseApprovalStatus(record) {
+    const status = String(record && record.approvalStatus || '');
+    return APPROVAL_STATUSES.includes(status) ? status : APPROVAL_APPROVED;
+  }
+  function memberById(id) { return id ? get('members', id) : null; }
+  function membersForRegion(region) {
+    return list('members').filter(member => member.enabled !== false && (!region || String(member.region || '') === String(region)) && AREA_ROLES.includes(member.role));
+  }
+  function supervisorsForRegion(region) {
+    return list('members').filter(member => member.enabled !== false && member.role === '区域领用人' && String(member.region || '') === String(region));
+  }
+  function roleCapabilities() {
+    return {
+      canManageMaterials: canManageMaterials(), canManageMembers: canManageMembers(),
+      canEditFlow: canEditFlow(), canCreatePurchase: canCreatePurchase(),
+      canReviewPurchase: canReviewPurchase(), canApprovePurchase: canApprovePurchase(),
+      canConfirm: canConfirm()
+    };
+  }
 
   /* ---- 视图范围（与送测「录入员只看自己」规则对齐）----
      · 管理员（口令经服务端校验）：看全员数据，可改删任何记录，可维护档案
@@ -695,10 +737,11 @@ window.WZ = (function () {
   function scopeInfo() {
     const online = SYNC.mode === 'server';
     const admin = online && !!SYNC.admin;
+    const systemAdmin = online && !!SYNC.systemAdmin;
     const role = String(ME.role || '');
     const named = !!String(ME.name || '').trim();
-    const mineOnly = online && !admin && role === '区域领用人' && named && !SCOPE.showAll;
-    return { online, admin, role: role, named: named, mineOnly: mineOnly, showAll: !!SCOPE.showAll };
+    const mineOnly = online && !admin && AREA_ROLES.includes(role) && named;
+    return { online, admin, systemAdmin, role: role, named: named, mineOnly: mineOnly, showAll: false };
   }
   function setShowAll(v) { SCOPE.showAll = !!v; renderAll(); }
   function scopeLabel() {
@@ -707,8 +750,9 @@ window.WZ = (function () {
     /* 修复（2026-11-17）：在线时管理员身份只认「服务端口令校验」。
        本机角色选了管理员但口令未被服务端认可时，必须明确标注，
        否则用户会以为口令已通过（此前状态条会误导性地显示「身份：管理员」）。 */
-    if (s.admin) return '管理员';
-    return (s.role || '未设身份') + (s.role === '管理员' ? '（口令未认可）' : '');
+    if (s.systemAdmin) return '系统管理员 · ' + (s.role || '业务身份');
+    if (s.admin) return '管理员 · ' + (s.role || '业务身份');
+    return s.role || '未设身份';
   }
   /* 口令来源提示（服务端 /api/health、/api/store 下发 adminKeySource，不泄露口令本身） */
   function adminKeyHint() {
@@ -725,14 +769,18 @@ window.WZ = (function () {
     if (['purchases', 'dispatches', 'signoffs'].indexOf(coll) < 0) return true;
     const me0 = String(ME.name || '').trim();
     if (String(rec.by || '').trim() === me0) return true;
-    if (coll === 'dispatches' || coll === 'signoffs') return !!(ME.region && String(rec.region || '') === ME.region);
+    if (coll === 'dispatches') {
+      if (!ME.region || String(rec.region || '') !== String(ME.region)) return false;
+      if (ME.role === '区域领用人') return true;
+      return Boolean((ME.memberId && rec.claimantId === ME.memberId) || (me0 && rec.claimantName === me0));
+    }
     return false;
   }
   /* 能否改动这条记录：连上共享后，区域领用人只能动本人录入的单据（管理员不限） */
   function canOperateRec(coll, rec) {
     const s = scopeInfo();
     if (!s.online || s.admin) return true;
-    if (s.role !== '区域领用人') return true;
+    if (!AREA_ROLES.includes(s.role)) return true;
     const me0 = String(ME.name || '').trim();
     if (!me0) return true;
     return String((rec && rec.by) || '').trim() === me0;
@@ -744,7 +792,7 @@ window.WZ = (function () {
     const map = {};
     Object.values(state.data.purchases || {}).forEach(r => {
       const who = String(r.by || '未署名').trim() || '未署名';
-      if (!s.admin && me0 && who !== me0) return;
+      if (!s.admin && !OFFICE_ROLES.includes(s.role) && me0 && who !== me0) return;
       map[who] = (map[who] || 0) + 1;
     });
     const total = Object.keys(map).reduce((a, k) => a + map[k], 0);
@@ -916,6 +964,8 @@ window.WZ = (function () {
   }
 
   function purchaseStatus(p) {
+    const approval = purchaseApprovalStatus(p);
+    if (approval !== APPROVAL_APPROVED) return approval;
     const arr = arrivalsOf(p.id).reduce((s, a) => s + num(a.arrQty), 0);
     const q = num(p.qty);
     if (arr <= 0) return '已采购未到货';
@@ -926,6 +976,8 @@ window.WZ = (function () {
   function docStatus(rec) {
     if (rec.entity === 'purchases' || state.data.purchases[rec.id]) {
       const p = state.data.purchases[rec.id];
+      const approval = p ? purchaseApprovalStatus(p) : '';
+      if (['待审核', '待核准', '已驳回'].includes(approval)) return approval;
       if (p && purchaseStatus(p) !== '已到货') return '待到货';
     }
     const a = state.data.arrivals[rec.id];
@@ -936,8 +988,13 @@ window.WZ = (function () {
   }
 
   function pendingDocs() {
-    const pend = { '待到货': [], '待签收': [], '待领用确认': [] };
-    for (const p of list('purchases')) if (purchaseStatus(p) !== '已到货') pend['待到货'].push(p);
+    const pend = { '待审核': [], '待核准': [], '待到货': [], '待签收': [], '待领用确认': [] };
+    for (const p of list('purchases')) {
+      const approval = purchaseApprovalStatus(p);
+      if (approval === APPROVAL_PENDING) pend['待审核'].push(p);
+      else if (approval === APPROVAL_WAITING) pend['待核准'].push(p);
+      else if (approval === APPROVAL_APPROVED && purchaseStatus(p) !== '已到货') pend['待到货'].push(p);
+    }
     for (const a of list('arrivals')) if (!receiptOf(a.id)) pend['待签收'].push(a);
     for (const d of list('dispatches')) if (!signoffOf(d.id)) pend['待领用确认'].push(d);
     return pend;
@@ -1467,14 +1524,15 @@ window.WZ = (function () {
   else boot();
 
   return {
-    COLLS, ROLES, FIELDS,
+    COLLS, ROLES, AREA_ROLES, OFFICE_ROLES, APPROVAL_PENDING, APPROVAL_WAITING, APPROVAL_APPROVED, APPROVAL_REJECTED, FIELDS,
     get REGIONS() { return REGIONS; }, get REGION_LABEL() { return REGION_LABEL; }, get DEPTS() { return DEPTS; }, saveOrgCfg,
-    state, get state$() { return state; }, SYNC, me, setMe, applyServerIdentity, isRole, canEditBase, canEditFlow, canConfirm,
+    state, get state$() { return state; }, SYNC, me, setMe, applyServerIdentity, isRole, isSystemAdmin, canManageMaterials, canManageMembers, canEditFlow, canCreatePurchase, canReviewPurchase, canApprovePurchase, canConfirm, canConfirmDispatch, roleCapabilities,
     upsert, remove, get, list, logOp, saveState, saveLocal, wipeCloud, saveCloudCfg, markEdit,
     normalize, mergeStates, switchMode, updatePill, toast, onRender, renderAll, cloudCfg, cloudHeaders, upgradeLegacyPort, probeEx, autoDetect,
     pullStore, pushStore, pushPending, startAutoSync, stopAutoSync, shareUrl,
     flushOps, scheduleFlush, pendingOps: () => opCount(),
     scopeInfo, scopeLabel, adminKeyHint, normKey, verifyAdminKey, setShowAll, inScope, canOperateRec, teamStats,
+    purchaseApprovalStatus, memberById, membersForRegion, supervisorsForRegion,
     syncBundleText, syncBundleName, syncMergeText, syncCounts, getLastExportAt, markExported, recTouchTs,
     stockOf, burnRateOf, daysLeftOf, alertLevel, purchaseStatus, docStatus, pendingDocs, monthSummary,
     arrivalsOf, dispatchesOf, receiptOf, signoffOf, dispatchedOf,

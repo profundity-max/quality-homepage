@@ -63,6 +63,11 @@ assert(
   "Material trace data must live inside the backed-up Q Nexus data volume.",
 );
 assert(
+  production.services["wuzhi-trace"].environment.WZ_SYSTEM_ADMIN_NAMES ===
+    "武欣雨",
+  "Material trace member maintenance must be bound to the named system administrator.",
+);
+assert(
   production.services["wuzhi-trace"].volumes?.some(
     (volume) => volume.target === "/app/data" && volume.type === "volume",
   ),
