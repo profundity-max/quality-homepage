@@ -14,7 +14,7 @@
     "format:check": "prettier --check package.json tsconfig.json '*.ts' '*.mjs' '*.yaml' 'drizzle/*.json' .github src scripts tests ops",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "npm run test:local && npm run test:postgres:container",
+    "test": "npm run test:local && npm run test:wuzhi-trace && npm run test:postgres:container",
     "test:local": "vitest run",
     "test:module": "vitest run tests/module",
     "test:integration": "vitest run tests/integration && npm run test:postgres:container",
@@ -24,12 +24,14 @@
     "test:e2e:compose": "playwright test --config playwright.compose.config.ts",
     "test:compose": "node scripts/verify-compose.mjs",
     "test:compose:runtime": "node scripts/verify-compose-runtime.mjs",
-    "verify": "npm run format:check && npm run lint && npm run typecheck && npm run test:local && npm run test:postgres:container && npm run build && npm run test:compose && npm run test:e2e",
+    "verify": "npm run format:check && npm run lint && npm run typecheck && npm run check:wuzhi-trace && npm run test:local && npm run test:wuzhi-trace && npm run test:postgres:container && npm run build && npm run test:compose && npm run test:e2e",
     "e2e:prepare": "tsx scripts/seed-e2e.ts",
     "e2e:serve": "npm run e2e:prepare && next dev",
     "db:migrate": "tsx scripts/migrate.ts",
     "identity:bootstrap": "tsx scripts/bootstrap-first-admin.ts",
-    "test:e2e:editorial": "playwright test --config playwright.editorial.config.ts"
+    "test:e2e:editorial": "playwright test --config playwright.editorial.config.ts",
+    "test:wuzhi-trace": "npm --prefix apps/wuzhi-trace test",
+    "check:wuzhi-trace": "npm --prefix apps/wuzhi-trace run check"
   },
   "dependencies": {
     "@electric-sql/pglite": "0.4.5",

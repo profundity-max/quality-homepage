@@ -50,6 +50,25 @@ assert(
   "Production web must not publish a port.",
 );
 assert(
+  !production.services["wuzhi-trace"].ports,
+  "Material trace application must not publish a port.",
+);
+assert(
+  production.services["wuzhi-trace"].environment.QNEXUS_SSO === "1",
+  "Material trace application must run in Q Nexus SSO mode.",
+);
+assert(
+  production.services["wuzhi-trace"].environment.SHARE_DATA_DIR ===
+    "/app/data/wuzhi-trace",
+  "Material trace data must live inside the backed-up Q Nexus data volume.",
+);
+assert(
+  production.services["wuzhi-trace"].volumes?.some(
+    (volume) => volume.target === "/app/data" && volume.type === "volume",
+  ),
+  "Material trace application must mount the Q Nexus data volume.",
+);
+assert(
   production.services.web.environment.BACKUP_PASSPHRASE ===
     "compose-verification-only",
   "Production web must receive the backup passphrase for administrator-triggered backups.",
@@ -78,7 +97,7 @@ assert(
   e2e.services.db.environment.POSTGRES_DB === "q_nexus_e2e",
   "E2E database must have a distinct name.",
 );
-for (const service of ["proxy", "web", "db"]) {
+for (const service of ["proxy", "web", "wuzhi-trace", "db"]) {
   assert(
     production.services[service].restart === "unless-stopped",
     `${service} must restart unless stopped.`,
@@ -96,6 +115,16 @@ assert(
   production.services.web.depends_on["datadir-init"]?.condition ===
     "service_completed_successfully",
   "web must wait for datadir-init before starting.",
+);
+assert(
+  production.services["wuzhi-trace"].depends_on["datadir-init"]?.condition ===
+    "service_completed_successfully",
+  "Material trace application must wait for datadir-init.",
+);
+assert(
+  production.services.proxy.depends_on["wuzhi-trace"]?.condition ===
+    "service_healthy",
+  "Proxy must wait for the material trace application to become healthy.",
 );
 assert(
   production.services["backupdir-init"],
@@ -120,6 +149,12 @@ const nginxConf = await readFile(
 assert(
   /client_max_body_size\s+5\d0m/.test(nginxConf),
   "Nginx proxy must allow template uploads up to the 500 MB limit (TPL-06).",
+);
+assert(
+  nginxConf.includes("location /wz/") &&
+    nginxConf.includes("__qnexus_wuzhi_auth") &&
+    nginxConf.includes("wuzhi-trace:8082"),
+  "Nginx must protect and proxy the material trace application.",
 );
 process.stdout.write("Compose deployment contract verified.\n");
 

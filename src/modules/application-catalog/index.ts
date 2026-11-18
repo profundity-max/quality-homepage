@@ -40,6 +40,19 @@ const applications: readonly PortalApplication[] = [
     href: "/apps/cqe-yield-analysis",
     runtimeHref: "/apps/cqe-yield-analysis/launch",
   },
+  {
+    id: "wuzhi-trace",
+    name: "物资申领与消耗追溯",
+    shortName: "物资追溯",
+    summary:
+      "管理物料档案、采购、到货签收、区域分发、领用确认、库存预警与台账导出。",
+    category: "物资管理",
+    version: "V1.1.1",
+    owner: "品质部",
+    status: "available",
+    href: "/apps/wuzhi-trace",
+    runtimeHref: "/apps/wuzhi-trace/launch",
+  },
 ];
 
 export function listApplications(): readonly PortalApplication[] {

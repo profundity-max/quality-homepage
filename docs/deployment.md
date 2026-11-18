@@ -45,3 +45,9 @@ Q_NEXUS_DB_PASSWORD=test-only docker compose -f compose.yaml -f compose.e2e.yaml
 - HTTPS 证书、终止位置与更新流程；
 - Docker/容器运行时的软件许可和公司政策；
 - PostgreSQL 备份目标、加密、保留周期、告警以及定期恢复演练。
+
+## 物资追溯受控应用
+
+V10.16 起，`wuzhi-trace` 作为 Compose 内部服务运行，不发布宿主机端口。唯一入口为品集应用中心 `/apps/wuzhi-trace`：品集签发短期授权后跳转到 `/wz/__qnexus_entry`，Nginx 校验令牌并设置 HttpOnly Cookie；后续页面、静态资源和 API 每次请求都由 `auth_request` 复核身份。
+
+物资追溯数据位于 `q_nexus_data` 卷的 `wuzhi-trace/` 子目录。该卷已由既有加密备份流程打包，因此无需单独的宿主机端口或第二套备份任务。发布前需确认 `wuzhi-trace` 容器 healthy，并验证无 Cookie 访问 `/wz/` 会返回物资追溯说明页。

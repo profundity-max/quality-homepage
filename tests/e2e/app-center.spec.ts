@@ -121,6 +121,42 @@ test("CQE yield site is reachable only through a signed portal launch", async ({
   expect(access.headers()["x-q-nexus-subject"]).toBeTruthy();
 });
 
+test("物资追溯应用只能通过品集签名入口进入", async ({ page }) => {
+  await loginAsMember(page);
+  await page.goto("/apps");
+
+  const card = page.getByRole("link", { name: /物资申领与消耗追溯/ });
+  await expect(card).toBeVisible();
+  await card.click();
+  await expect(page).toHaveURL(/\/apps\/wuzhi-trace$/);
+  await expect(
+    page.getByRole("heading", { level: 1, name: "物资申领与消耗追溯" }),
+  ).toBeVisible();
+  await expect(page.getByText("可追溯边界")).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "打开物资追溯系统" }),
+  ).toHaveAttribute("href", "/apps/wuzhi-trace/launch");
+
+  const launch = await page.request.get("/apps/wuzhi-trace/launch", {
+    maxRedirects: 0,
+  });
+  expect(launch.status()).toBe(302);
+  const location = launch.headers().location;
+  expect(location).toBeTruthy();
+  const target = new URL(location!);
+  expect(target.origin).toBe("http://127.0.0.1:3000");
+  expect(target.pathname).toBe("/wz/__qnexus_entry");
+  const token = target.searchParams.get("token");
+  expect(token).toBeTruthy();
+
+  const access = await page.request.get("/api/apps/wuzhi-trace/access", {
+    headers: { "x-q-nexus-grant": token! },
+  });
+  expect(access.status()).toBe(204);
+  expect(access.headers()["x-q-nexus-role"]).toBeTruthy();
+  expect(access.headers()["x-q-nexus-subject"]).toBeTruthy();
+});
+
 test("application center has responsive layout and no serious accessibility issues", async ({
   page,
   context,
@@ -136,6 +172,7 @@ test("application center has responsive layout and no serious accessibility issu
         "/apps",
         "/apps/bof-boxplot",
         "/apps/cqe-yield-analysis",
+        "/apps/wuzhi-trace",
       ]) {
         await page.goto(path);
         expect(

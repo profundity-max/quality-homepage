@@ -3,6 +3,7 @@ import { expect, test } from "@playwright/test";
 test("standalone proxy accepts same-origin reading heartbeats and rejects cross-origin requests", async ({
   page,
 }) => {
+  const origin = process.env.Q_NEXUS_E2E_BASE_URL ?? "http://127.0.0.1:8080";
   const payload = {
     articleId: "00000000-0000-4000-8000-000000000001",
     tabId: "00000000-0000-4000-8000-000000000002",
@@ -10,7 +11,7 @@ test("standalone proxy accepts same-origin reading heartbeats and rejects cross-
     active: true,
   };
   const anonymous = await page.request.post("/api/stats/reading", {
-    headers: { Origin: "http://127.0.0.1:8080" },
+    headers: { Origin: origin },
     data: payload,
   });
   expect(anonymous.status()).toBe(401);

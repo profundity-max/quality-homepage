@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-page-node-id="D3G4d5p9FbvXg6tYwsO4lS">
+<head data-page-node-id="Caqymwd0HdewWSW47KzRka">
+<meta charset="utf-8" data-page-node-id="EKKpASNYcHcGEhUEE16JzI">
+<meta name="viewport" content="width=device-width, initial-scale=1" data-page-node-id="e46YPpplS3KhIlyf66Q9eD">
+<title>物资申领与消耗追溯 V1.1.1</title>
+<style>
+:root{
+  --bg:#f4f6f9; --card:#fff; --line:#e3e8ef; --txt:#1f2937; --muted:#6b7280;
+  --pri:#2563eb; --pri-soft:#eff6ff; --ok:#16a34a; --ok-soft:#f0fdf4;
+  --warn:#d97706; --warn-soft:#fffbeb; --bad:#dc2626; --bad-soft:#fef2f2;
+  --shadow:0 1px 3px rgba(16,24,40,.08),0 1px 2px rgba(16,24,40,.04);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:"Segoe UI","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--txt);font-size:14px}
+button{font-family:inherit}
+/* 顶栏 */
+.topbar{position:sticky;top:0;z-index:50;background:var(--card);border-bottom:1px solid var(--line);padding:10px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.topbar h1{font-size:17px;margin-right:auto;white-space:nowrap}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;font-size:12px;cursor:pointer;border:1px solid var(--line);background:#fff;white-space:nowrap}
+.pill .dot{width:8px;height:8px;border-radius:50%;background:#9ca3af}
+.pill.on .dot{background:var(--ok)} .pill.on{border-color:#bbf7d0;background:var(--ok-soft)}
+.me-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;font-size:12px;background:var(--pri-soft);color:var(--pri);border:1px solid #dbeafe;cursor:pointer}
+.me-chip b{font-weight:600}
+/* 页签 */
+.tabs{display:flex;gap:4px;background:var(--card);border-bottom:1px solid var(--line);padding:0 12px;overflow-x:auto;position:sticky;top:47px;z-index:49}
+.tabs button{border:none;background:none;padding:10px 14px;font-size:14px;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap}
+.tabs button.act{color:var(--pri);border-bottom-color:var(--pri);font-weight:600}
+main{padding:16px;max-width:1280px;margin:0 auto}
+.tabpane{display:none}.tabpane.act{display:block}
+/* 卡片与表格 */
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:14px;margin-bottom:14px}
+.card h3{font-size:14px;margin-bottom:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.card h3 .sp{margin-left:auto;max-width:55%;text-align:right;white-space:normal;font-weight:400;font-size:12px;color:var(--muted);line-height:1.5}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{padding:7px 9px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{color:var(--muted);font-weight:600;background:#f9fafb;white-space:nowrap;position:sticky;top:0}
+tbody tr:hover{background:#f8fafc}
+.twrap{overflow:auto;max-height:62vh}
+.tag{display:inline-block;padding:2px 8px;border-radius:6px;font-size:12px;white-space:nowrap}
+.tag.gray{background:#f3f4f6;color:#4b5563}
+.tag.blue{background:var(--pri-soft);color:var(--pri)}
+.tag.green{background:var(--ok-soft);color:var(--ok)}
+.tag.yellow{background:var(--warn-soft);color:var(--warn)}
+.tag.red{background:var(--bad-soft);color:var(--bad)}
+/* 按钮/表单 */
+.btn{border:1px solid var(--line);background:#fff;border-radius:8px;padding:6px 12px;font-size:13px;cursor:pointer;color:var(--txt)}
+.btn:hover{background:#f9fafb}
+.btn.pri{background:var(--pri);border-color:var(--pri);color:#fff}
+.btn.pri:hover{background:#1d4ed8}
+.btn.danger{color:var(--bad);border-color:#fecaca}
+.btn.sm{padding:3px 8px;font-size:12px;border-radius:6px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+input,select,textarea{font-family:inherit;font-size:13px;border:1px solid var(--line);border-radius:8px;padding:6px 9px;background:#fff;color:var(--txt)}
+input:focus,select:focus,textarea:focus{outline:2px solid #bfdbfe;border-color:var(--pri)}
+.frow{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:10px}
+.frow label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
+.frow input,.frow select,.frow textarea{min-width:130px}
+/* KPI */
+.kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px;margin-bottom:14px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:12px}
+.kpi .v{font-size:22px;font-weight:700;margin:4px 0 2px}
+.kpi .l{font-size:12px;color:var(--muted)}
+.kpi .s{font-size:11px;color:var(--muted)}
+.kpi.bad .v{color:var(--bad)} .kpi.warn .v{color:var(--warn)} .kpi.ok .v{color:var(--ok)}
+/* 模态 */
+.modal-mask{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:100;display:none;align-items:flex-start;justify-content:center;overflow:auto;padding:40px 16px}
+.modal-mask.show{display:flex}
+.modal{background:#fff;border-radius:12px;max-width:640px;width:100%;padding:18px;box-shadow:0 10px 40px rgba(0,0,0,.2)}
+.modal h3{margin-bottom:12px;font-size:16px}
+.modal .acts{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
+/* toast */
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:200;display:flex;flex-direction:column;gap:8px;align-items:center}
+#toast .t{background:#111827;color:#fff;padding:8px 16px;border-radius:8px;font-size:13px;box-shadow:var(--shadow);opacity:0;transition:opacity .25s;max-width:min(680px,92vw);white-space:normal;line-height:1.6;cursor:pointer}
+#toast .t.show{opacity:1}
+/* 分级提示框（2026-11-17 UI 优化）：替代状态条内多色文字堆叠 */
+.note{margin-top:8px;padding:8px 12px;border-radius:8px;font-size:13px;line-height:1.7;border:1px solid;border-left-width:3px}
+.note b{font-weight:600}
+.note.warn{background:var(--warn-soft);border-color:#fde68a;border-left-color:var(--warn);color:#92400e}
+.note.err{background:var(--bad-soft);border-color:#fecaca;border-left-color:var(--bad);color:#991b1b}
+.note.info{background:var(--pri-soft);border-color:#bfdbfe;border-left-color:var(--pri);color:#1e40af}
+/* 云端明细 chips：替代长串括号文本 */
+.chips{display:inline-flex;gap:4px;flex-wrap:wrap;vertical-align:middle}
+.chip{background:#eef2f7;border:1px solid #e3e8ef;border-radius:6px;padding:1px 7px;font-size:12px;color:#475569;white-space:nowrap}
+/* 按钮分组行 */
+.btnrow{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+.btnrow .spacer{flex:1}
+/* 身份徽章 */
+.badge{display:inline-block;padding:1px 8px;border-radius:999px;font-size:12px;background:#dbeafe;color:#1d4ed8;border:1px solid #bfdbfe;white-space:nowrap}
+.badge.warnbg{background:#fef3c7;color:#92400e;border-color:#fde68a}
+/* 签名板 */
+.sigpad{border:1px dashed #94a3b8;border-radius:10px;background:#fff;touch-action:none;cursor:crosshair;display:block}
+.muted{color:var(--muted);font-size:12px}
+.linklike{background:none;border:none;color:var(--pri);cursor:pointer;font-size:12px;padding:0}
+.bar{display:flex;align-items:flex-end;gap:10px;height:120px;padding:4px 2px}
+.bar .col{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:4px;min-width:0}
+.bar .col .b{width:70%;max-width:46px;border-radius:6px 6px 0 0;background:var(--pri)}
+.bar .col .n{font-size:11px;color:var(--muted);white-space:nowrap}
+.logline{padding:7px 0;border-bottom:1px dashed var(--line);font-size:13px}
+.logline .t{color:var(--muted);font-size:11px;margin-right:8px}
+.imp-grid{display:grid;grid-template-columns:auto 1fr 1fr;gap:4px 10px;font-size:12px;margin:8px 0}
+.imp-grid .h{font-weight:600;color:var(--muted)}
+.empty{padding:26px;text-align:center;color:var(--muted);font-size:13px}
+@media print{.topbar,.tabs,.btn{display:none!important}}
+</style>
+</head>
+<body data-page-node-id="F0AFCZd06IDfFGhlcXJuLE">
+<header class="topbar" data-page-node-id="HdvxA4H9AcaJPIBRtDCNyz">
+  <h1 data-page-node-id="fAvoONDlLpWY014PaHc3m4">📦 物资申领与消耗追溯 V1.1.1</h1>
+  <button class="pill" id="syncPill" title="共享连接状态，点开设置" data-page-node-id="Th9cEmiOIx44nfmp7X5cHk"><span class="dot" data-page-node-id="dPHYIE17STyZD2MBmWPBh9"></span><span id="syncTxt" data-page-node-id="B8kEFhjDGZZTRidETSLH2d">本地模式</span></button>
+  <button class="me-chip" id="meChip" title="切换身份" data-page-node-id="wYBiqwfXRt4ZVadd4zwDQp">👤 <b id="meName" data-page-node-id="CSFCqhyCD86bxpstX9mFMJ">未设置身份</b></button>
+</header>
+<nav class="tabs" id="tabs" data-page-node-id="JuZiOfNNRDMFt979PAJiS5">
+  <button data-tab="dashboard" class="act" data-page-node-id="4ytes7D5HeVJojC8qDftv6">仪表盘</button>
+  <button data-tab="materials" data-page-node-id="JQlccf9zI9Pgr4isZOkGtv">物料档案</button>
+  <button data-tab="purchases" data-page-node-id="mFImYJjNiebfbRjWoKvUII">采购台账</button>
+  <button data-tab="arrivals" data-page-node-id="mZa1AUq80WtjfhuTSIYI4R">到货 &amp; 签收</button>
+  <button data-tab="dispatch" data-page-node-id="I6zoOx9RmjYHJbjFIjd4ME">分发 &amp; 领用确认</button>
+  <button data-tab="query" data-page-node-id="S4C2tIgm8ox5bFwxIYIcGQ">查询 / 操作日志</button>
+  <button data-tab="settings" data-page-node-id="FHPdJ3TADnlg6StDAFZv7P">设置 · 成员 · 导入导出</button>
+</nav>
+<main id="main" data-page-node-id="TGgKSg08dj03fOoCddSpUb">
+  <section class="tabpane act" id="pane-dashboard" data-page-node-id="4eqC8McptbpkseTntBnLDO"></section>
+  <section class="tabpane" id="pane-materials" data-page-node-id="kGNFuAi1Uo8mo7GUFssyy7"></section>
+  <section class="tabpane" id="pane-purchases" data-page-node-id="9yo2F1EV1faW1n9r0gTpLH"></section>
+  <section class="tabpane" id="pane-arrivals" data-page-node-id="6fg2D5ZaDmzYb23rju8uB0"></section>
+  <section class="tabpane" id="pane-dispatch" data-page-node-id="7gdXlyjdq6elVpLEwCLRkc"></section>
+  <section class="tabpane" id="pane-query" data-page-node-id="j1RmAkj6fc2e8vIUagYaCO"></section>
+  <section class="tabpane" id="pane-settings" data-page-node-id="tgYaXjToSSwSL2WHlzdaQG"></section>
+</main>
+<div class="modal-mask" id="modalMask" data-page-node-id="hO4UE9nHszp2toow4zznjP"><div class="modal" id="modalBox" data-page-node-id="SmpbxtzpryP7aKLQyP9SZF"></div></div>
+<div id="toast" data-page-node-id="DOMHquO5oti3X6pqv6yuFn"></div>
+<script src="core.js"></script>
+<script src="views.js"></script>
+</body>
+</html>

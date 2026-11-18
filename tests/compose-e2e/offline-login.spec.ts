@@ -22,7 +22,9 @@ test("the production stack serves login and home without public requests", async
   await page.getByLabel("用户名").fill("member");
   await page.getByLabel("密码").fill("member secure password");
   await page.getByRole("button", { name: "登录" }).click();
-  await expect(page.getByRole("heading", { name: "品质成员" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { level: 1, name: /从数据可信/ }),
+  ).toBeVisible();
   const themeApplied = page.waitForResponse(
     (response) =>
       response.request().method() === "POST" &&

@@ -32,4 +32,14 @@ describe("application catalog", () => {
     });
     expect(getApplication("cqe-yield-analysis")?.templateHref).toBeUndefined();
   });
+
+  it("exposes the material trace application through the portal launch route", () => {
+    expect(getApplication("wuzhi-trace")).toMatchObject({
+      name: "物资申领与消耗追溯",
+      version: "V1.1.1",
+      status: "available",
+      href: "/apps/wuzhi-trace",
+      runtimeHref: "/apps/wuzhi-trace/launch",
+    });
+  });
 });

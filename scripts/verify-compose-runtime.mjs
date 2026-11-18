@@ -16,14 +16,19 @@ const baseArgs = [
 const backupTargetDirectory = await mkdtemp(
   join(tmpdir(), "q-nexus-compose-backups-"),
 );
+const portalPort = process.env.Q_NEXUS_E2E_HTTP_PORT ?? "18080";
+const portalBaseUrl = `http://127.0.0.1:${portalPort}`;
 await chmod(backupTargetDirectory, 0o777);
 const environment = {
   ...process.env,
   Q_NEXUS_DB_PASSWORD: "compose-runtime-verification",
-  APP_GATEWAY_SECRET: "compose-runtime-verification",
+  APP_GATEWAY_SECRET: "compose-runtime-verification-secret-32chars",
   BACKUP_PASSPHRASE: "compose-runtime-verification",
   BACKUP_ADMIN_USER_ID: "00000000-0000-4000-8000-000000000000",
   BACKUP_TARGET_DIR: backupTargetDirectory,
+  Q_NEXUS_BIND_ADDRESS: "127.0.0.1",
+  Q_NEXUS_PORT: portalPort,
+  Q_NEXUS_E2E_BASE_URL: portalBaseUrl,
 };
 
 try {
@@ -34,8 +39,8 @@ try {
     "--detach",
     "--wait",
   ]);
-  const live = await fetch("http://127.0.0.1:8080/api/health/live");
-  const ready = await fetch("http://127.0.0.1:8080/api/health/ready");
+  const live = await fetch(`${portalBaseUrl}/api/health/live`);
+  const ready = await fetch(`${portalBaseUrl}/api/health/ready`);
   assert(live.ok, "Liveness endpoint must respond through the proxy.");
   assert(ready.ok, "Readiness endpoint must confirm database and migrations.");
   assert(
