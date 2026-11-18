@@ -285,3 +285,52 @@ test('品集编辑者武欣雨获得系统管理员身份并可维护成员名�
   ], reviewerHeaders);
   assert.match(result.body.rejected[0].reason, /仅系统管理员武欣雨可维护/);
 });
+
+test('成员名单中的普通成员可以导入物料档案，但不能手改或删除物料', async (t) => {
+  const { base } = await startApp(t);
+  await write(base, [
+    op('members', 'm-lead', {
+      name: '领用人甲', username: 'area.lead', role: '区域领用人', region: 'IPQC2', enabled: true,
+    }),
+  ]);
+  const memberHeaders = {
+    'content-type': 'application/json',
+    'x-user-name': encodeURIComponent('领用人甲'),
+    'x-user-username': encodeURIComponent('area.lead'),
+    'x-user-role': encodeURIComponent('区域领用人'),
+    'x-user-region': encodeURIComponent('IPQC2'),
+  };
+  let result = await json(base, '/api/import/materials', {
+    method: 'POST',
+    headers: memberHeaders,
+    body: JSON.stringify({ materials: [{ id: 'm-import', code: 'CL-1', name: '无尘布', unit: '包', safe: 2 }] }),
+  });
+  assert.equal(result.response.status, 200);
+  assert.equal(result.body.applied.length, 1);
+  assert.equal(result.body.applied[0].record.name, '无尘布');
+
+  result = await json(base, '/api/import/materials', {
+    method: 'POST',
+    headers: memberHeaders,
+    body: JSON.stringify({ materials: [{ id: 'm-import', name: '无尘布升级', safe: 3 }] }),
+  });
+  assert.equal(result.body.applied.length, 1);
+  assert.equal(result.body.applied[0].record.name, '无尘布升级');
+
+  result = await write(base, [
+    op('materials', 'm-import', { name: '手工修改', unit: '包', safe: 1 }, { by: '领用人甲' }),
+  ], memberHeaders);
+  assert.match(result.body.rejected[0].reason, /物料档案仅管理员可维护/);
+
+  const unregistered = {
+    'content-type': 'application/json',
+    'x-user-name': encodeURIComponent('未登记人员'),
+    'x-user-role': encodeURIComponent('区域领用人'),
+  };
+  const denied = await json(base, '/api/import/materials', {
+    method: 'POST',
+    headers: unregistered,
+    body: JSON.stringify({ materials: [{ id: 'm-denied', name: '禁止物料' }] }),
+  });
+  assert.equal(denied.response.status, 403);
+});

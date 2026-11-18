@@ -508,6 +508,90 @@ function createServer({
     });
   }
 
+  async function handleMaterialImport(request, response) {
+    let body;
+    try {
+      body = await readBody(request);
+    } catch (error) {
+      sendJSON(response, error.statusCode || 400, { error: error.message });
+      return;
+    }
+    const identity = requireIdentity(request, response, body);
+    if (!identity) return;
+    if (!identity.admin && !identity.memberId) {
+      sendJSON(response, 403, {
+        ok: false,
+        error: '只有成员名单中的已登记人员或管理员可以导入物料档案',
+      });
+      return;
+    }
+    const rows = Array.isArray(body && body.materials) ? body.materials.slice(0, 5000) : [];
+    if (!rows.length) {
+      sendJSON(response, 400, { ok: false, error: '没有可导入的物料记录' });
+      return;
+    }
+    const draft = normalize(state);
+    const previousData = state.data;
+    const applied = [];
+    const rejected = [];
+    let touched = 0;
+    const allowedFields = ['code', 'name', 'spec', 'unit', 'category', 'safe', 'note'];
+    for (const row of rows) {
+      if (!row || typeof row !== 'object') continue;
+      let id = String(row.id || '').trim();
+      if (!id) {
+        const code = String(row.code || '').trim();
+        const name = String(row.name || '').trim();
+        const matched = Object.values(draft.data.materials).find(
+          (material) =>
+            (code && String(material.code || '').trim() === code)
+            || (name && String(material.name || '').trim() === name),
+        );
+        id = matched ? matched.id : crypto.randomUUID();
+      }
+      const existing = draft.data.materials[id] || null;
+      const timestamp = Math.max(now(), Number(existing && existing.ts) + 1 || 0);
+      const record = {
+        id,
+        ts: timestamp,
+        by: existing ? existing.by : (identity.name || identity.username || '导入'),
+        f: {},
+      };
+      for (const key of allowedFields) {
+        if (!Object.prototype.hasOwnProperty.call(row, key)) continue;
+        record[key] = row[key];
+        record.f[key] = timestamp;
+      }
+      const candidate = normRec(record);
+      const merged = existing ? mergeRec(existing, candidate) : candidate;
+      if (!String(merged.name || '').trim()) {
+        rejected.push({ id, reason: '物料名称不能为空' });
+        continue;
+      }
+      if (!Number.isFinite(Number(merged.safe ?? 0)) || Number(merged.safe ?? 0) < 0) {
+        rejected.push({ id, reason: '安全库存必须是非负数' });
+        continue;
+      }
+      if (existing && sameRecord(existing, merged)) {
+        applied.push({ id, record: merged });
+        continue;
+      }
+      draft.data.materials[id] = merged;
+      touched += 1;
+      applied.push({ id, record: merged });
+    }
+    if (touched) commit(draft, identity, previousData);
+    sendJSON(response, 200, {
+      ok: true,
+      ver: state.ver,
+      applied,
+      rejected,
+      touched,
+      user: userPayload(identity),
+      serverTime: now(),
+    });
+  }
+
   async function handleWholeStore(request, response) {
     if (!tokenAccepted(request, new URL(request.url, 'http://localhost'))) {
       sendJSON(response, 401, { error: '需要口令' });
@@ -767,6 +851,10 @@ function createServer({
       }
       if (url.pathname === '/api/ops' && request.method === 'POST') {
         await handleOperations(request, response);
+        return;
+      }
+      if (url.pathname === '/api/import/materials' && request.method === 'POST') {
+        await handleMaterialImport(request, response);
         return;
       }
       if (url.pathname === '/api/store' && request.method === 'PUT') {

@@ -1,4 +1,4 @@
-/* 物资申领与消耗追溯 V1.2.2 — core.js：数据模型 / 派生计算 / 同步层 / Excel 读写 */
+/* 物资申领与消耗追溯 V1.2.3 — core.js：数据模型 / 派生计算 / 同步层 / Excel 读写 */
 'use strict';
 window.WZ = (function () {
   /* ---------------- 基础工具 ---------------- */
@@ -162,7 +162,7 @@ window.WZ = (function () {
   }
 
   /* ---------------- 同步层 ---------------- */
-  const SYNC = { mode: 'local', ver: 0, seq: 0, server: '', online: [], conflict: 0, es: null, pollT: null, pushT: null, autoT: null, connected: false, admin: false, systemAdmin: false, scope: 'all', lastSyncAt: 0, lastError: null, pushing: false, adminKeySource: '', authMode: 'standalone' };
+  const SYNC = { mode: 'local', ver: 0, seq: 0, server: '', online: [], conflict: 0, es: null, pollT: null, pushT: null, autoT: null, connected: false, admin: false, systemAdmin: false, memberId: '', scope: 'all', lastSyncAt: 0, lastError: null, pushing: false, adminKeySource: '', authMode: 'standalone' };
 
   /* 云端共享配置（与送测工作台同模式）：管理员口令存本机，随每个请求带给服务端校验 */
   const cloudCfg = { adminKey: '', auto: 1 };
@@ -360,6 +360,33 @@ window.WZ = (function () {
     if (opCount() > 0) scheduleFlush(400);
   }
 
+  async function importMaterials(materials) {
+    const list = Array.isArray(materials) ? materials : [];
+    if (!list.length) return { ok: true, applied: [], rejected: [], touched: 0 };
+    if (SYNC.mode !== 'server') {
+      const applied = [];
+      for (const record of list) {
+        applied.push({ id: record.id, record: upsert('materials', record, `导入物料：${record.name || ''}`) });
+      }
+      return { ok: true, applied, rejected: [], touched: applied.length };
+    }
+    const response = await fetch(SYNC.server + '/api/import/materials', {
+      method: 'POST',
+      headers: cloudHeaders({ 'content-type': 'application/json' }),
+      body: JSON.stringify({
+        materials: list,
+        name: me().name,
+        role: me().role,
+        region: me().region,
+        adminKey: normKey(cloudCfg.adminKey)
+      })
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.error || ('HTTP ' + response.status));
+    await pullStore(true);
+    return result;
+  }
+
   function saveState() {
     state.updatedAt = Date.now();
     state.updatedBy = me().name;
@@ -485,7 +512,7 @@ window.WZ = (function () {
     if (SYNC.es) { try { SYNC.es.close(); } catch (e) { } SYNC.es = null; }
     if (SYNC.pollT) { clearInterval(SYNC.pollT); SYNC.pollT = null; }
     stopAutoSync();
-    SYNC.mode = 'local'; SYNC.connected = false; SYNC.online = []; SYNC.admin = false; SYNC.systemAdmin = false; SYNC.scope = 'all';
+    SYNC.mode = 'local'; SYNC.connected = false; SYNC.online = []; SYNC.admin = false; SYNC.systemAdmin = false; SYNC.memberId = ''; SYNC.scope = 'all';
     if (SYNC.authMode !== 'qnexus') SYNC.authMode = 'standalone';
     updatePill();
   }
@@ -674,6 +701,7 @@ window.WZ = (function () {
     if (!payload || !payload.authMode) return;
     SYNC.authMode = payload.authMode;
     const user = payload.user || {};
+    SYNC.memberId = String(user.memberId || '');
     if (typeof user.admin === 'boolean') SYNC.admin = user.admin;
     if (typeof user.systemAdmin === 'boolean') SYNC.systemAdmin = user.systemAdmin;
     if (payload.authMode !== 'qnexus') return;
@@ -695,6 +723,7 @@ window.WZ = (function () {
   const isSystemAdmin = () => Boolean(SYNC.systemAdmin);
   const canManageMaterials = () => Boolean(SYNC.admin);
   const canManageMembers = () => Boolean(SYNC.systemAdmin);
+  const canImportMaterials = () => SYNC.mode === 'server' ? Boolean(SYNC.admin || SYNC.memberId || ME.memberId) : Boolean(ME.name);
   const canEditFlow = () => Boolean(SYNC.admin || OFFICE_ROLES.includes(ME.role));
   const canCreatePurchase = () => Boolean(ME.name && (SYNC.admin || ROLES.includes(ME.role)));
   const canReviewPurchase = () => Boolean(SYNC.admin || ME.role === '审核员');
@@ -1575,8 +1604,8 @@ window.WZ = (function () {
   return {
     COLLS, ROLES, AREA_ROLES, OFFICE_ROLES, APPROVAL_PENDING, APPROVAL_WAITING, APPROVAL_APPROVED, APPROVAL_REJECTED, FIELDS,
     get REGIONS() { return REGIONS; }, get REGION_LABEL() { return REGION_LABEL; }, get DEPTS() { return DEPTS; }, saveOrgCfg,
-    state, get state$() { return state; }, SYNC, me, setMe, applyServerIdentity, isRole, isSystemAdmin, canManageMaterials, canManageMembers, canEditFlow, canCreatePurchase, canReviewPurchase, canApprovePurchase, canConfirm, canConfirmDispatch, roleCapabilities,
-    upsert, remove, get, list, logOp, saveState, saveLocal, wipeCloud, saveCloudCfg, markEdit,
+    state, get state$() { return state; }, SYNC, me, setMe, applyServerIdentity, isRole, isSystemAdmin, canManageMaterials, canManageMembers, canImportMaterials, canEditFlow, canCreatePurchase, canReviewPurchase, canApprovePurchase, canConfirm, canConfirmDispatch, roleCapabilities,
+    upsert, remove, get, list, logOp, saveState, saveLocal, wipeCloud, saveCloudCfg, markEdit, importMaterials,
     normalize, mergeStates, switchMode, updatePill, toast, onRender, renderAll, cloudCfg, cloudHeaders, upgradeLegacyPort, probeEx, autoDetect,
     pullStore, pushStore, pushPending, startAutoSync, stopAutoSync, shareUrl,
     flushOps, scheduleFlush, pendingOps: () => opCount(),

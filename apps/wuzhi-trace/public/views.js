@@ -1,4 +1,4 @@
-/* 物资申领与消耗追溯 V1.2.2 — views.js：视图 / 表单 / 签名板 / 导入导出 UI */
+/* 物资申领与消耗追溯 V1.2.3 — views.js：视图 / 表单 / 签名板 / 导入导出 UI */
 'use strict';
 (function () {
   const W = window.WZ;
@@ -227,7 +227,7 @@
         Object.values(s.sources).reduce((sum, item) => sum + item.pendingApproval, 0)],
     ];
     const rows = [
-      ['物资申领与消耗追溯 V1.2.2 · 月度汇总'],
+      ['物资申领与消耗追溯 V1.2.3 · 月度汇总'],
       ['月份', month],
       [],
       ['指标', '数值'],
@@ -268,6 +268,7 @@
   function renderMaterials() {
     const pane = $('#pane-materials');
     const editable = W.canManageMaterials();
+    const canImport = W.canImportMaterials();
     const all = W.list('materials').sort((a, b) => String(a.name).localeCompare(String(b.name)));
     /* 修复（2026-11-17）：档案页头部显示数据条数与来源（本地缓存/云端版本），
        保存后数据有没有进档案页一眼可查，避免「存了但看不到」无法定位。 */
@@ -281,7 +282,7 @@
         ${editable ? `<td><button class="btn sm" data-edit="${mt.id}">编辑</button> <button class="btn sm danger" data-del="${mt.id}">删除</button></td>` : ''}</tr>`;
     }).join('') || `<tr><td colspan="11" class="empty">暂无物料档案${editable ? '，点击「新增物料」开始' : ''}</td></tr>`;
     pane.innerHTML = `<div class="card"><h3>🧾 物料基础档案 <span class="muted">共 ${all.length} 条 · ${srcNote}</span>
-      <span class="sp">${editable ? '<button class="btn pri sm" id="btnAddMaterial">＋ 新增物料</button>' : '<span class="muted">仅管理员可维护</span>'}<button class="btn sm" id="btnOaExport">⬇ 导出 OA 模板</button>${editable ? '<button class="btn sm" id="btnOaImport">⬆ 导入 OA 模板</button>' : ''}</span></h3>
+      <span class="sp">${editable ? '<button class="btn pri sm" id="btnAddMaterial">＋ 新增物料</button>' : '<span class="muted">手改/删除仅管理员</span>'}<button class="btn sm" id="btnOaExport">⬇ 导出 OA 模板</button>${canImport ? '<button class="btn sm" id="btnOaImport">⬆ 导入 OA 模板</button>' : ''}</span></h3>
       ${(!editable && W.SYNC.mode === 'server' && String(W.cloudCfg.adminKey || '').trim()) ? '<p class="muted" style="color:#b45309;margin:-4px 0 8px">你已填管理员口令但服务端未认可 → 档案只读。请核对口令大小写与前后空格后重新「保存并连接」（默认口令 wuzhi-admin-2026，服务端可改）。</p>' : ''}
       <div class="twrap"><table><thead><tr><th>存货编码</th><th>物料名称</th><th>规格型号</th><th>单位</th><th>物品分类</th><th>安全库存</th><th>实收累计</th><th>已领用</th><th>剩余库存</th><th>预估可用</th><th>备注</th>${editable ? '<th>操作</th>' : ''}</tr></thead><tbody>${rows}</tbody></table></div><input type="file" id="oaImpFile" accept=".xlsx" style="display:none"></div>`;
     const add = $('#btnAddMaterial');
@@ -1035,7 +1036,7 @@
       if (x.reason === 'refused') return localHit
         ? '✗ 连不上 ' + where + '：连接被拒绝。本机直连也被拒 → 服务未启动。请在服务器电脑以管理员运行「一键启动_自动放行防火墙.bat」，然后本机浏览器访问 http://localhost:8082/api/health 自检（应返回 {"ok":true}）'
         : '✗ 连不上 ' + where + '：连接被拒绝。服务未启动或端口不对：① 确认服务器已启动且端口为 8082 ② 若服务器本机 localhost 能打开而这里被拒，多为地址写错（看「访问地址.txt」取当前 IP）' + fixed;
-      if (x.reason === 'badreply') return '✗ ' + where + ' 有响应但不是物资申领与消耗追溯 V1.2.2服务（核对地址与端口是否指向别的程序）' + fixed;
+      if (x.reason === 'badreply') return '✗ ' + where + ' 有响应但不是物资申领与消耗追溯 V1.2.3服务（核对地址与端口是否指向别的程序）' + fixed;
       return '✗ 连不上 ' + where + '（' + (x.detail || x.reason || 'HTTP 异常') + '）' + fixed;
     }
     /* 读取输入框地址：升级旧端口并把结果写回输入框（用户可见纠正） */
@@ -1324,19 +1325,26 @@
       sel.onchange = () => { mapping[sel.dataset.mf] = Number(sel.value) >= 0 ? Number(sel.value) : null; summary(); };
     });
     let plan = summary();
-    $('#oaImpGo').onclick = () => {
+    $('#oaImpGo').onclick = async () => {
       plan = summary();
       if (!plan.add.length && !plan.upd.length) { W.toast('没有可导入的数据行'); return; }
-      let n = 0;
-      plan.add.forEach(({ rec }) => { W.upsert('materials', rec, 'OA模板导入新增物料：' + rec.name); n++; });
+      const records = [];
+      plan.add.forEach(({ rec }) => records.push({ ...rec, id: W.uid('mat'), safe: rec.safe == null ? 0 : rec.safe }));
       plan.upd.forEach(({ id, rec }) => {
-        const mt = W.get('materials', id) || {};
-        const merged = Object.assign({}, mt);
-        ['code', 'name', 'spec', 'unit', 'category', 'note'].forEach(k => { if (rec[k] !== '' && rec[k] != null) merged[k] = rec[k]; });
-        if (rec.safe != null) merged.safe = rec.safe;
-        W.upsert('materials', merged, 'OA模板导入更新物料：' + (merged.name || rec.name)); n++;
+        const patch = { id };
+        ['code', 'name', 'spec', 'unit', 'category', 'note'].forEach(k => { if (rec[k] !== '' && rec[k] != null) patch[k] = rec[k]; });
+        if (rec.safe != null) patch.safe = rec.safe;
+        records.push(patch);
       });
-      closeModal(); W.toast('已导入 ' + n + ' 条物料'); W.renderAll();
+      try {
+        const result = await W.importMaterials(records);
+        const rejected = result.rejected || [];
+        closeModal();
+        if (rejected.length) {
+          openModal(modalShell('📥 物料导入结果', `<p>成功 <b class="tag green">${(result.applied || []).length}</b> · 失败 <b class="tag red">${rejected.length}</b></p><div class="twrap" style="max-height:260px;margin-top:8px">${rejected.map(item => `<div class="logline">${W.esc(item.reason || '导入失败')}</div>`).join('')}</div>`, '<button class="btn pri" onclick="closeModal()">完成</button>'));
+        } else W.toast('已导入 ' + (result.applied || []).length + ' 条物料');
+        W.renderAll();
+      } catch (error) { W.toast('导入失败：' + error.message); }
     };
   }
 
@@ -1563,10 +1571,55 @@
     `, `<button class="btn pri" onclick="closeModal()">完成</button>`));
     W.toast(`成员导入完成：成功 ${ok}，失败 ${fail}`);
   }
-  function importGo() {
+  async function importMaterialRows() {
+    const { rows, mapping } = impSession;
+    if (!W.canImportMaterials()) { W.toast('只有成员名单中的已登记人员或管理员可以导入物料档案'); return; }
+    if (mapping.name == null && mapping.code == null) { W.toast('存货编码或物料名称列必须至少映射一个'); return; }
+    const records = [];
+    const parseErrors = [];
+    rows.forEach((row, index) => {
+      const value = field => mapping[field] != null ? String(row[mapping[field]] == null ? '' : row[mapping[field]]).trim() : '';
+      const code = value('code');
+      const name = value('name');
+      if ((!code && !name) || name === '存货名称' || name === '物料名称') return;
+      const existing = (code && W.list('materials').find(material => String(material.code || '').trim() === code))
+        || (name && W.list('materials').find(material => String(material.name || '').trim() === name))
+        || null;
+      if (!existing && !name && !code) {
+        parseErrors.push(`行${index + 2}：物料名称为空`);
+        return;
+      }
+      const record = { id: existing ? existing.id : W.uid('mat'), name: name || code };
+      const optional = { code, spec: value('spec'), unit: value('unit'), category: value('category'), note: value('note') };
+      for (const [key, val] of Object.entries(optional)) {
+        if (existing && !val) continue;
+        record[key] = val;
+      }
+      const safe = value('safe');
+      if (safe !== '') record.safe = W.num(safe);
+      else if (!existing) record.safe = 0;
+      records.push(record);
+    });
+    if (parseErrors.length) {
+      openModal(modalShell('📥 物料导入结果', `<p>有 <b class="tag red">${parseErrors.length}</b> 行无法解析</p><div class="twrap" style="max-height:260px;margin-top:8px">${parseErrors.map(error => `<div class="logline">${W.esc(error)}</div>`).join('')}</div>`, '<button class="btn pri" onclick="closeModal()">完成</button>'));
+      return;
+    }
+    try {
+      const result = await W.importMaterials(records);
+      const applied = result.applied || [];
+      const rejected = result.rejected || [];
+      openModal(modalShell('📥 物料导入结果', `
+        <p>成功 <b class="tag green">${applied.length}</b> · 失败 <b class="tag ${rejected.length ? 'red' : 'gray'}">${rejected.length}</b></p>
+        <div class="twrap" style="max-height:260px;margin-top:8px">${rejected.length ? rejected.map(item => `<div class="logline">${W.esc(item.reason || '导入失败')}</div>`).join('') : '<p class="empty">全部导入成功</p>'}</div>
+      `, '<button class="btn pri" onclick="closeModal()">完成</button>'));
+      W.toast(`物料导入完成：成功 ${applied.length}，失败 ${rejected.length}`);
+    } catch (error) { W.toast('导入失败：' + error.message); }
+  }
+  async function importGo() {
     const { target, rows, mapping } = impSession;
     if (target === 'members') { importMembers(); return; }
-    if (target === 'materials' && !W.canManageMaterials()) { W.toast('物料档案导入仅管理员可执行'); return; }
+    if (target === 'materials') { await importMaterialRows(); return; }
+    if (['arrivals', 'dispatches'].includes(target) && !W.SYNC.admin) { W.toast('历史到货/分发链路导入仅管理员可执行'); return; }
     if (['arrivals', 'dispatches'].includes(target) && !W.SYNC.admin) { W.toast('历史到货/分发链路导入仅管理员可执行'); return; }
     if (mapping.name == null && mapping.materialName == null) { W.toast('物料名称列必须映射'); return; }
     let ok = 0, fail = 0, warn = 0;

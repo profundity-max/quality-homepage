@@ -1,6 +1,6 @@
 {
   "name": "q-nexus-wuzhi-trace",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "private": true,
   "description": "物资申领与消耗追溯系统，作为品集应用中心受控应用运行",
   "main": "server.js",
