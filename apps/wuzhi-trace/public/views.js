@@ -1,4 +1,4 @@
-/* 物资申领与消耗追溯 V1.2.0 — views.js：视图 / 表单 / 签名板 / 导入导出 UI */
+/* 物资申领与消耗追溯 V1.2.1 — views.js：视图 / 表单 / 签名板 / 导入导出 UI */
 'use strict';
 (function () {
   const W = window.WZ;
@@ -142,7 +142,7 @@
   async function exportMonth() {
     const s = W.monthSummary(FILTER.dash);
     const rows = [
-      ['物资申领与消耗追溯 V1.2.0 · 月度汇总'],
+      ['物资申领与消耗追溯 V1.2.1 · 月度汇总'],
       ['月份', s.month === 'all' ? W.thisMonth() : s.month],
       [],
       ['指标', '数值'],
@@ -797,9 +797,9 @@
           <button class="btn danger" id="btnRestore">上传恢复（整库覆盖）</button>
         </div>
         <p class="muted">恢复会把云端数据整体替换，请谨慎操作；恢复前建议先下载一份备份。</p></div>
-      <div class="card"><h3>📥 Excel 导入 <span class="sp muted">支持 物料档案 / 采购 / 到货 / 分发 四张表 · 列可手动映射</span></h3>
+      <div class="card"><h3>📥 Excel 导入 <span class="sp muted">支持 物料档案 / 采购 / 到货 / 分发 / 成员名单 五张表 · 列可手动映射</span></h3>
         <div class="frow">
-          <label>目标表<select id="impTarget"><option value="materials">物料档案</option><option value="purchases">采购记录</option><option value="arrivals">到货记录</option><option value="dispatches">分发记录</option></select></label>
+          <label>目标表<select id="impTarget"><option value="materials">物料档案</option><option value="purchases">采购记录</option><option value="arrivals">到货记录</option><option value="dispatches">分发记录</option><option value="members">成员名单</option></select></label>
           <label>选择文件<input type="file" id="impFile" accept=".xlsx,.csv"></label>
           <button class="btn" id="btnTemplate">下载空白模板</button>
           <button class="btn pri" id="btnImpPreview">解析并预览</button>
@@ -933,7 +933,7 @@
       if (x.reason === 'refused') return localHit
         ? '✗ 连不上 ' + where + '：连接被拒绝。本机直连也被拒 → 服务未启动。请在服务器电脑以管理员运行「一键启动_自动放行防火墙.bat」，然后本机浏览器访问 http://localhost:8082/api/health 自检（应返回 {"ok":true}）'
         : '✗ 连不上 ' + where + '：连接被拒绝。服务未启动或端口不对：① 确认服务器已启动且端口为 8082 ② 若服务器本机 localhost 能打开而这里被拒，多为地址写错（看「访问地址.txt」取当前 IP）' + fixed;
-      if (x.reason === 'badreply') return '✗ ' + where + ' 有响应但不是物资申领与消耗追溯 V1.2.0服务（核对地址与端口是否指向别的程序）' + fixed;
+      if (x.reason === 'badreply') return '✗ ' + where + ' 有响应但不是物资申领与消耗追溯 V1.2.1服务（核对地址与端口是否指向别的程序）' + fixed;
       return '✗ 连不上 ' + where + '（' + (x.detail || x.reason || 'HTTP 异常') + '）' + fixed;
     }
     /* 读取输入框地址：升级旧端口并把结果写回输入框（用户可见纠正） */
@@ -1259,6 +1259,11 @@
     if (target === 'materials') return [['存货编码', '存货名称', '规格型号', '单位', '物品分类', '安全库存', '描述（对物品详细解释）'], ['CL-000025', '无尘布', '9寸 100片/包', '包', '耗材', 20, 'IPQC 表面检查用']];
     if (target === 'purchases') return [OA_HEADERS, oaExampleRow()];
     if (target === 'arrivals') return [['存货编码', '存货名称', '实际到货数量', '到货日期'], ['CL-000025', '无尘布', 50, W.today()]];
+    if (target === 'members') return [
+      ['姓名', '品集账号', '业务角色', '所属区域', '所属部门', '上级区域领用人', '启用状态'],
+      ['领用人甲', 'area.lead', '区域领用人', 'IPQC 2期', '品质部', '', '启用'],
+      ['领用人乙', 'area.member', '隶属区域领用人', 'IPQC 2期', '品质部', '领用人甲', '启用']
+    ];
     return [['存货编码', '存货名称', '分发区域', '领用部门', '分发数量', '分发时间'], ['CL-000025', '无尘布', 'IPQC 2期', '品质部', 10, W.nowStr()]];
   }
   function downloadTemplate() {
@@ -1308,7 +1313,8 @@
       materials: { code: '存货编码', name: '存货名称*', spec: '规格型号', unit: '单位', category: '物品分类', safe: '安全库存', note: '描述/备注' },
       purchases: { code: '存货编码', materialName: '存货名称*', spec: '规格型号', unit: '单位', category: '物品分类', qty: '请购数量*', date: '申请时间*', purpose: '申请原因/用途', dest: '地点/使用去向', dept: '申请部门' },
       arrivals: { code: '存货编码', materialName: '存货名称*', arrQty: '实际到货数量*', arrDate: '到货日期*' },
-      dispatches: { code: '存货编码', materialName: '存货名称*', region: '分发区域*', dept: '领用部门', qty: '分发数量*', at: '分发时间' }
+      dispatches: { code: '存货编码', materialName: '存货名称*', region: '分发区域*', dept: '领用部门', qty: '分发数量*', at: '分发时间' },
+      members: { name: '姓名*', username: '品集账号', role: '业务角色*', region: '所属区域', dept: '所属部门', supervisorName: '上级区域领用人', enabled: '启用状态' }
     }[target];
     const opts = h => `<option value="-1">— 未映射 —</option>` + headers.map((h2, i) => `<option value="${i}">${W.esc(h2 || '列' + (i + 1))}</option>`).join('');
     const grid = Object.entries(fieldNames).map(([f, label]) => `<span class="h">${label}</span><select data-field="${f}">${opts()}</select><span data-hit="${f}" class="muted">${mapping[f] != null ? '✓ ' + W.esc(headers[mapping[f]]) : '未识别'}</span>`).join('');
@@ -1337,8 +1343,127 @@
     $('#impPreview').innerHTML = `<p class="muted">预览前 ${Math.min(rows.length, 8)} / ${rows.length} 行${need.length ? ` · ⚠ 未映射字段：${need.join('、')}` : ''}</p>
       <div class="twrap" style="max-height:200px"><table><thead><tr>${Object.keys(mapping).map(f => `<th>${f}</th>`).join('')}</tr></thead><tbody>${pv.join('')}</tbody></table></div>`;
   }
+  function normalizeImportedRole(raw) {
+    const value = String(raw || '').replace(/\s+/g, '');
+    const aliases = {
+      '审核': '审核员', '审核员': '审核员',
+      '核准': '核准员', '核准员': '核准员',
+      '区域领用': '区域领用人', '区域领用人': '区域领用人', '领用人': '区域领用人',
+      '隶属区域领用': '隶属区域领用人', '隶属区域领用人': '隶属区域领用人',
+      '隶属领用': '隶属区域领用人', '隶属领用人': '隶属区域领用人'
+    };
+    return aliases[value] || '';
+  }
+  function normalizeImportedRegion(raw) {
+    const value = String(raw || '').trim();
+    if (!value) return '';
+    const norm = s => String(s || '').replace(/\s+/g, '').toUpperCase().replace(/期/g, '');
+    return W.REGIONS.find(id => id === value || (W.REGION_LABEL[id] || '') === value)
+      || W.REGIONS.find(id => norm(id) === norm(value))
+      || W.REGIONS.find(id => norm(W.REGION_LABEL[id] || id).includes(norm(value)))
+      || '';
+  }
+  function importedEnabled(raw) {
+    const value = String(raw || '').trim();
+    if (!value) return true;
+    return !/^(停用|禁用|否|false|no|0)$/i.test(value);
+  }
+  function importMembers() {
+    const { rows, mapping } = impSession;
+    if (!W.canManageMembers()) { W.toast('成员名单导入仅系统管理员武欣雨可执行'); return; }
+    if (mapping.name == null) { W.toast('姓名列必须映射'); return; }
+    const gv = (row, field) => mapping[field] != null
+      ? String(row[mapping[field]] == null ? '' : row[mapping[field]]).trim()
+      : '';
+    const parsed = [];
+    for (let index = 0; index < rows.length; index += 1) {
+      const row = rows[index];
+      const name = gv(row, 'name');
+      if (!name || name === '姓名' || name === '成员姓名') continue;
+      const role = normalizeImportedRole(gv(row, 'role'));
+      parsed.push({
+        lineNo: index + 2,
+        name,
+        username: gv(row, 'username').toLowerCase(),
+        role,
+        roleRaw: gv(row, 'role'),
+        regionRaw: gv(row, 'region'),
+        dept: gv(row, 'dept'),
+        supervisorName: gv(row, 'supervisorName'),
+        enabled: importedEnabled(gv(row, 'enabled')),
+      });
+    }
+
+    let ok = 0;
+    let fail = 0;
+    const warnings = [];
+    const errors = [];
+    const subordinates = [];
+    for (const item of parsed) {
+      try {
+        if (!item.role) throw new Error(`业务角色「${item.roleRaw || '空'}」无效`);
+        item.region = normalizeImportedRegion(item.regionRaw);
+        if (['区域领用人', '隶属区域领用人'].includes(item.role) && !item.region) {
+          throw new Error(`区域「${item.regionRaw || '空'}」无效`);
+        }
+        if (item.role === '隶属区域领用人') { subordinates.push(item); continue; }
+        const existing = W.list('members').find(member =>
+          (item.username && String(member.username || '').toLowerCase() === item.username)
+          || (!item.username && String(member.name || '').trim() === item.name));
+        W.upsert('members', {
+          id: existing ? existing.id : undefined,
+          name: item.name,
+          username: item.username,
+          role: item.role,
+          region: item.region,
+          dept: item.dept,
+          supervisorId: '',
+          enabled: item.enabled,
+        }, `导入成员：${item.name}（${item.role}）`);
+        if (existing) warnings.push(`行${item.lineNo}：已更新成员「${item.name}」`);
+        ok += 1;
+      } catch (error) {
+        fail += 1;
+        errors.push(`行${item.lineNo}：${error.message}`);
+      }
+    }
+    for (const item of subordinates) {
+      try {
+        const supervisor = W.list('members').find(member =>
+          member.role === '区域领用人'
+          && member.enabled !== false
+          && String(member.name || '').trim() === item.supervisorName
+          && String(member.region || '') === item.region);
+        if (!supervisor) throw new Error(`上级区域领用人「${item.supervisorName || '空'}」不存在或不属于同一区域`);
+        const existing = W.list('members').find(member =>
+          (item.username && String(member.username || '').toLowerCase() === item.username)
+          || (!item.username && String(member.name || '').trim() === item.name));
+        W.upsert('members', {
+          id: existing ? existing.id : undefined,
+          name: item.name,
+          username: item.username,
+          role: item.role,
+          region: item.region,
+          dept: item.dept,
+          supervisorId: supervisor.id,
+          enabled: item.enabled,
+        }, `导入成员：${item.name}（${item.role}，上级 ${supervisor.name}）`);
+        if (existing) warnings.push(`行${item.lineNo}：已更新成员「${item.name}」`);
+        ok += 1;
+      } catch (error) {
+        fail += 1;
+        errors.push(`行${item.lineNo}：${error.message}`);
+      }
+    }
+    openModal(modalShell('📥 成员名单导入结果', `
+      <p>成功 <b class="tag green">${ok}</b> · 失败 <b class="tag ${fail ? 'red' : 'gray'}">${fail}</b> · 更新提示 <b class="tag ${warnings.length ? 'yellow' : 'gray'}">${warnings.length}</b></p>
+      <div class="twrap" style="max-height:260px;margin-top:8px">${[...warnings, ...errors].length ? [...warnings, ...errors].map(message => `<div class="logline">${W.esc(message)}</div>`).join('') : '<p class="empty">全部导入成功</p>'}</div>
+    `, `<button class="btn pri" onclick="closeModal()">完成</button>`));
+    W.toast(`成员导入完成：成功 ${ok}，失败 ${fail}`);
+  }
   function importGo() {
     const { target, rows, mapping } = impSession;
+    if (target === 'members') { importMembers(); return; }
     if (target === 'materials' && !W.canManageMaterials()) { W.toast('物料档案导入仅管理员可执行'); return; }
     if (['arrivals', 'dispatches'].includes(target) && !W.SYNC.admin) { W.toast('历史到货/分发链路导入仅管理员可执行'); return; }
     if (mapping.name == null && mapping.materialName == null) { W.toast('物料名称列必须映射'); return; }
@@ -1405,6 +1530,7 @@
     const matName = id => { const m = G('materials', id); return m ? m.name : ''; };
     const sheets = [
       { name: '物料档案', rows: [['存货编码', '存货名称', '规格型号', '单位', '物品分类', '安全库存', '描述/备注'], ...L('materials').map(m => [m.code, m.name, m.spec, m.unit, m.category, m.safe, m.note])] },
+      { name: '成员名单', rows: [['姓名', '品集账号', '业务角色', '所属区域', '所属部门', '上级区域领用人', '启用状态'], ...L('members').sort((a, b) => String(a.name).localeCompare(String(b.name))).map(member => { const supervisor = member.supervisorId ? G('members', member.supervisorId) : null; return [member.name, member.username || '', member.role, W.REGION_LABEL[member.region] || member.region || '', member.dept || '', supervisor ? supervisor.name : '', member.enabled === false ? '停用' : '启用']; })] },
       { name: '采购台账', rows: [['采购日期', '存货编码', '存货名称', '规格型号', '采购数量', '已到货', '状态', '用途说明', '使用去向', '申请部门', '录入人'], ...L('purchases').sort((a, b) => String(a.date).localeCompare(String(b.date))).map(p => { const mt = G('materials', p.mid); return [p.date, mt ? mt.code : '', matName(p.mid), mt ? mt.spec : '', p.qty, W.fmtQty(W.arrivalsOf(p.id).reduce((s, a) => s + W.num(a.arrQty), 0)), W.purchaseStatus(p), p.purpose, p.dest, p.dept || '', p.by]; })] },
       { name: '到货签收', rows: [['到货日期', '存货编码', '存货名称', '到货数量', '签收状态', '实收数量', '签收人', '签收时间'], ...L('arrivals').sort((a, b) => String(a.arrDate).localeCompare(String(b.arrDate))).map(a => { const rc = W.receiptOf(a.id); const mt = G('materials', a.mid); return [a.arrDate, mt ? mt.code : '', matName(a.mid), a.arrQty, rc ? '已签收' : '待签收', rc ? rc.recvQty : '', rc ? rc.recvBy : '', rc ? rc.recvAt : '']; })] },
       { name: '分发领用', rows: [['分发时间', '存货编码', '存货名称', '分发区域', '领用部门', '分发数量', '分发人', '确认状态', '领用人', '签名时间'], ...L('dispatches').sort((a, b) => String(a.at).localeCompare(String(b.at))).map(d => { const s = W.signoffOf(d.id); const mt = G('materials', d.mid); return [d.at, mt ? mt.code : '', matName(d.mid), W.REGION_LABEL[d.region] || d.region, d.dept || '', d.qty, d.byWho, s ? '已确认' : '待领用确认', s ? s.signer : '', s ? s.sigAt : '']; })] },

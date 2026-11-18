@@ -25,7 +25,7 @@ test("物资追溯应用只接受品集签名入口并在 SSO 后加载", async 
   await expect(application).toHaveURL(/\/wz\/#tab=dashboard$/);
   await expect(
     application.getByRole("heading", {
-      name: "物资申领与消耗追溯 V1.2.0",
+      name: "物资申领与消耗追溯 V1.2.1",
     }),
   ).toBeVisible();
   await expect(application.locator("#meName")).toHaveText(

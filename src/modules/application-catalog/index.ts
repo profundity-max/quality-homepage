@@ -47,7 +47,7 @@ const applications: readonly PortalApplication[] = [
     summary:
       "支持采购两级审批、成员区域归属、到货签收、指定领用人分发、库存预警与台账导出。",
     category: "物资管理",
-    version: "V1.2.0",
+    version: "V1.2.1",
     owner: "品质部",
     status: "available",
     href: "/apps/wuzhi-trace",
