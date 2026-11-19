@@ -1,4 +1,4 @@
-/* 物资申领与消耗追溯 V1.2.3 — views.js：视图 / 表单 / 签名板 / 导入导出 UI */
+/* 物资申领与消耗追溯 V1.2.4 — views.js：视图 / 表单 / 签名板 / 导入导出 UI */
 'use strict';
 (function () {
   const W = window.WZ;
@@ -21,6 +21,7 @@
   /* ---------------- 身份 ---------------- */
   function ensureIdentity() {
     if (W.SYNC.authMode === 'qnexus') return;
+    if (W.SYNC.booting) return;
     const m = W.me();
     if (m && m.name) return;
     const members = W.list('members');
@@ -50,13 +51,18 @@
   function showMeModal() {
     const m = W.me();
     if (W.SYNC.authMode === 'qnexus') {
+      const unmatched = !m.memberMatched;
       openModal(modalShell('👤 当前登录身份', `
         <div class="frow">
           <label>姓名<input value="${W.esc(m.name || '')}" readonly></label>
+          <label>品集账号<input value="${W.esc(m.username || '')}" readonly></label>
           <label>角色<input value="${W.esc(m.role || '')}" readonly></label>
+          <label>所属部门<input value="${W.esc(m.dept || '未配置')}" readonly></label>
           <label>所属区域<input value="${W.esc(W.REGION_LABEL[m.region] || m.region || '未配置')}" readonly></label>
+          <label>上级<input value="${W.esc(m.supervisorName || '未配置')}" readonly></label>
         </div>
-        <p class="muted">该身份由品集登录态提供，不能在应用内切换。角色或区域需要调整时，请联系品集管理员。</p>
+        ${unmatched ? '<div class="note err"><b>未匹配成员名单，请联系管理员</b><br>当前账号可以查看数据，但不能提交、审批或签字。请管理员武欣雨在成员名单中补充品集账号并配置审批路由。</div>' : ''}
+        <p class="muted">该身份由品集登录态自动关联成员名单，不能在应用内修改。部门、角色、区域、上级和审批路由需要调整时，请联系管理员武欣雨。</p>
       `, `<a class="btn" href="/apps">返回品集</a><button class="btn pri" onclick="closeModal()">关闭</button>`));
       return;
     }
@@ -91,6 +97,8 @@
     const s = W.monthSummary(selectedMonth);
     const kpi = (l, v, sub, cls) => `<div class="kpi ${cls || ''}"><div class="l">${l}</div><div class="v">${v}</div><div class="s">${sub || ''}</div></div>`;
     const pend = W.pendingDocs();
+    const myPendingReview = pend['待审核'].filter(W.canReviewPurchase);
+    const myPendingApproval = pend['待核准'].filter(W.canApprovePurchase);
     const maxDisp = Math.max(1, ...W.REGIONS.map(r => s.dispatchByRegion[r] || 0));
     const sourceTotal = key => Object.values(s.sources).reduce((sum, item) => sum + W.num(item[key]), 0);
     const sourceRow = (source, metric, label, value, sub, total) => {
@@ -114,6 +122,7 @@
       return `<tr><td>${W.esc(x.name)}</td><td>${W.esc(x.spec)}</td><td>${W.esc(x.unit)}</td><td>${W.fmtQty(x.recvTotal)}</td><td>${W.fmtQty(x.usedTotal)}</td><td class="${cls}"><b>${W.fmtQty(x.remain)}</b> ${alertTag}</td><td>${daysTxt}${x.rate ? `<span class="muted">（日均 ${W.fmtQty(x.rate)}${x.sample ? '·样本少' : ''}）</span>` : ''}</td></tr>`;
     }).join('') || `<tr><td colspan="7" class="empty">暂无物料，请先在「物料档案」建立档案</td></tr>`;
     pane.innerHTML = `
+      ${W.SYNC.authMode === 'qnexus' && !W.isMemberMatched() ? '<div class="card"><div class="note err"><b>未匹配成员名单，请联系管理员</b><br>当前品集账号可以查看数据，但不能提交采购、审批或领用签字。请联系管理员武欣雨补建成员档案并配置审批路由。</div></div>' : ''}
       <div class="card"><h3>📊 月度汇总
         <span class="sp"><input type="month" id="dashMonth" value="${selectedMonth}"></span>
         <span><button class="btn sm" id="dashExport">导出 Excel</button></span>
@@ -122,8 +131,8 @@
         ${kpi('本月采购总量', W.fmtQty(s.purchaseQty), s.purchaseCount + ' 单')}
         ${kpi('本月实际到货总量', W.fmtQty(s.arriveQty), s.arriveCount + ' 批')}
         ${kpi('实收总量', W.fmtQty(s.recvQty), s.recvCount + ' 次签收')}
-        ${kpi('待审核采购', pend['待审核'].length, '等待一级审核', pend['待审核'].length > 0 ? 'warn' : '')}
-        ${kpi('待核准采购', pend['待核准'].length, '等待最终核准', pend['待核准'].length > 0 ? 'warn' : '')}
+        ${kpi('我的待审核', myPendingReview.length, '自动路由给当前审核人', myPendingReview.length > 0 ? 'warn' : '')}
+        ${kpi('我的待核准', myPendingApproval.length, '自动路由给当前核准人', myPendingApproval.length > 0 ? 'warn' : '')}
         ${kpi('待签字领用单据', s.pendingSignoffs, '待领用确认', s.pendingSignoffs > 0 ? 'warn' : '')}
         ${W.REGIONS.map(r => kpi('分发至 ' + W.REGION_LABEL[r], W.fmtQty(s.dispatchByRegion[r] || 0), '本月分发')).join('')}
       </div>
@@ -203,8 +212,8 @@
   function renderPendingTable() {
     const p = W.pendingDocs();
     const rows = [];
-    p['待审核'].forEach(r => { const mt = W.get('materials', r.mid); rows.push(`<tr><td><span class="tag yellow">待审核</span></td><td>${W.esc(mt ? mt.name : '?')}</td><td>采购 ${W.fmtQty(r.qty)}</td><td>${W.esc(r.date || '')}</td><td>${W.esc(r.by || '')}</td><td><button class="btn sm" onclick="goTab('purchases')">去审核</button></td></tr>`); });
-    p['待核准'].forEach(r => { const mt = W.get('materials', r.mid); rows.push(`<tr><td><span class="tag blue">待核准</span></td><td>${W.esc(mt ? mt.name : '?')}</td><td>采购 ${W.fmtQty(r.qty)}</td><td>${W.esc(r.date || '')}</td><td>${W.esc(r.reviewedBy || r.by || '')}</td><td><button class="btn sm" onclick="goTab('purchases')">去核准</button></td></tr>`); });
+    p['待审核'].filter(W.canReviewPurchase).forEach(r => { const mt = W.get('materials', r.mid); rows.push(`<tr><td><span class="tag yellow">待审核</span></td><td>${W.esc(mt ? mt.name : '?')}</td><td>采购 ${W.fmtQty(r.qty)}</td><td>${W.esc(r.date || '')}</td><td>${W.esc(r.by || '')}</td><td><button class="btn sm" onclick="goTab('purchases')">去审核</button></td></tr>`); });
+    p['待核准'].filter(W.canApprovePurchase).forEach(r => { const mt = W.get('materials', r.mid); rows.push(`<tr><td><span class="tag blue">待核准</span></td><td>${W.esc(mt ? mt.name : '?')}</td><td>采购 ${W.fmtQty(r.qty)}</td><td>${W.esc(r.date || '')}</td><td>${W.esc(r.reviewedBy || r.by || '')}</td><td><button class="btn sm" onclick="goTab('purchases')">去核准</button></td></tr>`); });
     p['待到货'].forEach(r => { const mt = W.get('materials', r.mid); rows.push(`<tr><td><span class="tag blue">待到货</span></td><td>${W.esc(mt ? mt.name : '?')}</td><td>采购 ${W.fmtQty(r.qty)}</td><td>${W.esc(r.date || '')}</td><td>${W.esc(r.by || '')}</td><td><button class="btn sm" onclick="goTab('purchases')">去处理</button></td></tr>`); });
     p['待签收'].forEach(r => { const mt = W.get('materials', r.mid); rows.push(`<tr><td><span class="tag yellow">待签收</span></td><td>${W.esc(mt ? mt.name : '?')}</td><td>到货 ${W.fmtQty(r.arrQty)}</td><td>${W.esc(r.arrDate || '')}</td><td>${W.esc(r.by || '')}</td><td><button class="btn sm" onclick="goTab('arrivals')">去处理</button></td></tr>`); });
     p['待领用确认'].forEach(r => { const mt = W.get('materials', r.mid); rows.push(`<tr><td><span class="tag red">待领用确认</span></td><td>${W.esc(mt ? mt.name : '?')}</td><td>分发 ${W.fmtQty(r.qty)} → ${W.esc(W.REGION_LABEL[r.region] || r.region)}</td><td>${W.esc(r.at || '')}</td><td>${W.esc(r.byWho || '')}</td><td><button class="btn sm" onclick="goTab('dispatch')">去签字</button></td></tr>`); });
@@ -227,7 +236,7 @@
         Object.values(s.sources).reduce((sum, item) => sum + item.pendingApproval, 0)],
     ];
     const rows = [
-      ['物资申领与消耗追溯 V1.2.3 · 月度汇总'],
+      ['物资申领与消耗追溯 V1.2.4 · 月度汇总'],
       ['月份', month],
       [],
       ['指标', '数值'],
@@ -329,7 +338,7 @@
   function canEditPurchase(p) {
     if (W.SYNC.admin) return true;
     if (W.purchaseApprovalStatus(p) === W.APPROVAL_APPROVED) return false;
-    return W.canOperateRec('purchases', p);
+    return String(p.by || '') === String(W.me().name || '');
   }
   function purchaseActionHtml(p) {
     const status = W.purchaseApprovalStatus(p);
@@ -338,11 +347,11 @@
       actions.push(`<button class="btn sm" data-edit="${p.id}">编辑</button>`);
       actions.push(`<button class="btn sm danger" data-del="${p.id}">删除</button>`);
     }
-    if (status === W.APPROVAL_PENDING && W.canReviewPurchase()) {
+    if (status === W.APPROVAL_PENDING && W.canReviewPurchase(p)) {
       actions.push(`<button class="btn sm pri" data-review="${p.id}">审核</button>`);
       actions.push(`<button class="btn sm danger" data-reject-review="${p.id}">驳回</button>`);
     }
-    if (status === W.APPROVAL_WAITING && W.canApprovePurchase()) {
+    if (status === W.APPROVAL_WAITING && W.canApprovePurchase(p)) {
       actions.push(`<button class="btn sm pri" data-approve="${p.id}">核准</button>`);
       actions.push(`<button class="btn sm danger" data-reject-approve="${p.id}">驳回</button>`);
     }
@@ -375,7 +384,9 @@
         : delivery === '已到货' ? '<span class="tag green">已到货</span>'
           : delivery === '部分到货' ? '<span class="tag yellow">部分到货</span>'
             : '<span class="tag gray">已采购未到货</span>';
-      return `<tr><td>${W.esc(p.date)}</td><td>${W.esc(mt ? mt.name : '（已删物料）')}</td><td>${W.esc(mt ? mt.spec : '')}</td><td>${W.esc(W.purchaseRequestSource(p))}</td><td>${W.fmtQty(p.qty)}</td><td>${W.fmtQty(arrived)}</td><td>${approvalTag(status)}<br>${deliveryTag}</td><td>${W.esc(p.purpose)}</td><td>${W.esc(p.dest)}</td><td>${W.esc(p.dept || '—')}</td><td>${W.esc(p.by)}</td><td>${W.esc(p.reviewedBy || '—')}</td><td>${W.esc(p.approvedBy || '—')}</td><td>${purchaseActionHtml(p)}</td></tr>`;
+      const reviewerText = p.reviewedBy || p.reviewerName || '—';
+      const approverText = p.approvedBy || p.approverName || (p.approvalMode === W.APPROVAL_MODE_REVIEW_ONLY ? '无需核准' : '—');
+      return `<tr><td>${W.esc(p.date)}</td><td>${W.esc(mt ? mt.name : '（已删物料）')}</td><td>${W.esc(mt ? mt.spec : '')}</td><td>${W.esc(W.purchaseRequestSource(p))}</td><td>${W.fmtQty(p.qty)}</td><td>${W.fmtQty(arrived)}</td><td>${approvalTag(status)}<br>${deliveryTag}</td><td>${W.esc(p.purpose)}</td><td>${W.esc(p.dest)}</td><td>${W.esc(p.dept || '—')}</td><td>${W.esc(p.by)}</td><td>${W.esc(reviewerText)}</td><td>${W.esc(approverText)}</td><td>${purchaseActionHtml(p)}</td></tr>`;
     }).join('') || `<tr><td colspan="14" class="empty">本月暂无采购记录</td></tr>`;
     pane.innerHTML = `<div class="card"><h3>🛒 采购台账
       <span class="sp">
@@ -385,8 +396,8 @@
         ${canCreate ? '<button class="btn pri sm" id="btnAddPurchase">＋ 采购登记</button>' : ''}
       </span></h3>
       ${scopeNote}
-      <p class="muted">采购流程：待审核 → 待核准 → 已核准；进入到货流程后按实际到货、签收和分发继续追溯。</p>
-      <div class="twrap"><table><thead><tr><th>采购日期</th><th>物料</th><th>规格</th><th>请购来源</th><th>采购数量</th><th>已到货</th><th>状态</th><th>用途说明</th><th>使用去向</th><th>申请部门</th><th>申请人</th><th>审核人</th><th>核准人</th><th>操作</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+      <p class="muted">采购流程按成员名单自动路由：两级审批为“待审核 → 待核准 → 已核准”，直接核准从“待核准”开始，仅审核在审核通过后完成。进入到货流程后按实际到货、签收和分发继续追溯。</p>
+      <div class="twrap"><table><thead><tr><th>采购日期</th><th>物料</th><th>规格</th><th>请购来源</th><th>采购数量</th><th>已到货</th><th>状态</th><th>用途说明</th><th>使用去向</th><th>申请部门</th><th>申请人</th><th>审核人（应/实）</th><th>核准人（应/实）</th><th>操作</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
     $('#buyMonth').onchange = e => { FILTER.buy = e.target.value || 'all'; W.renderAll(); };
     $('#buyMat').onchange = e => { FILTER.buyMat = e.target.value; W.renderAll(); };
     $('#buyAll').onclick = () => { FILTER.buy = 'all'; W.renderAll(); };
@@ -403,8 +414,18 @@
     pane.querySelectorAll('[data-reject-approve]').forEach(b => b.onclick = () => approvalForm(b.dataset.rejectApprove, 'approve-reject'));
     pane.querySelectorAll('[data-resubmit]').forEach(b => b.onclick = () => {
       const p = W.get('purchases', b.dataset.resubmit);
-      W.upsert('purchases', { id: p.id, approvalStatus: W.APPROVAL_PENDING, rejectedBy: '', rejectedAt: '', rejectionReason: '' }, `重新提交采购审核：${p.id}`);
-      W.toast('已重新提交审核');
+      const submitter = W.submitterMemberFor(p);
+      const route = W.resolveApprovalRoute(submitter);
+      if (!route.ok) { W.toast(route.message); return; }
+      W.upsert('purchases', {
+        id: p.id,
+        ...W.approvalRouteSnapshot(route, submitter),
+        approvalStatus: route.initialStatus,
+        reviewedBy: '', reviewedAt: '', reviewComment: '',
+        approvedBy: '', approvedAt: '', approvalComment: '',
+        rejectedBy: '', rejectedAt: '', rejectionReason: ''
+      }, `重新提交采购${route.initialStatus === W.APPROVAL_WAITING ? '核准' : '审核'}：${p.id}；提交人 ${p.by}`);
+      W.toast(route.initialStatus === W.APPROVAL_WAITING ? '已重新提交核准' : '已重新提交审核');
     });
   }
   function approvalForm(id, action) {
@@ -412,9 +433,18 @@
     const mt = W.get('materials', p.mid);
     const review = action.startsWith('review');
     const pass = action.endsWith('pass');
-    const title = review ? (pass ? '采购一级审核' : '采购审核驳回') : (pass ? '采购最终核准' : '采购核准驳回');
+    if (review && !W.canReviewPurchase(p)) { W.toast('该采购单未分配给当前审核人'); return; }
+    if (!review && !W.canApprovePurchase(p)) { W.toast('该采购单未分配给当前核准人'); return; }
+    const reviewOnly = review && p.approvalMode === W.APPROVAL_MODE_REVIEW_ONLY;
+    const title = review ? (pass ? (reviewOnly ? '采购审核（仅审核模式）' : '采购一级审核') : '采购审核驳回') : (pass ? '采购最终核准' : '采购核准驳回');
+    const routeText = p.approvalMode === W.APPROVAL_MODE_DIRECT_APPROVE
+      ? `直接核准：${p.approverName || '未配置'}`
+      : p.approvalMode === W.APPROVAL_MODE_REVIEW_ONLY
+        ? `仅审核：${p.reviewerName || '未配置'}`
+        : `审核：${p.reviewerName || '未配置'} → 核准：${p.approverName || '未配置'}`;
     openModal(modalShell(title, `
       <p>物料：<b>${W.esc(mt ? mt.name : '?')}</b> · 数量 ${W.fmtQty(p.qty)} · 申请人 ${W.esc(p.by || '')}</p>
+      <p class="muted">审批路由快照：${W.esc(routeText)}</p>
       <div class="frow"><label style="flex:1">${pass ? '审批意见（可选）' : '驳回原因 *'}<textarea id="approvalNote" rows="3" style="width:100%"></textarea></label></div>
     `, `<button class="btn" onclick="closeModal()">取消</button><button class="btn ${pass ? 'pri' : 'danger'}" id="approvalSave">${pass ? '确认' : '确认驳回'}</button>`));
     $('#approvalSave').onclick = () => {
@@ -422,13 +452,21 @@
       if (!pass && !note) { W.toast('驳回必须填写原因'); return; }
       const at = W.nowStr();
       if (review && pass) {
-        W.upsert('purchases', { id, approvalStatus: W.APPROVAL_WAITING, reviewedBy: W.me().name, reviewedAt: at, reviewComment: note, rejectedBy: '', rejectedAt: '', rejectionReason: '' }, `采购一级审核通过：${p.id}`);
+        if (reviewOnly) {
+          W.upsert('purchases', {
+            id, approvalStatus: W.APPROVAL_APPROVED, reviewedBy: W.me().name, reviewedAt: at,
+            reviewComment: note, approvedBy: W.me().name, approvedAt: at,
+            approvalComment: note || '仅审核流程完成，无需核准', rejectedBy: '', rejectedAt: '', rejectionReason: ''
+          }, `采购仅审核流程通过并完成：${p.id}；审核人 ${W.me().name}`);
+        } else {
+          W.upsert('purchases', { id, approvalStatus: W.APPROVAL_WAITING, reviewedBy: W.me().name, reviewedAt: at, reviewComment: note, rejectedBy: '', rejectedAt: '', rejectionReason: '' }, `采购一级审核通过：${p.id}；审核人 ${W.me().name}`);
+        }
       } else if (review && !pass) {
-        W.upsert('purchases', { id, approvalStatus: W.APPROVAL_REJECTED, reviewedBy: W.me().name, reviewedAt: at, reviewComment: note, rejectedBy: W.me().name, rejectedAt: at, rejectionReason: note }, `采购审核驳回：${p.id}`);
+        W.upsert('purchases', { id, approvalStatus: W.APPROVAL_REJECTED, reviewedBy: W.me().name, reviewedAt: at, reviewComment: note, rejectedBy: W.me().name, rejectedAt: at, rejectionReason: note }, `采购审核驳回：${p.id}；审核人 ${W.me().name}；原因 ${note}`);
       } else if (!review && pass) {
-        W.upsert('purchases', { id, approvalStatus: W.APPROVAL_APPROVED, approvedBy: W.me().name, approvedAt: at, approvalComment: note }, `采购最终核准：${p.id}`);
+        W.upsert('purchases', { id, approvalStatus: W.APPROVAL_APPROVED, approvedBy: W.me().name, approvedAt: at, approvalComment: note, rejectedBy: '', rejectedAt: '', rejectionReason: '' }, `采购最终核准：${p.id}；核准人 ${W.me().name}${p.approvalMode === W.APPROVAL_MODE_DIRECT_APPROVE ? '；直接核准' : ''}`);
       } else {
-        W.upsert('purchases', { id, approvalStatus: W.APPROVAL_REJECTED, rejectedBy: W.me().name, rejectedAt: at, rejectionReason: note }, `采购核准驳回：${p.id}`);
+        W.upsert('purchases', { id, approvalStatus: W.APPROVAL_REJECTED, rejectedBy: W.me().name, rejectedAt: at, rejectionReason: note, approvalComment: note }, `采购核准驳回：${p.id}；核准人 ${W.me().name}；原因 ${note}`);
       }
       closeModal();
       W.toast(pass ? '审批完成' : '已驳回');
@@ -438,6 +476,15 @@
     if (id) W.markEdit('purchases', id);
     const p = id ? W.get('purchases', id) : { mid: '', qty: '', date: W.today(), purpose: '', dest: '', dept: '', requestSource: 'OA请购' };
     if (id && !canEditPurchase(p)) { W.toast('该采购单当前状态不允许修改'); return; }
+    const submitter = id ? W.submitterMemberFor(p) : W.currentMember();
+    const route = W.resolveApprovalRoute(submitter);
+    const routeText = route.ok
+      ? route.mode === W.APPROVAL_MODE_DIRECT_APPROVE
+        ? `直接核准：${route.approver.name}（跳过审核）`
+        : route.mode === W.APPROVAL_MODE_REVIEW_ONLY
+          ? `仅审核：${route.reviewer.name}（审核通过后完成）`
+          : `审核：${route.reviewer.name} → 核准：${route.approver.name}`
+      : route.message;
     const opts = W.list('materials').map(mt => `<option value="${mt.id}" ${p.mid === mt.id ? 'selected' : ''}>${W.esc(mt.name)}${mt.spec ? '（' + W.esc(mt.spec) + '）' : ''}</option>`).join('');
     if (!W.list('materials').length) { W.toast('请先在「物料档案」新增物料'); return; }
     openModal(modalShell(id ? '✏️ 编辑采购' : '🛒 采购登记', `
@@ -452,18 +499,21 @@
         <label style="flex:1">申请部门<select id="fDept" style="width:100%"><option value="">— 未选择 —</option>${W.DEPTS.map(d0 => `<option ${p.dept === d0 ? 'selected' : ''}>${W.esc(d0)}</option>`).join('')}</select></label>
         <label style="flex:1">请购来源<select id="fSource">${['OA请购','行政请购','其他'].map(source => `<option ${W.purchaseRequestSource(p) === source ? 'selected' : ''}>${source}</option>`).join('')}</select></label>
       </div>
-      <p class="muted">保存后采购单进入「待审核」，一级审核通过后进入「待核准」；已核准后才能登记到货。</p>
-    `, `<button class="btn" onclick="closeModal()">取消</button><button class="btn pri" id="fSave">保存并提交审核</button>`));
+      <div class="note ${route.ok ? 'info' : 'err'}"><b>${route.ok ? '自动审批路由' : '无法提交'}</b><br>${W.esc(routeText)}${route.ok ? `<br><span class="muted">提交后按当前成员名单固化到采购单，后续调整名单不影响在途单据。</span>` : '<br><span class="muted">请管理员武欣雨在成员名单中补充本人的审核人 / 核准人配置。</span>'}</div>
+      <p class="muted">${route.ok && route.initialStatus === W.APPROVAL_WAITING ? '保存后直接进入「待核准」；核准完成后才能登记到货。' : '保存后采购单进入「待审核」；审核通过后按审批模式进入「待核准」或直接完成，已核准后才能登记到货。'}</p>
+    `, `<button class="btn" onclick="closeModal()">取消</button><button class="btn pri" id="fSave">${route.ok && route.initialStatus === W.APPROVAL_WAITING ? '保存并提交核准' : '保存并提交审核'}</button>`));
     $('#fSave').onclick = () => {
+      if (!route.ok) { W.toast(route.message); return; }
       const qty = W.num($('#fQty').value);
       if (qty <= 0) { W.toast('采购数量必须大于 0'); return; }
       const mid = $('#fMid').value, mt = W.get('materials', mid);
       W.upsert('purchases', {
         id, mid, qty, date: $('#fDate').value || W.today(), purpose: $('#fPurpose').value.trim(), dest: $('#fDest').value.trim(), dept: $('#fDept').value, requestSource: $('#fSource').value,
-        approvalStatus: W.APPROVAL_PENDING, reviewedBy: '', reviewedAt: '', reviewComment: '',
+        ...W.approvalRouteSnapshot(route, submitter),
+        approvalStatus: route.initialStatus, reviewedBy: '', reviewedAt: '', reviewComment: '',
         approvedBy: '', approvedAt: '', approvalComment: '', rejectedBy: '', rejectedAt: '', rejectionReason: ''
       }, `采购 ${mt ? mt.name : ''} ×${W.fmtQty(qty)}`);
-      closeModal(); W.toast('已提交审核');
+      closeModal(); W.toast(route.initialStatus === W.APPROVAL_WAITING ? '已提交核准' : '已提交审核');
     };
   }
 
@@ -804,7 +854,7 @@
             '<div style="margin-top:4px">修复后操作：在口令框内点一下再点别处（或回车）→ 框下方<b>当场显示校验结果</b>；出现「✓ 校验通过」后点「保存并连接」，状态条出现「身份：管理员」即成功。</div></div>';
         }
         else {
-          t += '<div class="note info">当前不是管理员：物料档案只读；成员名单仅系统管理员武欣雨可维护。审核员、核准员和区域角色按各自权限处理业务。</div>';
+          t += '<div class="note info">当前不是管理员：物料档案只读；成员名单仅系统管理员武欣雨可维护。采购审批按成员名单中的提交人路由，只有被指定的审核人 / 核准人能处理对应待办。</div>';
         }
       }
       if (S.mode === 'server' && !S.lastSyncAt && S.lastError) {
@@ -866,7 +916,7 @@
         <div id="syncArea" class="muted">${syncResult || syncDefaultHtml()}</div>
       </div>
       <div class="card"><h3>🔗 云端共享（多人实时） <span class="sp muted">同一地址 · 口令鉴权 · 服务端权限校验 · 实时同步（需服务端在线）</span></h3>
-        <p class="muted" style="margin-bottom:8px">采购由申请人提交，<b>审核员</b>执行一级审核，<b>核准员</b>执行最终核准；<b>审核员/核准员</b>负责到货、签收和分发；<b>区域领用人</b>确认本区域领用，<b>隶属区域领用人</b>只确认分配给本人的单据；成员名单仅系统管理员武欣雨维护。</p>
+        <p class="muted" style="margin-bottom:8px">采购由申请人提交后按成员名单自动路由：<b>指定审核人</b>执行一级审核，<b>指定核准人</b>执行最终核准；直接核准会跳过审核，仅审核在审核通过后完成。<b>审核员/核准员</b>负责到货、签收和分发；<b>区域领用人</b>确认本区域领用，<b>隶属区域领用人</b>只确认分配给本人的单据；成员名单仅系统管理员武欣雨维护。</p>
         <div class="frow">
           <label style="flex:2 1 220px">服务地址<input id="srvAddr" value="${W.esc(W.SYNC.server)}" placeholder="http://192.168.x.x:8082 或站点网址"></label>
           <label style="flex:1 1 170px">管理员口令<span style="display:flex;gap:4px"><input id="admKey" type="password" value="${W.esc(W.cloudCfg.adminKey)}" placeholder="仅管理员填写" style="flex:1;min-width:0"><button class="btn sm" id="btnEye" title="显示/隐藏口令原文（核对大小写与空格）" style="padding:6px 9px">👁</button></span></label>
@@ -892,7 +942,7 @@
         <div id="connInfo" style="${connStyle()}">${cloudStatusHtml()}</div>
         <div id="teamBox" style="margin-top:12px">${teamTableHtml()}</div>
         <p class="muted" id="shareLine" style="margin-top:10px">${shareHtml()}</p>
-        <p class="muted">权限口径：采购申请人提交后进入待审核；<b>审核员</b>执行一级审核，<b>核准员</b>执行最终核准；审核员/核准员负责到货、签收和分发；<b>区域领用人</b>确认本区域单据，<b>隶属区域领用人</b>只确认分配给本人的单据；成员名单仅系统管理员武欣雨维护。已核准采购不能由普通用户直接修改。</p></div>
+        <p class="muted">权限口径：采购申请人提交后按名单自动进入待审核或待核准；只有被指定的审核人 / 核准人能处理对应待办，驳回必须填写原因并写入操作日志；审核员/核准员负责到货、签收和分发；<b>区域领用人</b>确认本区域单据，<b>隶属区域领用人</b>只确认分配给本人的单据；成员名单仅系统管理员武欣雨维护。已核准采购不能由普通用户直接修改。</p></div>
       <div class="card"><h3>💾 数据备份与恢复 <span class="sp muted">自动备份在服务器 data/backup/ 目录</span></h3>
         <div class="frow">
           <button class="btn" id="btnBackup">下载整库备份（store.json）</button>
@@ -919,9 +969,10 @@
       if (localCard) {
         localCard.style.display = 'none';
         localCard.insertAdjacentHTML('beforebegin', `<div class="card"><h3>🔐 品集身份</h3>
-          <p><b>${W.esc(m.name || '')}</b> · ${W.esc(m.role || '')}${m.region ? ' · ' + W.esc(W.REGION_LABEL[m.region] || m.region) : ''}</p>
-          <p class="muted">本应用由品集应用中心统一登录，不保存管理员口令，也不能在应用内切换身份。成员名单中配置的同名区域会自动用于领用签字校验。</p>
-          <p>${W.SYNC.systemAdmin ? '✅ 当前为系统管理员，可维护成员名单及全部业务。' : isAdmin ? '✅ 当前具备管理员权限，可维护物料并处理审批业务。' : '当前为业务角色：按角色提交、审核、核准或确认相关单据。'}</p>
+          <p><b>${W.esc(m.name || '')}</b>${m.username ? ' · ' + W.esc(m.username) : ''} · ${W.esc(m.role || '')}${m.dept ? ' · ' + W.esc(m.dept) : ''}${m.region ? ' · ' + W.esc(W.REGION_LABEL[m.region] || m.region) : ''}</p>
+          <p class="muted">部门、角色、区域、上级和审批路由均从成员名单自动读取，个人不能在应用内修改。</p>
+          ${m.memberMatched ? `<p>上级：<b>${W.esc(m.supervisorName || '未配置')}</b></p>` : '<div class="note err"><b>未匹配成员名单，请联系管理员</b><br>当前账号只能查看数据，不能提交采购、审批或领用签字。请联系管理员武欣雨补建成员档案。</div>'}
+          <p>${m.memberMatched ? (W.SYNC.systemAdmin ? '✅ 当前为系统管理员，可维护成员名单及全部业务。' : isAdmin ? '✅ 当前具备管理员权限，可维护物料并处理审批业务。' : '当前为业务角色：按角色提交、审核、核准或确认相关单据。') : '待管理员完成成员名单匹配后才能办理业务。'}</p>
           <a class="btn" href="/apps">返回品集应用中心</a></div>`);
       }
       const restoreButton = $('#btnRestore');
@@ -1036,7 +1087,7 @@
       if (x.reason === 'refused') return localHit
         ? '✗ 连不上 ' + where + '：连接被拒绝。本机直连也被拒 → 服务未启动。请在服务器电脑以管理员运行「一键启动_自动放行防火墙.bat」，然后本机浏览器访问 http://localhost:8082/api/health 自检（应返回 {"ok":true}）'
         : '✗ 连不上 ' + where + '：连接被拒绝。服务未启动或端口不对：① 确认服务器已启动且端口为 8082 ② 若服务器本机 localhost 能打开而这里被拒，多为地址写错（看「访问地址.txt」取当前 IP）' + fixed;
-      if (x.reason === 'badreply') return '✗ ' + where + ' 有响应但不是物资申领与消耗追溯 V1.2.3服务（核对地址与端口是否指向别的程序）' + fixed;
+      if (x.reason === 'badreply') return '✗ ' + where + ' 有响应但不是物资申领与消耗追溯 V1.2.4服务（核对地址与端口是否指向别的程序）' + fixed;
       return '✗ 连不上 ' + where + '（' + (x.detail || x.reason || 'HTTP 异常') + '）' + fixed;
     }
     /* 读取输入框地址：升级旧端口并把结果写回输入框（用户可见纠正） */
@@ -1181,10 +1232,23 @@
   function memberForm(id) {
     if (!W.canManageMembers()) { W.toast('成员名单仅系统管理员武欣雨可维护'); return; }
     if (id) W.markEdit('members', id);
-    const x = id ? W.get('members', id) : { name: '', username: '', role: '区域领用人', region: '', dept: '', enabled: true, supervisorId: '' };
+    const x = id ? W.get('members', id) : {
+      name: '', username: '', role: '区域领用人', region: '', dept: '', enabled: true,
+      supervisorId: '', approvalMode: '', reviewerId: '', approverId: ''
+    };
     function supervisors(region, selected) {
       return W.supervisorsForRegion(region).filter(member => member.id !== id)
         .map(member => `<option value="${member.id}" ${selected === member.id ? 'selected' : ''}>${W.esc(member.name)}（${W.esc(W.REGION_LABEL[member.region] || member.region)}）</option>`).join('');
+    }
+    function reviewerOptions(selected) {
+      return W.list('members').filter(member => member.enabled !== false && member.role === '审核员')
+        .sort((a, b) => String(a.name).localeCompare(String(b.name)))
+        .map(member => `<option value="${member.id}" ${selected === member.id ? 'selected' : ''}>${W.esc(member.name)}${member.username ? '（' + W.esc(member.username) + '）' : ''}</option>`).join('');
+    }
+    function approverOptions(selected) {
+      return W.list('members').filter(member => member.enabled !== false && member.role === '核准员')
+        .sort((a, b) => String(a.name).localeCompare(String(b.name)))
+        .map(member => `<option value="${member.id}" ${selected === member.id ? 'selected' : ''}>${W.esc(member.name)}${member.username ? '（' + W.esc(member.username) + '）' : ''}</option>`).join('');
     }
     openModal(modalShell(id ? '✏️ 编辑成员' : '＋ 添加成员', `
       <div class="frow">
@@ -1196,7 +1260,12 @@
         <label>状态<select id="fEnabled"><option value="true" ${x.enabled !== false ? 'selected' : ''}>启用</option><option value="false" ${x.enabled === false ? 'selected' : ''}>停用</option></select></label>
         <label id="supervisorRow">上级区域领用人 *<select id="fSupervisor"><option value="">— 请选择 —</option>${supervisors(x.region, x.supervisorId)}</select></label>
       </div>
-      <p class="muted">审核员和核准员不绑定区域；区域领用人负责本区域确认；隶属区域领用人必须指定同区域的区域领用人作为上级。</p>
+      <div class="frow" style="margin-top:10px">
+        <label>审批模式<select id="fApprovalMode"><option value="">— 未配置（不可提交采购）—</option>${Object.entries(W.APPROVAL_MODE_LABELS).map(([value, label]) => `<option value="${value}" ${x.approvalMode === value ? 'selected' : ''}>${W.esc(label)}</option>`).join('')}</select></label>
+        <label id="reviewerRow">指定审核人<select id="fReviewer"><option value="">— 请选择审核员 —</option>${reviewerOptions(x.reviewerId)}</select></label>
+        <label id="approverRow">指定核准人<select id="fApprover"><option value="">— 请选择核准员 —</option>${approverOptions(x.approverId)}</select></label>
+      </div>
+      <p class="muted">审批路由以本表为准：两级审批会先到指定审核人，再到指定核准人；直接核准会跳过审核；仅审核在审核通过后完成。审核员和核准员不绑定区域；区域领用人负责本区域确认；隶属区域领用人必须指定同区域的区域领用人作为上级。</p>
     `, `<button class="btn" onclick="closeModal()">取消</button><button class="btn pri" id="fSave">保存</button>`));
     function refreshSupervisor() {
       const role = $('#fRole').value;
@@ -1207,18 +1276,34 @@
     }
     $('#fRole').onchange = refreshSupervisor;
     $('#fRegion').onchange = refreshSupervisor;
+    function refreshApprovalRoute() {
+      const mode = $('#fApprovalMode').value;
+      const needsReviewer = mode === W.APPROVAL_MODE_TWO_STEP || mode === W.APPROVAL_MODE_REVIEW_ONLY;
+      const needsApprover = mode === W.APPROVAL_MODE_TWO_STEP || mode === W.APPROVAL_MODE_DIRECT_APPROVE;
+      $('#reviewerRow').style.display = needsReviewer ? '' : 'none';
+      $('#approverRow').style.display = needsApprover ? '' : 'none';
+    }
+    $('#fApprovalMode').onchange = refreshApprovalRoute;
     refreshSupervisor();
+    refreshApprovalRoute();
     $('#fSave').onclick = () => {
       const name = $('#fName').value.trim();
       const role = $('#fRole').value;
       const region = $('#fRegion').value;
       const supervisorId = role === '隶属区域领用人' ? $('#fSupervisor').value : '';
+      const approvalMode = $('#fApprovalMode').value;
+      const reviewerId = approvalMode === W.APPROVAL_MODE_TWO_STEP || approvalMode === W.APPROVAL_MODE_REVIEW_ONLY ? $('#fReviewer').value : '';
+      const approverId = approvalMode === W.APPROVAL_MODE_TWO_STEP || approvalMode === W.APPROVAL_MODE_DIRECT_APPROVE ? $('#fApprover').value : '';
       if (!name) { W.toast('姓名必填'); return; }
       if (['区域领用人', '隶属区域领用人'].includes(role) && !region) { W.toast('该角色必须选择所属区域'); return; }
       if (role === '隶属区域领用人' && !supervisorId) { W.toast('请选择上级区域领用人'); return; }
+      if (approvalMode && !reviewerId && !approverId) { W.toast('请为审批模式选择对应审批人'); return; }
+      if ((approvalMode === W.APPROVAL_MODE_TWO_STEP || approvalMode === W.APPROVAL_MODE_REVIEW_ONLY) && !reviewerId) { W.toast('请选择指定审核人'); return; }
+      if ((approvalMode === W.APPROVAL_MODE_TWO_STEP || approvalMode === W.APPROVAL_MODE_DIRECT_APPROVE) && !approverId) { W.toast('请选择指定核准人'); return; }
       W.upsert('members', {
         id, name, username: $('#fUsername').value.trim().toLowerCase(), role, region,
-        dept: $('#fDept').value, supervisorId, enabled: $('#fEnabled').value === 'true'
+        dept: $('#fDept').value, supervisorId, enabled: $('#fEnabled').value === 'true',
+        approvalMode, reviewerId, approverId
       }, `成员：${name}（${role}）`);
       closeModal(); W.toast('成员已保存');
     };
@@ -1370,9 +1455,10 @@
     if (target === 'purchases') return [OA_HEADERS, oaExampleRow()];
     if (target === 'arrivals') return [['存货编码', '存货名称', '实际到货数量', '到货日期'], ['CL-000025', '无尘布', 50, W.today()]];
     if (target === 'members') return [
-      ['姓名', '品集账号', '业务角色', '所属区域', '所属部门', '上级区域领用人', '启用状态'],
-      ['领用人甲', 'area.lead', '区域领用人', 'IPQC 2期', '品质部', '', '启用'],
-      ['领用人乙', 'area.member', '隶属区域领用人', 'IPQC 2期', '品质部', '领用人甲', '启用']
+      ['姓名', '品集账号', '业务角色', '所属区域', '所属部门', '上级区域领用人', '指定审核人', '指定核准人', '审批模式', '启用状态'],
+      ['领用人甲', 'area.lead', '区域领用人', 'IPQC 2期', '品质部', '', '审核员甲', '核准员甲', '两级审批', '启用'],
+      ['领用人乙', 'area.member', '隶属区域领用人', 'IPQC 2期', '品质部', '领用人甲', '', '', '', '启用'],
+      ['直接核准人员', 'direct.user', '区域领用人', 'OQC', '品质部', '', '', '核准员甲', '直接核准', '启用']
     ];
     return [['存货编码', '存货名称', '分发区域', '领用部门', '分发数量', '分发时间'], ['CL-000025', '无尘布', 'IPQC 2期', '品质部', 10, W.nowStr()]];
   }
@@ -1424,7 +1510,7 @@
       purchases: { code: '存货编码', materialName: '存货名称*', spec: '规格型号', unit: '单位', category: '物品分类', requestSource: '请购来源', qty: '请购数量*', date: '申请时间*', purpose: '申请原因/用途', dest: '地点/使用去向', dept: '申请部门' },
       arrivals: { code: '存货编码', materialName: '存货名称*', arrQty: '实际到货数量*', arrDate: '到货日期*' },
       dispatches: { code: '存货编码', materialName: '存货名称*', region: '分发区域*', dept: '领用部门', qty: '分发数量*', at: '分发时间' },
-      members: { name: '姓名*', username: '品集账号', role: '业务角色*', region: '所属区域', dept: '所属部门', supervisorName: '上级区域领用人', enabled: '启用状态' }
+      members: { name: '姓名*', username: '品集账号', role: '业务角色*', region: '所属区域', dept: '所属部门', supervisorName: '上级区域领用人', reviewerName: '指定审核人', approverName: '指定核准人', approvalMode: '审批模式', enabled: '启用状态' }
     }[target];
     const opts = h => `<option value="-1">— 未映射 —</option>` + headers.map((h2, i) => `<option value="${i}">${W.esc(h2 || '列' + (i + 1))}</option>`).join('');
     const grid = Object.entries(fieldNames).map(([f, label]) => `<span class="h">${label}</span><select data-field="${f}">${opts()}</select><span data-hit="${f}" class="muted">${mapping[f] != null ? '✓ ' + W.esc(headers[mapping[f]]) : '未识别'}</span>`).join('');
@@ -1478,6 +1564,32 @@
     if (!value) return true;
     return !/^(停用|禁用|否|false|no|0)$/i.test(value);
   }
+  function normalizeImportedApprovalMode(raw, hasReviewer, hasApprover) {
+    const value = String(raw || '').replace(/\s+/g, '');
+    if (!value) {
+      if (hasReviewer && hasApprover) return W.APPROVAL_MODE_TWO_STEP;
+      if (hasReviewer) return W.APPROVAL_MODE_REVIEW_ONLY;
+      if (hasApprover) return W.APPROVAL_MODE_DIRECT_APPROVE;
+      return '';
+    }
+    const aliases = {
+      '两级审批': W.APPROVAL_MODE_TWO_STEP,
+      '两级审核': W.APPROVAL_MODE_TWO_STEP,
+      '审核核准': W.APPROVAL_MODE_TWO_STEP,
+      '审核→核准': W.APPROVAL_MODE_TWO_STEP,
+      'two_steps': W.APPROVAL_MODE_TWO_STEP,
+      'two_step': W.APPROVAL_MODE_TWO_STEP,
+      '直接核准': W.APPROVAL_MODE_DIRECT_APPROVE,
+      '直接审批': W.APPROVAL_MODE_DIRECT_APPROVE,
+      '跳过审核': W.APPROVAL_MODE_DIRECT_APPROVE,
+      'direct_approve': W.APPROVAL_MODE_DIRECT_APPROVE,
+      '仅审核': W.APPROVAL_MODE_REVIEW_ONLY,
+      '只审核': W.APPROVAL_MODE_REVIEW_ONLY,
+      '审核后完成': W.APPROVAL_MODE_REVIEW_ONLY,
+      'review_only': W.APPROVAL_MODE_REVIEW_ONLY
+    };
+    return aliases[value] || '';
+  }
   function importMembers() {
     const { rows, mapping } = impSession;
     if (!W.canManageMembers()) { W.toast('成员名单导入仅系统管理员武欣雨可执行'); return; }
@@ -1500,6 +1612,9 @@
         regionRaw: gv(row, 'region'),
         dept: gv(row, 'dept'),
         supervisorName: gv(row, 'supervisorName'),
+        reviewerName: gv(row, 'reviewerName'),
+        approverName: gv(row, 'approverName'),
+        approvalModeRaw: gv(row, 'approvalMode'),
         enabled: importedEnabled(gv(row, 'enabled')),
       });
     }
@@ -1509,6 +1624,7 @@
     const warnings = [];
     const errors = [];
     const subordinates = [];
+    const savedMembers = [];
     for (const item of parsed) {
       try {
         if (!item.role) throw new Error(`业务角色「${item.roleRaw || '空'}」无效`);
@@ -1520,7 +1636,7 @@
         const existing = W.list('members').find(member =>
           (item.username && String(member.username || '').toLowerCase() === item.username)
           || (!item.username && String(member.name || '').trim() === item.name));
-        W.upsert('members', {
+        const saved = W.upsert('members', {
           id: existing ? existing.id : undefined,
           name: item.name,
           username: item.username,
@@ -1530,6 +1646,8 @@
           supervisorId: '',
           enabled: item.enabled,
         }, `导入成员：${item.name}（${item.role}）`);
+        item.memberId = saved.id;
+        savedMembers.push(item);
         if (existing) warnings.push(`行${item.lineNo}：已更新成员「${item.name}」`);
         ok += 1;
       } catch (error) {
@@ -1548,7 +1666,7 @@
         const existing = W.list('members').find(member =>
           (item.username && String(member.username || '').toLowerCase() === item.username)
           || (!item.username && String(member.name || '').trim() === item.name));
-        W.upsert('members', {
+        const saved = W.upsert('members', {
           id: existing ? existing.id : undefined,
           name: item.name,
           username: item.username,
@@ -1558,6 +1676,8 @@
           supervisorId: supervisor.id,
           enabled: item.enabled,
         }, `导入成员：${item.name}（${item.role}，上级 ${supervisor.name}）`);
+        item.memberId = saved.id;
+        savedMembers.push(item);
         if (existing) warnings.push(`行${item.lineNo}：已更新成员「${item.name}」`);
         ok += 1;
       } catch (error) {
@@ -1565,11 +1685,51 @@
         errors.push(`行${item.lineNo}：${error.message}`);
       }
     }
+
+    let routeFail = 0;
+    for (const item of savedMembers) {
+      if (!item.reviewerName && !item.approverName && !item.approvalModeRaw) continue;
+      const member = W.get('members', item.memberId);
+      if (!member) { routeFail += 1; errors.push(`行${item.lineNo}：成员已保存，但找不到成员记录，审批路由未写入`); continue; }
+      const findManager = (raw, role) => {
+        const key = String(raw || '').trim().toLowerCase();
+        if (!key) return null;
+        return W.list('members').find(candidate => candidate.enabled !== false && candidate.role === role && (
+          String(candidate.id || '').toLowerCase() === key
+          || String(candidate.username || '').trim().toLowerCase() === key
+          || String(candidate.name || '').trim().toLowerCase() === key
+        )) || null;
+      };
+      const reviewer = findManager(item.reviewerName, '审核员');
+      const approver = findManager(item.approverName, '核准员');
+      const mode = normalizeImportedApprovalMode(item.approvalModeRaw, Boolean(item.reviewerName), Boolean(item.approverName));
+      if (!mode) {
+        routeFail += 1;
+        errors.push(`行${item.lineNo}：审批模式「${item.approvalModeRaw || '空'}」无效，成员已保存但审批路由未更新`);
+        continue;
+      }
+      if ((mode === W.APPROVAL_MODE_TWO_STEP || mode === W.APPROVAL_MODE_REVIEW_ONLY) && !reviewer) {
+        routeFail += 1;
+        errors.push(`行${item.lineNo}：指定审核人「${item.reviewerName || '空'}」不存在、已停用或角色不是审核员`);
+        continue;
+      }
+      if ((mode === W.APPROVAL_MODE_TWO_STEP || mode === W.APPROVAL_MODE_DIRECT_APPROVE) && !approver) {
+        routeFail += 1;
+        errors.push(`行${item.lineNo}：指定核准人「${item.approverName || '空'}」不存在、已停用或角色不是核准员`);
+        continue;
+      }
+      W.upsert('members', {
+        id: member.id,
+        approvalMode: mode,
+        reviewerId: (mode === W.APPROVAL_MODE_TWO_STEP || mode === W.APPROVAL_MODE_REVIEW_ONLY) && reviewer ? reviewer.id : '',
+        approverId: (mode === W.APPROVAL_MODE_TWO_STEP || mode === W.APPROVAL_MODE_DIRECT_APPROVE) && approver ? approver.id : ''
+      }, `导入审批路由：${member.name} → ${W.APPROVAL_MODE_LABELS[mode]}${reviewer ? '；审核 ' + reviewer.name : ''}${approver ? '；核准 ' + approver.name : ''}`);
+    }
     openModal(modalShell('📥 成员名单导入结果', `
-      <p>成功 <b class="tag green">${ok}</b> · 失败 <b class="tag ${fail ? 'red' : 'gray'}">${fail}</b> · 更新提示 <b class="tag ${warnings.length ? 'yellow' : 'gray'}">${warnings.length}</b></p>
+      <p>成员写入 <b class="tag green">${ok}</b> · 成员失败 <b class="tag ${fail ? 'red' : 'gray'}">${fail}</b> · 路由失败 <b class="tag ${routeFail ? 'red' : 'gray'}">${routeFail}</b> · 更新提示 <b class="tag ${warnings.length ? 'yellow' : 'gray'}">${warnings.length}</b></p>
       <div class="twrap" style="max-height:260px;margin-top:8px">${[...warnings, ...errors].length ? [...warnings, ...errors].map(message => `<div class="logline">${W.esc(message)}</div>`).join('') : '<p class="empty">全部导入成功</p>'}</div>
     `, `<button class="btn pri" onclick="closeModal()">完成</button>`));
-    W.toast(`成员导入完成：成功 ${ok}，失败 ${fail}`);
+    W.toast(`成员导入完成：成员写入 ${ok}，失败 ${fail}，审批路由失败 ${routeFail}`);
   }
   async function importMaterialRows() {
     const { rows, mapping } = impSession;
@@ -1620,8 +1780,9 @@
     if (target === 'members') { importMembers(); return; }
     if (target === 'materials') { await importMaterialRows(); return; }
     if (['arrivals', 'dispatches'].includes(target) && !W.SYNC.admin) { W.toast('历史到货/分发链路导入仅管理员可执行'); return; }
-    if (['arrivals', 'dispatches'].includes(target) && !W.SYNC.admin) { W.toast('历史到货/分发链路导入仅管理员可执行'); return; }
     if (mapping.name == null && mapping.materialName == null) { W.toast('物料名称列必须映射'); return; }
+    const purchaseRoute = target === 'purchases' ? W.resolveApprovalRoute() : null;
+    if (target === 'purchases' && !purchaseRoute.ok) { W.toast(purchaseRoute.message); return; }
     let ok = 0, fail = 0, warn = 0;
     const errs = [];
     rows.forEach((r, idx) => {
@@ -1645,7 +1806,12 @@
         } else if (target === 'purchases') {
           const qty = W.num(gv('qty'));
           if (qty <= 0) throw new Error('请购数量无效');
-          W.upsert('purchases', { mid: mt.id, qty, date: W.normDate(gv('date')) || W.today(), purpose: gv('purpose'), dest: gv('dest'), dept: gv('dept'), requestSource: gv('requestSource') || 'OA请购', approvalStatus: W.APPROVAL_PENDING }, `导入采购：${matName} ×${W.fmtQty(qty)}`); ok++;
+          W.upsert('purchases', {
+            mid: mt.id, qty, date: W.normDate(gv('date')) || W.today(), purpose: gv('purpose'),
+            dest: gv('dest'), dept: gv('dept'), requestSource: gv('requestSource') || 'OA请购',
+            ...W.approvalRouteSnapshot(purchaseRoute, W.currentMember()),
+            approvalStatus: purchaseRoute.initialStatus
+          }, `导入采购：${matName} ×${W.fmtQty(qty)}；自动路由 ${purchaseRoute.initialStatus}`); ok++;
         } else if (target === 'arrivals') {
           const qty = W.num(gv('arrQty'));
           if (qty <= 0) throw new Error('到货数量无效');
@@ -1685,8 +1851,8 @@
     const matName = id => { const m = G('materials', id); return m ? m.name : ''; };
     const sheets = [
       { name: '物料档案', rows: [['存货编码', '存货名称', '规格型号', '单位', '物品分类', '安全库存', '描述/备注'], ...L('materials').map(m => [m.code, m.name, m.spec, m.unit, m.category, m.safe, m.note])] },
-      { name: '成员名单', rows: [['姓名', '品集账号', '业务角色', '所属区域', '所属部门', '上级区域领用人', '启用状态'], ...L('members').sort((a, b) => String(a.name).localeCompare(String(b.name))).map(member => { const supervisor = member.supervisorId ? G('members', member.supervisorId) : null; return [member.name, member.username || '', member.role, W.REGION_LABEL[member.region] || member.region || '', member.dept || '', supervisor ? supervisor.name : '', member.enabled === false ? '停用' : '启用']; })] },
-      { name: '采购台账', rows: [['采购日期', '存货编码', '存货名称', '规格型号', '请购来源', '采购数量', '已到货', '状态', '用途说明', '使用去向', '申请部门', '录入人'], ...L('purchases').sort((a, b) => String(a.date).localeCompare(String(b.date))).map(p => { const mt = G('materials', p.mid); return [p.date, mt ? mt.code : '', matName(p.mid), mt ? mt.spec : '', W.purchaseRequestSource(p), p.qty, W.fmtQty(W.arrivalsOf(p.id).reduce((s, a) => s + W.num(a.arrQty), 0)), W.purchaseStatus(p), p.purpose, p.dest, p.dept || '', p.by]; })] },
+      { name: '成员名单', rows: [['姓名', '品集账号', '业务角色', '所属区域', '所属部门', '上级区域领用人', '指定审核人', '指定核准人', '审批模式', '启用状态'], ...L('members').sort((a, b) => String(a.name).localeCompare(String(b.name))).map(member => { const supervisor = member.supervisorId ? G('members', member.supervisorId) : null; const reviewer = member.reviewerId ? G('members', member.reviewerId) : null; const approver = member.approverId ? G('members', member.approverId) : null; return [member.name, member.username || '', member.role, W.REGION_LABEL[member.region] || member.region || '', member.dept || '', supervisor ? supervisor.name : '', reviewer ? reviewer.name : '', approver ? approver.name : '', W.APPROVAL_MODE_LABELS[member.approvalMode] || '', member.enabled === false ? '停用' : '启用']; })] },
+      { name: '采购台账', rows: [['采购日期', '存货编码', '存货名称', '规格型号', '请购来源', '采购数量', '已到货', '状态', '用途说明', '使用去向', '申请部门', '申请人', '指定审核人', '指定核准人', '审批模式', '实际审核人', '实际核准人'], ...L('purchases').sort((a, b) => String(a.date).localeCompare(String(b.date))).map(p => { const mt = G('materials', p.mid); return [p.date, mt ? mt.code : '', matName(p.mid), mt ? mt.spec : '', W.purchaseRequestSource(p), p.qty, W.fmtQty(W.arrivalsOf(p.id).reduce((s, a) => s + W.num(a.arrQty), 0)), W.purchaseStatus(p), p.purpose, p.dest, p.dept || '', p.by, p.reviewerName || '', p.approverName || '', W.APPROVAL_MODE_LABELS[p.approvalMode] || '', p.reviewedBy || '', p.approvedBy || '']; })] },
       { name: '到货签收', rows: [['到货日期', '存货编码', '存货名称', '到货数量', '签收状态', '实收数量', '签收人', '签收时间'], ...L('arrivals').sort((a, b) => String(a.arrDate).localeCompare(String(b.arrDate))).map(a => { const rc = W.receiptOf(a.id); const mt = G('materials', a.mid); return [a.arrDate, mt ? mt.code : '', matName(a.mid), a.arrQty, rc ? '已签收' : '待签收', rc ? rc.recvQty : '', rc ? rc.recvBy : '', rc ? rc.recvAt : '']; })] },
       { name: '分发领用', rows: [['分发时间', '存货编码', '存货名称', '分发区域', '领用部门', '分发数量', '分发人', '确认状态', '领用人', '签名时间'], ...L('dispatches').sort((a, b) => String(a.at).localeCompare(String(b.at))).map(d => { const s = W.signoffOf(d.id); const mt = G('materials', d.mid); return [d.at, mt ? mt.code : '', matName(d.mid), W.REGION_LABEL[d.region] || d.region, d.dept || '', d.qty, d.byWho, s ? '已确认' : '待领用确认', s ? s.signer : '', s ? s.sigAt : '']; })] },
       { name: '操作日志', rows: [['时间', '操作人', '动作', '对象', '详情'], ...L('logs').sort((a, b) => a.ts - b.ts).map(l => [new Date(l.ts).toLocaleString('zh-CN'), l.by, l.action, l.entity, l.detail])] }
@@ -1768,6 +1934,12 @@
         case 'settings': renderSettings(); break;
       }
       const meB = $('#meName'); if (meB) meB.textContent = W.me().name ? `${W.me().name} · ${W.scopeLabel()}` : '未设置身份';
+      const purchaseTab = document.querySelector('#tabs [data-tab="purchases"]');
+      if (purchaseTab) {
+        const pending = W.pendingDocs();
+        const myApprovals = pending['待审核'].filter(W.canReviewPurchase).length + pending['待核准'].filter(W.canApprovePurchase).length;
+        purchaseTab.textContent = '采购台账' + (myApprovals ? ` · 待办 ${myApprovals}` : '');
+      }
     } catch (e) { console.error(e); if (window.PAGE_ERRORS != null) window.PAGE_ERRORS++; }
   });
   window.__TEST__ = Object.assign({}, window.__TEST__, { oaExportBytes: oaExportBytes, oaImportPlan: oaImportPlan });

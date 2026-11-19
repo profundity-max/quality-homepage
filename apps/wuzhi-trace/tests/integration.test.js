@@ -48,6 +48,16 @@ function op(collection, id, fields, extra = {}) {
   };
 }
 
+function qnexusHeaders(username, displayName, role) {
+  return {
+    'content-type': 'application/json',
+    'x-q-nexus-subject': `subject-${username}`,
+    'x-q-nexus-username-b64': Buffer.from(username).toString('base64url'),
+    'x-q-nexus-display-name-b64': Buffer.from(displayName).toString('base64url'),
+    'x-q-nexus-role': role,
+  };
+}
+
 const adminHeaders = {
   'content-type': 'application/json',
   'x-admin-key': 'integration-admin-key',
@@ -75,6 +85,13 @@ const areaHeaders = {
   'x-user-region': encodeURIComponent('IPQC2'),
 };
 
+const twoStepRoute = {
+  submitterMemberId: 'm-lead', approvalMode: 'two_step',
+  reviewerId: 'm-reviewer', reviewerName: '审核员甲', reviewerUsername: 'reviewer',
+  approverId: 'm-approver', approverName: '核准员甲', approverUsername: 'approver',
+  routeResolvedAt: '2026-11-19 08:00',
+};
+
 async function write(base, operations, headers = adminHeaders) {
   return json(base, '/api/ops', {
     method: 'POST',
@@ -87,9 +104,15 @@ test('独立模式审批主流程、角色权限与数量约束由服务端执�
   const first = await startApp(t);
   let result = await write(first.base, [
     op('materials', 'm1', { name: '无尘布', unit: '包', safe: 2 }),
+    op('members', 'm-reviewer', {
+      name: '审核员甲', username: 'reviewer', role: '审核员', enabled: true,
+    }),
+    op('members', 'm-approver', {
+      name: '核准员甲', username: 'approver', role: '核准员', enabled: true,
+    }),
     op('members', 'm-lead', {
       name: '领用人甲', username: 'area.lead', role: '区域领用人', region: 'IPQC2',
-      enabled: true,
+      enabled: true, approvalMode: 'two_step', reviewerId: 'm-reviewer', approverId: 'm-approver',
     }),
   ]);
   assert.equal(result.response.status, 200);
@@ -98,7 +121,7 @@ test('独立模式审批主流程、角色权限与数量约束由服务端执�
   result = await write(
     first.base,
     [op('purchases', 'p1', {
-      mid: 'm1', qty: 10, date: '2026-11-18', approvalStatus: '待审核',
+      mid: 'm1', qty: 10, date: '2026-11-18', approvalStatus: '待审核', ...twoStepRoute,
     }, { by: '领用人甲' })],
     areaHeaders,
   );
@@ -108,7 +131,7 @@ test('独立模式审批主流程、角色权限与数量约束由服务端执�
     first.base,
     [op('purchases', 'p1', {
       mid: 'm1', qty: 10, date: '2026-11-18', approvalStatus: '待核准',
-      reviewedBy: '审核员甲', reviewedAt: '2026-11-18 09:00',
+      reviewedBy: '审核员甲', reviewedAt: '2026-11-18 09:00', ...twoStepRoute,
     }, { by: '领用人甲' })],
     reviewerHeaders,
   );
@@ -119,7 +142,7 @@ test('独立模式审批主流程、角色权限与数量约束由服务端执�
     [op('purchases', 'p1', {
       mid: 'm1', qty: 10, date: '2026-11-18', approvalStatus: '已核准',
       reviewedBy: '审核员甲', reviewedAt: '2026-11-18 09:00',
-      approvedBy: '核准员甲', approvedAt: '2026-11-18 10:00',
+      approvedBy: '核准员甲', approvedAt: '2026-11-18 10:00', ...twoStepRoute,
     }, { by: '领用人甲' })],
     approverHeaders,
   );
@@ -284,6 +307,97 @@ test('品集编辑者武欣雨获得系统管理员身份并可维护成员名�
     }),
   ], reviewerHeaders);
   assert.match(result.body.rejected[0].reason, /仅系统管理员武欣雨可维护/);
+});
+
+test('品集身份自动关联成员信息，并按提交人固化审核与直接核准路由', async (t) => {
+  const { base } = await startApp(t, { QNEXUS_SSO: '1' });
+  const admin = qnexusHeaders('wuxinyu', '武欣雨', 'editor');
+  let result = await write(base, [
+    op('members', 'm-huang', {
+      name: '黄辉', username: 'huanghui', role: '审核员', dept: '品质部', enabled: true,
+    }),
+    op('members', 'm-lou', {
+      name: '娄总', username: 'louzong', role: '核准员', dept: '品质部', enabled: true,
+    }),
+    op('members', 'm-yandan', {
+      name: '闫丹', username: 'yandan', role: '区域领用人', region: 'IPQC2', dept: '品质部',
+      enabled: true, approvalMode: 'two_step', reviewerId: 'm-huang', approverId: 'm-lou',
+    }),
+    op('members', 'm-zhou', {
+      name: '周艳飞', username: 'zhouyanfei', role: '区域领用人', region: 'OQC', dept: '品质部',
+      enabled: true, approvalMode: 'direct_approve', approverId: 'm-lou',
+    }),
+  ], admin);
+  assert.equal(result.response.status, 200);
+  assert.equal(result.body.rejected.length, 0, JSON.stringify(result.body.rejected));
+
+  const yandan = qnexusHeaders('yandan', '闫丹', 'reader');
+  const store = await json(base, '/api/store', { headers: yandan });
+  assert.equal(store.body.user.memberMatched, true);
+  assert.equal(store.body.user.memberId, 'm-yandan');
+  assert.equal(store.body.user.dept, '品质部');
+  assert.equal(store.body.user.role, '区域领用人');
+
+  result = await write(base, [
+    op('purchases', 'p-yandan', {
+      mid: 'm1', qty: 2, date: '2026-11-19', approvalStatus: '待审核',
+      submitterMemberId: 'm-yandan', approvalMode: 'two_step',
+      reviewerId: 'm-huang', reviewerName: '黄辉', reviewerUsername: 'huanghui',
+      approverId: 'm-lou', approverName: '娄总', approverUsername: 'louzong',
+      routeResolvedAt: '2026-11-19 09:00',
+    }, { by: '闫丹' }),
+  ], yandan);
+  assert.equal(result.body.rejected[0].reason.includes('有效物料'), true);
+
+  const material = op('materials', 'm1', { name: '无尘布', unit: '包', safe: 1 });
+  result = await write(base, [material], admin);
+  assert.equal(result.body.rejected.length, 0, JSON.stringify(result.body.rejected));
+  result = await write(base, [
+    op('purchases', 'p-yandan', {
+      mid: 'm1', qty: 2, date: '2026-11-19', approvalStatus: '待审核',
+      submitterMemberId: 'm-yandan', approvalMode: 'two_step',
+      reviewerId: 'm-huang', reviewerName: '黄辉', reviewerUsername: 'huanghui',
+      approverId: 'm-lou', approverName: '娄总', approverUsername: 'louzong',
+      routeResolvedAt: '2026-11-19 09:00',
+    }, { by: '闫丹' }),
+  ], yandan);
+  assert.equal(result.body.rejected.length, 0, JSON.stringify(result.body.rejected));
+
+  const zhou = qnexusHeaders('zhouyanfei', '周艳飞', 'reader');
+  result = await write(base, [
+    op('purchases', 'p-zhou', {
+      mid: 'm1', qty: 1, date: '2026-11-19', approvalStatus: '待核准',
+      submitterMemberId: 'm-zhou', approvalMode: 'direct_approve',
+      reviewerId: '', reviewerName: '', reviewerUsername: '',
+      approverId: 'm-lou', approverName: '娄总', approverUsername: 'louzong',
+      routeResolvedAt: '2026-11-19 09:10',
+    }, { by: '周艳飞' }),
+  ], zhou);
+  assert.equal(result.body.rejected.length, 0, JSON.stringify(result.body.rejected));
+  assert.equal(result.body.applied[0].rec.approvalStatus, '待核准');
+
+  const lou = qnexusHeaders('louzong', '娄总', 'administrator');
+  result = await write(base, [
+    op('purchases', 'p-zhou', {
+      mid: 'm1', qty: 1, date: '2026-11-19', approvalStatus: '已核准',
+      submitterMemberId: 'm-zhou', approvalMode: 'direct_approve',
+      reviewerId: '', reviewerName: '', reviewerUsername: '',
+      approverId: 'm-lou', approverName: '娄总', approverUsername: 'louzong',
+      routeResolvedAt: '2026-11-19 09:10', approvedBy: '娄总', approvedAt: '2026-11-19 09:20',
+    }, { by: '周艳飞' }),
+  ], lou);
+  assert.equal(result.body.rejected.length, 0, JSON.stringify(result.body.rejected));
+
+  const unknown = qnexusHeaders('unknown.user', '未登记人员', 'reader');
+  const unknownStore = await json(base, '/api/store', { headers: unknown });
+  assert.equal(unknownStore.body.user.memberMatched, false);
+  assert.equal(unknownStore.body.user.memberId, '');
+  result = await write(base, [
+    op('purchases', 'p-unknown', {
+      mid: 'm1', qty: 1, date: '2026-11-19', approvalStatus: '待审核',
+    }, { by: '未登记人员' }),
+  ], unknown);
+  assert.match(result.body.rejected[0].reason, /提交人未匹配成员名单|未配置审核人/);
 });
 
 test('成员名单中的普通成员可以导入物料档案，但不能手改或删除物料', async (t) => {

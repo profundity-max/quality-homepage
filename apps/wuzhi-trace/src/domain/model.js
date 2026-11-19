@@ -19,6 +19,8 @@ const FIELDS = Object.freeze([
   'username', 'enabled', 'supervisorId', 'requestSource', 'approvalStatus', 'reviewedBy',
   'reviewedAt', 'reviewComment', 'approvedBy', 'approvedAt', 'approvalComment',
   'rejectedBy', 'rejectedAt', 'rejectionReason', 'claimantId', 'claimantName',
+  'approvalMode', 'reviewerId', 'reviewerName', 'reviewerUsername',
+  'approverId', 'approverName', 'approverUsername', 'submitterMemberId', 'routeResolvedAt',
 ]);
 
 function sortKeys(value) {

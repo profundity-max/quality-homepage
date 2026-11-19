@@ -1,4 +1,4 @@
-/* 物资申领与消耗追溯 V1.2.3 — core.js：数据模型 / 派生计算 / 同步层 / Excel 读写 */
+/* 物资申领与消耗追溯 V1.2.4 — core.js：数据模型 / 派生计算 / 同步层 / Excel 读写 */
 'use strict';
 window.WZ = (function () {
   /* ---------------- 基础工具 ---------------- */
@@ -8,7 +8,9 @@ window.WZ = (function () {
     'did', 'signer', 'sigData', 'sigAt', 'role', 'action', 'entity', 'refId', 'detail',
     'username', 'enabled', 'supervisorId', 'requestSource', 'approvalStatus', 'reviewedBy', 'reviewedAt',
     'reviewComment', 'approvedBy', 'approvedAt', 'approvalComment', 'rejectedBy',
-    'rejectedAt', 'rejectionReason', 'claimantId', 'claimantName'];
+    'rejectedAt', 'rejectionReason', 'claimantId', 'claimantName', 'approvalMode',
+    'reviewerId', 'reviewerName', 'reviewerUsername', 'approverId', 'approverName',
+    'approverUsername', 'submitterMemberId', 'routeResolvedAt'];
   /* ---- 部门 / 区域：可配置清单（设置页维护，localStorage 持久化） ---- */
   const ORG_KEY = 'WZ_ORG_CFG';
   const DEFAULT_DEPTS = ['品质部', '生产部', '工程部', '设备部', '仓储部', '采购部', '计划部', '业务部', '研发部', '行政部', '人力资源部', '财务部', 'IT信息部'];
@@ -49,6 +51,14 @@ window.WZ = (function () {
   const OFFICE_ROLES = ['审核员', '核准员'];
   const APPROVAL_PENDING = '待审核', APPROVAL_WAITING = '待核准', APPROVAL_APPROVED = '已核准', APPROVAL_REJECTED = '已驳回';
   const APPROVAL_STATUSES = [APPROVAL_PENDING, APPROVAL_WAITING, APPROVAL_APPROVED, APPROVAL_REJECTED];
+  const APPROVAL_MODE_TWO_STEP = 'two_step';
+  const APPROVAL_MODE_REVIEW_ONLY = 'review_only';
+  const APPROVAL_MODE_DIRECT_APPROVE = 'direct_approve';
+  const APPROVAL_MODE_LABELS = {
+    [APPROVAL_MODE_TWO_STEP]: '两级审批（审核 → 核准）',
+    [APPROVAL_MODE_REVIEW_ONLY]: '仅审核（审核后完成）',
+    [APPROVAL_MODE_DIRECT_APPROVE]: '直接核准（跳过审核）'
+  };
 
   const uid = p => p + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
   const pad = n => String(n).padStart(2, '0');
@@ -162,7 +172,7 @@ window.WZ = (function () {
   }
 
   /* ---------------- 同步层 ---------------- */
-  const SYNC = { mode: 'local', ver: 0, seq: 0, server: '', online: [], conflict: 0, es: null, pollT: null, pushT: null, autoT: null, connected: false, admin: false, systemAdmin: false, memberId: '', scope: 'all', lastSyncAt: 0, lastError: null, pushing: false, adminKeySource: '', authMode: 'standalone' };
+  const SYNC = { mode: 'local', ver: 0, seq: 0, server: '', online: [], conflict: 0, es: null, pollT: null, pushT: null, autoT: null, connected: false, booting: true, admin: false, systemAdmin: false, memberId: '', scope: 'all', lastSyncAt: 0, lastError: null, pushing: false, adminKeySource: '', authMode: 'standalone' };
 
   /* 云端共享配置（与送测工作台同模式）：管理员口令存本机，随每个请求带给服务端校验 */
   const cloudCfg = { adminKey: '', auto: 1 };
@@ -631,6 +641,7 @@ window.WZ = (function () {
   /* AUTO-DETECT-END */
 
   async function connect() {
+    SYNC.booting = true;
     const r = await autoDetect();
     if (r.ok) {
       const h = r.health;
@@ -643,9 +654,13 @@ window.WZ = (function () {
       await pullStore(true).catch(() => { });
       if (opCount()) flushOps().catch(() => { });
       updatePill();
+      SYNC.booting = false;
+      renderAll();
       return true;
     }
     setLocalMode();
+    SYNC.booting = false;
+    renderAll();
     return false;
   }
 
@@ -712,6 +727,10 @@ window.WZ = (function () {
       username: String(user.username || ''),
       memberId: String(user.memberId || ''),
       supervisorId: String(user.supervisorId || ''),
+      dept: String(user.dept || ''),
+      supervisorName: String(user.supervisorName || ''),
+      supervisorUsername: String(user.supervisorUsername || ''),
+      memberMatched: Boolean(user.memberMatched),
       admin: !!user.admin,
       systemAdmin: !!user.systemAdmin
     };
@@ -720,15 +739,94 @@ window.WZ = (function () {
     SYNC.adminKeySource = 'qnexus';
   }
   const isRole = r => ME.role === r;
+  const isMemberMatched = () => SYNC.authMode === 'qnexus' ? Boolean(ME.memberMatched) : Boolean(ME.memberId || ME.name);
   const isSystemAdmin = () => Boolean(SYNC.systemAdmin);
   const canManageMaterials = () => Boolean(SYNC.admin);
   const canManageMembers = () => Boolean(SYNC.systemAdmin);
   const canImportMaterials = () => SYNC.mode === 'server' ? Boolean(SYNC.admin || SYNC.memberId || ME.memberId) : Boolean(ME.name);
-  const canEditFlow = () => Boolean(SYNC.admin || OFFICE_ROLES.includes(ME.role));
-  const canCreatePurchase = () => Boolean(ME.name && (SYNC.admin || ROLES.includes(ME.role)));
-  const canReviewPurchase = () => Boolean(SYNC.admin || ME.role === '审核员');
-  const canApprovePurchase = () => Boolean(SYNC.admin || ME.role === '核准员');
-  const canConfirm = () => Boolean(SYNC.admin || AREA_ROLES.includes(ME.role));
+  const canEditFlow = () => Boolean((SYNC.admin || OFFICE_ROLES.includes(ME.role)) && isMemberMatched());
+  const canCreatePurchase = () => Boolean(ME.name && (SYNC.admin || ROLES.includes(ME.role)) && isMemberMatched());
+  function currentMember() {
+    if (ME.memberId) return memberById(ME.memberId);
+    const username = String(ME.username || '').trim().toLowerCase();
+    const name = String(ME.name || '').trim();
+    return list('members').find(member => member.enabled !== false && (
+      (username && String(member.username || '').trim().toLowerCase() === username)
+      || (name && String(member.name || '').trim() === name)
+    )) || null;
+  }
+  function resolveApprovalRoute(submitterMember) {
+    const member = submitterMember || currentMember();
+    if (!member || member.enabled === false) {
+      return { ok: false, code: 'SUBMITTER_NOT_MATCHED', message: '提交人未匹配成员名单，请联系管理员' };
+    }
+    const mode = String(member.approvalMode || '').trim();
+    if (!Object.prototype.hasOwnProperty.call(APPROVAL_MODE_LABELS, mode)) {
+      return { ok: false, code: 'APPROVAL_ROUTE_MISSING', message: '未配置审核人，请联系管理员' };
+    }
+    const reviewer = member.reviewerId ? get('members', member.reviewerId) : null;
+    const approver = member.approverId ? get('members', member.approverId) : null;
+    if (mode === APPROVAL_MODE_DIRECT_APPROVE) {
+      if (!approver || approver.enabled === false || approver.role !== '核准员') {
+        return { ok: false, code: 'APPROVER_NOT_CONFIGURED', message: '未配置核准人，请联系管理员' };
+      }
+      return { ok: true, mode, reviewer: null, approver, initialStatus: APPROVAL_WAITING };
+    }
+    if (!reviewer || reviewer.enabled === false || reviewer.role !== '审核员') {
+      return { ok: false, code: 'REVIEWER_NOT_CONFIGURED', message: '未配置审核人，请联系管理员' };
+    }
+    if (mode === APPROVAL_MODE_REVIEW_ONLY) {
+      return { ok: true, mode, reviewer, approver: null, initialStatus: APPROVAL_PENDING };
+    }
+    if (!approver || approver.enabled === false || approver.role !== '核准员') {
+      return { ok: false, code: 'APPROVER_NOT_CONFIGURED', message: '未配置核准人，请联系管理员' };
+    }
+    return { ok: true, mode, reviewer, approver, initialStatus: APPROVAL_PENDING };
+  }
+  function submitterMemberFor(record) {
+    if (!record) return null;
+    if (record.submitterMemberId) {
+      const byId = get('members', record.submitterMemberId);
+      if (byId) return byId;
+    }
+    return list('members').find(member => member.enabled !== false
+      && String(member.name || '').trim() === String(record.by || '').trim()) || null;
+  }
+  function approvalRouteSnapshot(route, submitterMember) {
+    if (!route || !route.ok || !submitterMember) return {};
+    return {
+      submitterMemberId: String(submitterMember.id || ''),
+      approvalMode: route.mode,
+      reviewerId: route.reviewer ? String(route.reviewer.id || '') : '',
+      reviewerName: route.reviewer ? String(route.reviewer.name || '') : '',
+      reviewerUsername: route.reviewer ? String(route.reviewer.username || '') : '',
+      approverId: route.approver ? String(route.approver.id || '') : '',
+      approverName: route.approver ? String(route.approver.name || '') : '',
+      approverUsername: route.approver ? String(route.approver.username || '') : '',
+      routeResolvedAt: nowStr()
+    };
+  }
+  function actorMatches(who, memberId, username, name) {
+    if (!who) return false;
+    if (memberId) return Boolean(who.memberId && String(memberId) === String(who.memberId));
+    if (username && who.username && String(username).trim().toLowerCase() === String(who.username).trim().toLowerCase()) return true;
+    return !memberId && !username && name && who.name && String(name).trim() === String(who.name).trim();
+  }
+  function canReviewPurchase(purchase) {
+    if (!purchase || !isMemberMatched()) return false;
+    if (purchase.reviewerId || purchase.reviewerUsername || purchase.reviewerName) {
+      return actorMatches(ME, purchase.reviewerId, purchase.reviewerUsername, purchase.reviewerName);
+    }
+    return Boolean(SYNC.admin || (ME.role === '审核员' && isMemberMatched()));
+  }
+  function canApprovePurchase(purchase) {
+    if (!purchase || !isMemberMatched()) return false;
+    if (purchase.approverId || purchase.approverUsername || purchase.approverName) {
+      return actorMatches(ME, purchase.approverId, purchase.approverUsername, purchase.approverName);
+    }
+    return Boolean(SYNC.admin || (ME.role === '核准员' && isMemberMatched()));
+  }
+  const canConfirm = () => Boolean((SYNC.admin || AREA_ROLES.includes(ME.role)) && isMemberMatched());
   function canConfirmDispatch(d) {
     if (!d || !canConfirm()) return false;
     if (SYNC.admin) return true;
@@ -755,7 +853,7 @@ window.WZ = (function () {
   }
   function roleCapabilities() {
     return {
-      canManageMaterials: canManageMaterials(), canManageMembers: canManageMembers(),
+      canManageMaterials: canManageMaterials(), canManageMembers: canManageMembers(), isMemberMatched: isMemberMatched(),
       canEditFlow: canEditFlow(), canCreatePurchase: canCreatePurchase(),
       canReviewPurchase: canReviewPurchase(), canApprovePurchase: canApprovePurchase(),
       canConfirm: canConfirm()
@@ -1467,6 +1565,9 @@ window.WZ = (function () {
       region: ['所属区域', '区域', '领用区域'],
       dept: ['所属部门', '部门'],
       supervisorName: ['上级区域领用人', '上级', '上级姓名'],
+      reviewerName: ['指定审核人', '审核人', '提交人审核人'],
+      approverName: ['指定核准人', '核准人', '提交人核准人'],
+      approvalMode: ['审批模式', '审批流程', '审批方式'],
       enabled: ['启用状态', '状态', '是否启用']
     }
   };
@@ -1603,8 +1704,10 @@ window.WZ = (function () {
 
   return {
     COLLS, ROLES, AREA_ROLES, OFFICE_ROLES, APPROVAL_PENDING, APPROVAL_WAITING, APPROVAL_APPROVED, APPROVAL_REJECTED, FIELDS,
+    APPROVAL_MODE_TWO_STEP, APPROVAL_MODE_REVIEW_ONLY, APPROVAL_MODE_DIRECT_APPROVE, APPROVAL_MODE_LABELS,
     get REGIONS() { return REGIONS; }, get REGION_LABEL() { return REGION_LABEL; }, get DEPTS() { return DEPTS; }, saveOrgCfg,
-    state, get state$() { return state; }, SYNC, me, setMe, applyServerIdentity, isRole, isSystemAdmin, canManageMaterials, canManageMembers, canImportMaterials, canEditFlow, canCreatePurchase, canReviewPurchase, canApprovePurchase, canConfirm, canConfirmDispatch, roleCapabilities,
+    state, get state$() { return state; }, SYNC, me, setMe, applyServerIdentity, isRole, isMemberMatched, isSystemAdmin, canManageMaterials, canManageMembers, canImportMaterials, canEditFlow, canCreatePurchase, canReviewPurchase, canApprovePurchase, canConfirm, canConfirmDispatch, roleCapabilities,
+    currentMember, resolveApprovalRoute, submitterMemberFor, approvalRouteSnapshot,
     upsert, remove, get, list, logOp, saveState, saveLocal, wipeCloud, saveCloudCfg, markEdit, importMaterials,
     normalize, mergeStates, switchMode, updatePill, toast, onRender, renderAll, cloudCfg, cloudHeaders, upgradeLegacyPort, probeEx, autoDetect,
     pullStore, pushStore, pushPending, startAutoSync, stopAutoSync, shareUrl,

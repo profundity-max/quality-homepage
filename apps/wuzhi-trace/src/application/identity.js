@@ -77,6 +77,26 @@ function findMember(data, username, name) {
   );
 }
 
+function memberIdentityFields(data, member) {
+  if (!member) {
+    return {
+      memberMatched: false,
+      dept: '',
+      supervisorName: '',
+      supervisorUsername: '',
+    };
+  }
+  const supervisor = member.supervisorId
+    ? ((data && data.members) || {})[member.supervisorId]
+    : null;
+  return {
+    memberMatched: true,
+    dept: String(member.dept || ''),
+    supervisorName: supervisor ? String(supervisor.name || '') : '',
+    supervisorUsername: supervisor ? String(supervisor.username || '') : '',
+  };
+}
+
 function isSystemAdminIdentity({ username, name, adminNames }) {
   const candidates = new Set(
     [username, name].map((value) => String(value || '').trim()).filter(Boolean),
@@ -93,8 +113,9 @@ function resolveQnexusIdentity(request, data, adminNames = DEFAULT_SYSTEM_ADMIN_
   const portalRole = String(request.headers['x-q-nexus-role'] || '').trim();
   const mappedRole = QNEXUS_ROLE_MAP[portalRole];
   if (!subject || !username || !mappedRole) return null;
-  const name = displayName || username;
-  const member = findMember(data, username, name);
+  const portalName = displayName || username;
+  const member = findMember(data, username, portalName);
+  const name = member ? String(member.name || portalName) : portalName;
   const memberRole = member && VALID_BUSINESS_ROLES.has(member.role)
     ? String(member.role)
     : '';
@@ -112,6 +133,7 @@ function resolveQnexusIdentity(request, data, adminNames = DEFAULT_SYSTEM_ADMIN_
     region: member ? String(member.region || '') : '',
     memberId: member ? member.id : '',
     supervisorId: member ? String(member.supervisorId || '') : '',
+    ...memberIdentityFields(data, member),
     systemAdmin,
     admin: systemAdmin || portalRole === 'administrator',
   };
@@ -138,6 +160,7 @@ function resolveStandaloneIdentity(
     bodyData.region || decodeLegacyHeader(request.headers['x-user-region']) || '',
   ).trim();
   const member = findMember(data, username, name);
+  const resolvedName = member ? String(member.name || name) : name;
   const memberRole = member && VALID_BUSINESS_ROLES.has(member.role)
     ? String(member.role)
     : '';
@@ -148,7 +171,7 @@ function resolveStandaloneIdentity(
     safeEqual(headerAdmin, adminKey) || safeEqual(bodyAdmin, adminKey);
   const systemAdmin = admin && isSystemAdminIdentity({
     username,
-    name,
+    name: resolvedName,
     adminNames: normalizeAdminNames(adminNames),
   });
   return {
@@ -160,6 +183,7 @@ function resolveStandaloneIdentity(
     region: member ? String(member.region || '') : requestedRegion,
     memberId: member ? member.id : '',
     supervisorId: member ? String(member.supervisorId || '') : '',
+    ...memberIdentityFields(data, member),
     systemAdmin,
     admin,
   };
@@ -174,6 +198,10 @@ function publicIdentity(who) {
     region: who.region || '',
     memberId: who.memberId || '',
     supervisorId: who.supervisorId || '',
+    dept: who.dept || '',
+    supervisorName: who.supervisorName || '',
+    supervisorUsername: who.supervisorUsername || '',
+    memberMatched: Boolean(who.memberMatched),
     admin: Boolean(who.admin),
     systemAdmin: Boolean(who.systemAdmin),
     authMode: who.authMode,
@@ -200,6 +228,7 @@ module.exports = {
   createIdentityResolver,
   findMember,
   isSystemAdminIdentity,
+  memberIdentityFields,
   normKey,
   normalizeAdminNames,
   publicIdentity,

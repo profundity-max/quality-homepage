@@ -22,6 +22,20 @@ const APPROVAL_STATUSES = new Set([
   APPROVAL_APPROVED,
   APPROVAL_REJECTED,
 ]);
+const APPROVAL_MODE_TWO_STEP = 'two_step';
+const APPROVAL_MODE_REVIEW_ONLY = 'review_only';
+const APPROVAL_MODE_DIRECT_APPROVE = 'direct_approve';
+const APPROVAL_MODES = new Set([
+  APPROVAL_MODE_TWO_STEP,
+  APPROVAL_MODE_REVIEW_ONLY,
+  APPROVAL_MODE_DIRECT_APPROVE,
+]);
+const APPROVAL_TRACKING_FIELDS = new Set([
+  'f', 'ts', 'approvalStatus', 'reviewedBy', 'reviewedAt', 'reviewComment',
+  'approvedBy', 'approvedAt', 'approvalComment', 'rejectedBy', 'rejectedAt',
+  'rejectionReason', 'approvalMode', 'reviewerId', 'reviewerName', 'reviewerUsername',
+  'approverId', 'approverName', 'approverUsername', 'submitterMemberId', 'routeResolvedAt',
+]);
 const QUANTITY_EPSILON = 1e-9;
 
 function positiveNumber(value) {
@@ -51,6 +65,163 @@ function findMember(fullData, id, name) {
       (record) => isEnabledMember(record) && String(record.name || '').trim() === String(name).trim(),
     ) || null
   );
+}
+
+function normalized(value) {
+  return String(value == null ? '' : value).trim().toLowerCase();
+}
+
+function enabledMemberOfRole(fullData, memberId, role) {
+  if (!memberId) return null;
+  const member = fullData && fullData.members && fullData.members[memberId];
+  if (!member || !isEnabledMember(member) || String(member.role || '') !== role) return null;
+  return member;
+}
+
+function routeFailure(message, code = 'APPROVAL_ROUTE_INVALID') {
+  return { ok: false, code, message };
+}
+
+function resolveApprovalRoute(fullData, submitterMember) {
+  if (!submitterMember || !isEnabledMember(submitterMember)) {
+    return routeFailure('提交人未匹配成员名单，请联系管理员', 'SUBMITTER_NOT_MATCHED');
+  }
+  const mode = String(submitterMember.approvalMode || '').trim();
+  if (!APPROVAL_MODES.has(mode)) {
+    return routeFailure('未配置审核人，请联系管理员', 'APPROVAL_ROUTE_MISSING');
+  }
+
+  if (mode === APPROVAL_MODE_DIRECT_APPROVE) {
+    const approver = enabledMemberOfRole(fullData, submitterMember.approverId, '核准员');
+    if (!approver) {
+      return routeFailure('未配置核准人，请联系管理员', 'APPROVER_NOT_CONFIGURED');
+    }
+    return {
+      ok: true,
+      mode,
+      reviewer: null,
+      approver,
+      initialStatus: APPROVAL_WAITING,
+    };
+  }
+
+  const reviewer = enabledMemberOfRole(fullData, submitterMember.reviewerId, '审核员');
+  if (!reviewer) {
+    return routeFailure('未配置审核人，请联系管理员', 'REVIEWER_NOT_CONFIGURED');
+  }
+  if (mode === APPROVAL_MODE_REVIEW_ONLY) {
+    return {
+      ok: true,
+      mode,
+      reviewer,
+      approver: null,
+      initialStatus: APPROVAL_PENDING,
+    };
+  }
+
+  const approver = enabledMemberOfRole(fullData, submitterMember.approverId, '核准员');
+  if (!approver) {
+    return routeFailure('未配置核准人，请联系管理员', 'APPROVER_NOT_CONFIGURED');
+  }
+  return {
+    ok: true,
+    mode,
+    reviewer,
+    approver,
+    initialStatus: APPROVAL_PENDING,
+  };
+}
+
+function approvalModeOf(record) {
+  return String(record && record.approvalMode || '').trim();
+}
+
+function hasRouteSnapshot(record) {
+  return Boolean(
+    record
+    && (
+      APPROVAL_MODES.has(approvalModeOf(record))
+      || String(record.reviewerId || '').trim()
+      || String(record.approverId || '').trim()
+    )
+  );
+}
+
+function actorIsMember(who, memberId, username, name) {
+  if (!who) return false;
+  if (memberId) return Boolean(who.memberId && String(who.memberId) === String(memberId));
+  if (username && who.username && normalized(who.username) === normalized(username)) return true;
+  if (!username && name && who.name) {
+    return normalized(who.name) === normalized(name);
+  }
+  return false;
+}
+
+function isAssignedReviewer(who, purchase) {
+  return Boolean(
+    purchase
+    && actorIsMember(
+      who,
+      purchase.reviewerId,
+      purchase.reviewerUsername,
+      purchase.reviewerName,
+    )
+  );
+}
+
+function isAssignedApprover(who, purchase) {
+  return Boolean(
+    purchase
+    && actorIsMember(
+      who,
+      purchase.approverId,
+      purchase.approverUsername,
+      purchase.approverName,
+    )
+  );
+}
+
+function approvalRouteSnapshot(route, submitterMember, resolvedAt) {
+  if (!route || !route.ok || !submitterMember) return null;
+  return {
+    submitterMemberId: String(submitterMember.id || ''),
+    approvalMode: route.mode,
+    reviewerId: route.reviewer ? String(route.reviewer.id || '') : '',
+    reviewerName: route.reviewer ? String(route.reviewer.name || '') : '',
+    reviewerUsername: route.reviewer ? String(route.reviewer.username || '') : '',
+    approverId: route.approver ? String(route.approver.id || '') : '',
+    approverName: route.approver ? String(route.approver.name || '') : '',
+    approverUsername: route.approver ? String(route.approver.username || '') : '',
+    routeResolvedAt: String(resolvedAt || ''),
+  };
+}
+
+function snapshotMatchesRoute(record, route, submitterMember) {
+  const expected = approvalRouteSnapshot(route, submitterMember, record && record.routeResolvedAt);
+  if (!expected) return false;
+  return Object.keys(expected).every((key) => {
+    if (key === 'routeResolvedAt') return Boolean(String(record[key] || '').trim());
+    return normalized(record[key]) === normalized(expected[key]);
+  });
+}
+
+function purchaseRouteViolations(purchase, fullData) {
+  let submitter = null;
+  if (purchase && purchase.submitterMemberId) {
+    submitter = (fullData.members || {})[purchase.submitterMemberId] || null;
+  }
+  if (!submitter && purchase && purchase.by) {
+    submitter = findMember(fullData, '', purchase.by);
+  }
+  const route = resolveApprovalRoute(fullData, submitter);
+  if (!route.ok) return [route.message];
+  if (!snapshotMatchesRoute(purchase, route, submitter)) {
+    return ['审批路由与成员名单不一致，请重新提交或联系管理员'];
+  }
+  if (purchaseApprovalStatus(purchase) !== route.initialStatus) {
+    return [`${route.mode === APPROVAL_MODE_DIRECT_APPROVE ? '直接核准' : '当前审批模式'}应从「${route.initialStatus}」开始`];
+  }
+  return [];
 }
 
 function sumOtherRecords(collection, excludedId, predicate) {
@@ -86,18 +257,122 @@ function canSignForDispatch(who, dispatch) {
   );
 }
 
-function validatePurchaseTransition(before, after, who) {
+function validatePurchaseTransition(before, after, who, fullData) {
   const violations = [];
   const previous = purchaseApprovalStatus(before);
   const next = purchaseApprovalStatus(after);
   if (previous === next) return violations;
-  if (who.admin && next === APPROVAL_PENDING) return violations;
+  if (who.admin && next === APPROVAL_PENDING && !hasRouteSnapshot(before)) return violations;
+
+  if (hasRouteSnapshot(before)) {
+    const mode = approvalModeOf(before);
+    if (
+      previous === APPROVAL_PENDING
+      && [APPROVAL_WAITING, APPROVAL_APPROVED, APPROVAL_REJECTED].includes(next)
+    ) {
+      if (!isAssignedReviewer(who, before)) {
+        violations.push('当前单据未分配给该审核人');
+        return violations;
+      }
+      if (next === APPROVAL_WAITING && mode !== APPROVAL_MODE_TWO_STEP) {
+        violations.push('当前审批模式没有二级核准节点');
+        return violations;
+      }
+      if (next === APPROVAL_APPROVED && mode !== APPROVAL_MODE_REVIEW_ONLY) {
+        violations.push('审核通过后必须由指定核准人完成最终核准');
+        return violations;
+      }
+      if (next === APPROVAL_REJECTED && !String(after.rejectionReason || '').trim()) {
+        violations.push('驳回必须填写原因');
+      }
+      if (String(after.reviewedBy || '') !== String(who.name || '')) {
+        violations.push('审核人必须与当前登录身份一致');
+      }
+      if (next === APPROVAL_REJECTED && String(after.rejectedBy || '') !== String(who.name || '')) {
+        violations.push('驳回操作人必须与当前登录身份一致');
+      }
+      return violations;
+    }
+    if (
+      previous === APPROVAL_WAITING
+      && [APPROVAL_APPROVED, APPROVAL_REJECTED].includes(next)
+    ) {
+      if (mode !== APPROVAL_MODE_TWO_STEP && mode !== APPROVAL_MODE_DIRECT_APPROVE) {
+        violations.push('当前审批模式没有核准节点');
+        return violations;
+      }
+      if (!isAssignedApprover(who, before)) {
+        violations.push('当前单据未分配给该核准人');
+        return violations;
+      }
+      if (next === APPROVAL_REJECTED && !String(after.rejectionReason || '').trim()) {
+        violations.push('驳回必须填写原因');
+      }
+      if (next === APPROVAL_REJECTED && String(after.rejectedBy || '') !== String(who.name || '')) {
+        violations.push('驳回操作人必须与当前登录身份一致');
+      }
+      if (next === APPROVAL_APPROVED && String(after.approvedBy || '') !== String(who.name || '')) {
+        violations.push('核准人必须与当前登录身份一致');
+      }
+      return violations;
+    }
+    if (previous === APPROVAL_APPROVED) {
+      if (!who.systemAdmin) {
+        violations.push('只有系统管理员可以修改已核准采购单');
+        return violations;
+      }
+      const submitter = findMember(fullData, before.submitterMemberId, before.by);
+      const route = resolveApprovalRoute(fullData, submitter);
+      if (!route.ok) {
+        violations.push(route.message);
+        return violations;
+      }
+      if (next !== route.initialStatus) {
+        violations.push(`修改后应按当前名单进入「${route.initialStatus}」重新审批`);
+        return violations;
+      }
+      if (!snapshotMatchesRoute(after, route, submitter)) {
+        violations.push('修改后的审批路由与成员名单不一致');
+      }
+      return violations;
+    }
+    if (previous === APPROVAL_REJECTED) {
+      const submitter = findMember(fullData, before.submitterMemberId, before.by);
+      const isSubmitter = actorIsMember(
+        who,
+        before.submitterMemberId || (submitter && submitter.id),
+        submitter && submitter.username,
+        before.by,
+      );
+      if (!isSubmitter && !who.systemAdmin) {
+        violations.push('只有申请人或系统管理员可以重新提交被驳回的采购单');
+        return violations;
+      }
+      const route = resolveApprovalRoute(fullData, submitter);
+      if (!route.ok) {
+        violations.push(route.message);
+        return violations;
+      }
+      if (next !== route.initialStatus) {
+        violations.push(`重新提交后状态应为「${route.initialStatus}」`);
+      }
+      if (!snapshotMatchesRoute(after, route, submitter)) {
+        violations.push('重新提交后的审批路由与成员名单不一致');
+      }
+      return violations;
+    }
+    violations.push(`采购审批状态不能从「${previous}」直接改为「${next}」`);
+    return violations;
+  }
 
   if (
     previous === APPROVAL_PENDING
     && [APPROVAL_WAITING, APPROVAL_REJECTED].includes(next)
   ) {
     if (!canReview(who)) violations.push('只有审核员可以执行一级审核');
+    if (next === APPROVAL_REJECTED && !String(after.rejectionReason || '').trim()) {
+      violations.push('驳回必须填写原因');
+    }
     return violations;
   }
   if (
@@ -105,6 +380,9 @@ function validatePurchaseTransition(before, after, who) {
     && [APPROVAL_APPROVED, APPROVAL_REJECTED].includes(next)
   ) {
     if (!canApprove(who)) violations.push('只有核准员可以执行最终核准');
+    if (next === APPROVAL_REJECTED && !String(after.rejectionReason || '').trim()) {
+      violations.push('驳回必须填写原因');
+    }
     return violations;
   }
   if (previous === APPROVAL_REJECTED && next === APPROVAL_PENDING) {
@@ -148,24 +426,37 @@ function validatePermissions({ previousData, nextData, fullData, who }) {
             violations.push(`purchases/${id}：新采购单必须由当前登录人创建`);
             continue;
           }
-          if (!admin && purchaseApprovalStatus(after) !== APPROVAL_PENDING) {
-            violations.push(`purchases/${id}：新采购单必须从「待审核」开始`);
-            continue;
+          const status = purchaseApprovalStatus(after);
+          if (status === APPROVAL_PENDING || status === APPROVAL_WAITING) {
+            const routeViolations = purchaseRouteViolations(after, fullData);
+            for (const routeViolation of routeViolations) {
+              violations.push(`purchases/${id}：${routeViolation}`);
+            }
+            if (!after.submitterMemberId || after.submitterMemberId !== who.memberId) {
+              if (!admin) {
+                violations.push(`purchases/${id}：提交人身份与成员名单不一致`);
+              }
+            }
+          } else if (!admin) {
+            violations.push(`purchases/${id}：新采购单必须从审批路由要求的初始状态开始`);
           }
         } else {
-          for (const transitionViolation of validatePurchaseTransition(before, after, who)) {
+          const changedBusinessFields = Object.keys(after).filter((key) => (
+            !APPROVAL_TRACKING_FIELDS.has(key)
+            && JSON.stringify(after[key]) !== JSON.stringify(before[key])
+          ));
+          if (!admin && before.by && String(before.by) !== String(who.name) && changedBusinessFields.length) {
+            violations.push(`purchases/${id}：只有申请人或系统管理员可以修改采购业务内容`);
+            continue;
+          }
+          for (const transitionViolation of validatePurchaseTransition(before, after, who, fullData)) {
             violations.push(`purchases/${id}：${transitionViolation}`);
           }
           if (String(after.by || '') !== String(before.by || '')) {
             violations.push(`purchases/${id}：不能修改采购申请人`);
             continue;
           }
-          const changedNonApproval = Object.keys(after).some((key) => (
-            !['f', 'ts', 'approvalStatus', 'reviewedBy', 'reviewedAt', 'reviewComment',
-              'approvedBy', 'approvedAt', 'approvalComment', 'rejectedBy', 'rejectedAt',
-              'rejectionReason'].includes(key)
-            && JSON.stringify(after[key]) !== JSON.stringify(before[key])
-          ));
+          const changedNonApproval = changedBusinessFields.length > 0;
           if (
             purchaseApprovalStatus(before) === APPROVAL_APPROVED
             && changedNonApproval
@@ -291,6 +582,32 @@ function validateBusinessRecord({ collection, before, after, fullData }) {
       );
       if (duplicate) violations.push('成员品集账号不能重复');
     }
+
+    const mode = String(after.approvalMode || '').trim();
+    if (mode && !APPROVAL_MODES.has(mode)) {
+      violations.push('审批模式无效');
+    } else if (mode === APPROVAL_MODE_TWO_STEP) {
+      if (!enabledMemberOfRole(fullData, after.reviewerId, '审核员')) {
+        violations.push('两级审核必须指定有效的审核员');
+      }
+      if (!enabledMemberOfRole(fullData, after.approverId, '核准员')) {
+        violations.push('两级审核必须指定有效的核准员');
+      }
+    } else if (mode === APPROVAL_MODE_REVIEW_ONLY) {
+      if (!enabledMemberOfRole(fullData, after.reviewerId, '审核员')) {
+        violations.push('仅审核模式必须指定有效的审核员');
+      }
+      if (String(after.approverId || '').trim()) {
+        violations.push('仅审核模式不能配置核准人');
+      }
+    } else if (mode === APPROVAL_MODE_DIRECT_APPROVE) {
+      if (!enabledMemberOfRole(fullData, after.approverId, '核准员')) {
+        violations.push('直接核准必须指定有效的核准员');
+      }
+      if (String(after.reviewerId || '').trim()) {
+        violations.push('直接核准模式不能配置审核人');
+      }
+    }
   }
 
   if (collection === 'purchases') {
@@ -302,6 +619,11 @@ function validateBusinessRecord({ collection, before, after, fullData }) {
     const source = String(after.requestSource || '').trim();
     if (source && !['OA请购', '行政请购', '其他'].includes(source)) {
       violations.push('请购来源无效');
+    }
+    if (!before && [APPROVAL_PENDING, APPROVAL_WAITING].includes(purchaseApprovalStatus(after))) {
+      for (const routeViolation of purchaseRouteViolations(after, fullData)) {
+        violations.push(routeViolation);
+      }
     }
   }
 
@@ -435,6 +757,10 @@ function validateMutation({ previousData, nextData, fullData, who }) {
 module.exports = {
   ADMIN_ONLY_COLLECTIONS,
   APPROVAL_APPROVED,
+  APPROVAL_MODE_DIRECT_APPROVE,
+  APPROVAL_MODE_REVIEW_ONLY,
+  APPROVAL_MODE_TWO_STEP,
+  APPROVAL_MODES,
   APPROVAL_PENDING,
   APPROVAL_REJECTED,
   APPROVAL_WAITING,
@@ -447,7 +773,13 @@ module.exports = {
   canOperateFlow,
   canReview,
   canSignForDispatch,
+  approvalRouteSnapshot,
+  hasRouteSnapshot,
+  isAssignedApprover,
+  isAssignedReviewer,
   purchaseApprovalStatus,
+  purchaseRouteViolations,
+  resolveApprovalRoute,
   validateBusinessRecord,
   validateMutation,
   validatePermissions,

@@ -26,7 +26,7 @@ test('成员名单可覆盖默认业务角色并补充区域和上级', () => {
         lead: { id: 'lead', name: '领用人甲', username: 'area.lead', role: '区域领用人', region: 'IPQC2', enabled: true },
         member: {
           id: 'member', name: '领用人乙', username: 'area.member', role: '隶属区域领用人',
-          region: 'IPQC2', supervisorId: 'lead', enabled: true,
+          region: 'IPQC2', dept: '品质部', supervisorId: 'lead', enabled: true,
         },
       },
     },
@@ -35,8 +35,23 @@ test('成员名单可覆盖默认业务角色并补充区域和上级', () => {
   assert.equal(identity.region, 'IPQC2');
   assert.equal(identity.memberId, 'member');
   assert.equal(identity.supervisorId, 'lead');
+  assert.equal(identity.supervisorName, '领用人甲');
+  assert.equal(identity.dept, '品质部');
+  assert.equal(identity.memberMatched, true);
   assert.equal(identity.admin, false);
   assert.equal(identity.systemAdmin, false);
+});
+
+test('品集账号未匹配成员名单时保留登录态但标记不可办理业务', () => {
+  const identity = resolveQnexusIdentity(
+    request(headers('unknown.user', '未登记人员', 'reader')),
+    { members: {} },
+  );
+  assert.equal(identity.username, 'unknown.user');
+  assert.equal(identity.memberMatched, false);
+  assert.equal(identity.memberId, '');
+  assert.equal(identity.dept, '');
+  assert.equal(identity.supervisorName, '');
 });
 
 test('武欣雨使用品集编辑者账号时获得系统管理员权限', () => {
