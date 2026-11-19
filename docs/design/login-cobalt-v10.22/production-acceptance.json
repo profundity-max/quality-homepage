@@ -1,0 +1,55 @@
+{
+  "url": "http://quality-server.local:8080/login",
+  "productCommit": "d6ff66334b7968be9559de1d8e50928320704330",
+  "moving": true,
+  "pauseWorks": true,
+  "reducedMotionInitialLoad": true,
+  "dynamicReducedStatic": true,
+  "dynamicMotionMarker": "running",
+  "resumesAfterReduced": true,
+  "paint": {
+    "paintedUnderHeading": 10775,
+    "svgLines": 0
+  },
+  "viewports": [
+    {
+      "width": 320,
+      "overflow": false,
+      "canvasWidth": 320,
+      "canvasHeight": 900
+    },
+    {
+      "width": 390,
+      "overflow": false,
+      "canvasWidth": 390,
+      "canvasHeight": 900
+    },
+    {
+      "width": 768,
+      "overflow": false,
+      "canvasWidth": 768,
+      "canvasHeight": 900
+    },
+    {
+      "width": 1280,
+      "overflow": false,
+      "canvasWidth": 1280,
+      "canvasHeight": 900
+    },
+    {
+      "width": 1440,
+      "overflow": false,
+      "canvasWidth": 1440,
+      "canvasHeight": 900
+    },
+    {
+      "width": 1920,
+      "overflow": false,
+      "canvasWidth": 1920,
+      "canvasHeight": 900
+    }
+  ],
+  "pageErrors": [],
+  "browser": "isolated Chromium via Playwright CLI; direct connection with session-only hostname resolver mapping",
+  "diagnostic": "Dynamic reduced-motion emulation left data-motion as running, while canvas stopped, motion control hid, and restoring motion resumed animation. Reduced-motion initial load correctly reported reduced."
+}
