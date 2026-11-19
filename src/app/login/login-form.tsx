@@ -16,14 +16,25 @@ export function LoginForm({ returnPath }: { returnPath: string }) {
   const [passwordVisible, setPasswordVisible] = useState(false);
 
   return (
-    <form action={formAction} className={styles.form}>
+    <form
+      action={formAction}
+      className={styles.form}
+      aria-labelledby="login-form-heading"
+      aria-busy={pending}
+      data-statistics-quiet
+    >
       <input name="next" type="hidden" value={returnPath} />
+      <h2 id="login-form-heading" className={styles.formHeading}>
+        登录品集
+      </h2>
       <div className={styles.field}>
         <label htmlFor="login-username">用户名</label>
         <input
           id="login-username"
           name="username"
           autoComplete="username"
+          aria-describedby={state.error ? "login-error" : undefined}
+          aria-invalid={state.error ? true : undefined}
           required
         />
       </div>
@@ -58,12 +69,19 @@ export function LoginForm({ returnPath }: { returnPath: string }) {
         <input name="persistent" type="checkbox" />
         保持登录 7 天
       </label>
-      {state.error ? (
-        <p id="login-error" role="alert">
-          {state.error}
-        </p>
-      ) : null}
-      <button className={styles.submitButton} type="submit" disabled={pending}>
+      <div className={styles.feedback}>
+        {state.error ? (
+          <p id="login-error" role="alert">
+            {state.error}
+          </p>
+        ) : null}
+      </div>
+      <button
+        className={styles.submitButton}
+        type="submit"
+        disabled={pending}
+        aria-busy={pending}
+      >
         {pending ? "正在登录…" : "登录"}
       </button>
     </form>

@@ -1,0 +1,43 @@
+/* Hallmark · shape: app screen · genre: modern-minimal · theme: Cobalt (by request, brand adapted) · redesign: full
+ * nav: portal name and existing theme control · footer: existing LAN notice and wordmark
+ * signature: horizontal statistical streams continue beneath foreground at lower opacity · states: default, hover, focus, active, loading, error, redirect
+ * finish-review: subagent · ship · gap: none
+ * axes: light/grotesk-sans/cool · posture: animated typography by user request · copy: verbatim · v2.0.0 */
+/* Hallmark · pre-emit critique: P4 H4 E4 S5 R4 V4 · weakest: H, reduce opacity beneath actual text without removing the background. */
+:root {
+  --login-paper: var(--color-canvas);
+  --login-surface: var(--color-surface);
+  --login-well: var(--color-surface-muted);
+  --login-ink: var(--color-text);
+  --login-muted: var(--color-text-secondary);
+  --login-rule: var(--color-divider);
+  --login-control-border: var(--color-control-border);
+  --login-accent: var(--color-accent);
+  --login-accent-hover: var(--color-accent-hover);
+  --login-accent-foreground: var(--color-accent-foreground);
+  --login-error: var(--color-error);
+  --login-focus: var(--color-focus);
+  --login-key-edge: color-mix(
+    in srgb,
+    var(--color-accent) 72%,
+    var(--color-text)
+  );
+  --login-font: var(--font-editorial);
+  --login-font-glyph: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  --login-field-ink: var(--color-accent);
+  --login-field-muted: var(--color-text-secondary);
+  --login-space-xs: 4px;
+  --login-space-sm: 8px;
+  --login-space-md: 16px;
+  --login-space-lg: 24px;
+  --login-space-xl: 32px;
+  --login-space-2xl: 48px;
+  --login-space-3xl: 64px;
+  --login-radius-panel: 8px;
+  --login-radius-control: 6px;
+}
+
+html:has([data-login-screen]),
+body:has([data-login-screen]) {
+  overflow-x: clip;
+}
