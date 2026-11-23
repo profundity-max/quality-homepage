@@ -1,4 +1,4 @@
-/* 物资申领与消耗追溯 V1.2.8 — views.js：视图 / 表单 / 签名板 / 导入导出 UI */
+/* 物资申领与消耗追溯 V1.2.9 — views.js：视图 / 表单 / 签名板 / 导入导出 UI */
 'use strict';
 (function () {
   const W = window.WZ;
@@ -86,6 +86,8 @@
     curTab = t;
     document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('act', b.dataset.tab === t));
     document.querySelectorAll('.tabpane').forEach(p => p.classList.toggle('act', p.id === 'pane-' + t));
+    const main = $('#main');
+    if (main) main.classList.toggle('wide-pane', t === 'purchases');
     try { history.replaceState(null, '', '#tab=' + t); } catch (e) { }
     W.renderAll();
   }
@@ -236,7 +238,7 @@
         Object.values(s.sources).reduce((sum, item) => sum + item.pendingApproval, 0)],
     ];
     const rows = [
-      ['物资申领与消耗追溯 V1.2.8 · 月度汇总'],
+      ['物资申领与消耗追溯 V1.2.9 · 月度汇总'],
       ['月份', month],
       [],
       ['指标', '数值'],
@@ -605,12 +607,13 @@
             : '<span class="tag gray">已采购未到货</span>';
       const reviewerText = `${p.reviewerName || '未指定'} / ${p.reviewedBy || '—'}`;
       const approverText = `${p.approverName || (p.approvalMode === W.APPROVAL_MODE_REVIEW_ONLY ? '无需核准' : '未指定')} / ${p.approvedBy || '—'}`;
-      const oaCells = purchaseOaRowValues(p, mt, index + 1).map(value => `<td>${W.esc(value)}</td>`).join('');
-      return `<tr>${oaCells}<td>${W.esc(W.purchaseRequestSource(p))}</td><td>${approvalTag(status)}<br>${deliveryTag}</td><td>${W.fmtQty(arrived)}</td><td>${W.esc(reviewerText)}</td><td>${W.esc(approverText)}</td><td>${purchaseActionHtml(p)}</td></tr>`;
+      const oaCells = purchaseOaRowValues(p, mt, index + 1)
+        .map(value => `<td title="${W.esc(value)}"><div class="purchase-cell">${W.esc(value)}</div></td>`).join('');
+      return `<tr>${oaCells}<td>${W.esc(W.purchaseRequestSource(p))}</td><td>${approvalTag(status)}<br>${deliveryTag}</td><td>${W.fmtQty(arrived)}</td><td>${W.esc(reviewerText)}</td><td>${W.esc(approverText)}</td><td class="purchase-action-cell">${purchaseActionHtml(p)}</td></tr>`;
     }).join('') || `<tr><td colspan="40" class="empty">本月暂无采购记录</td></tr>`;
     const headerCells = [...OA_HEADERS, ...PURCHASE_SYSTEM_HEADERS]
-      .map(label => `<th style="white-space:normal;min-width:90px">${W.esc(label).replace(/\n/g, '<br>')}</th>`).join('');
-    pane.innerHTML = `<div class="card"><h3>🛒 采购台账
+      .map(label => `<th>${W.esc(label).replace(/\n/g, '<br>')}</th>`).join('');
+    pane.innerHTML = `<div class="card purchase-ledger-card"><h3>🛒 采购台账
       <span class="sp">
         <input type="month" id="buyMonth" value="${month === 'all' ? W.thisMonth() : month}">
         <select id="buyMat"><option value="">全部物料</option>${matOpts}</select>
@@ -621,7 +624,7 @@
       </span></h3>
       ${scopeNote}
       <p class="muted">采购流程按成员名单自动路由：两级审批为“待审核 → 待核准 → 已核准”，直接核准从“待核准”开始，仅审核在审核通过后完成。进入到货流程后按实际到货、签收和分发继续追溯。</p>
-      <div class="twrap"><table style="min-width:4200px"><thead><tr>${headerCells}</tr></thead><tbody>${rows}</tbody></table></div><input type="file" id="purchaseImpFile" accept=".xlsx,.csv" style="display:none"></div>`;
+      <div class="twrap purchase-ledger-scroll"><table class="purchase-ledger-table"><thead><tr>${headerCells}</tr></thead><tbody>${rows}</tbody></table></div><input type="file" id="purchaseImpFile" accept=".xlsx,.csv" style="display:none"></div>`;
     $('#buyMonth').onchange = e => { FILTER.buy = e.target.value || 'all'; W.renderAll(); };
     $('#buyMat').onchange = e => { FILTER.buyMat = e.target.value; W.renderAll(); };
     $('#buyAll').onclick = () => { FILTER.buy = 'all'; W.renderAll(); };
@@ -1322,7 +1325,7 @@
       if (x.reason === 'refused') return localHit
         ? '✗ 连不上 ' + where + '：连接被拒绝。本机直连也被拒 → 服务未启动。请在服务器电脑以管理员运行「一键启动_自动放行防火墙.bat」，然后本机浏览器访问 http://localhost:8082/api/health 自检（应返回 {"ok":true}）'
         : '✗ 连不上 ' + where + '：连接被拒绝。服务未启动或端口不对：① 确认服务器已启动且端口为 8082 ② 若服务器本机 localhost 能打开而这里被拒，多为地址写错（看「访问地址.txt」取当前 IP）' + fixed;
-      if (x.reason === 'badreply') return '✗ ' + where + ' 有响应但不是物资申领与消耗追溯 V1.2.8服务（核对地址与端口是否指向别的程序）' + fixed;
+      if (x.reason === 'badreply') return '✗ ' + where + ' 有响应但不是物资申领与消耗追溯 V1.2.9服务（核对地址与端口是否指向别的程序）' + fixed;
       return '✗ 连不上 ' + where + '（' + (x.detail || x.reason || 'HTTP 异常') + '）' + fixed;
     }
     /* 读取输入框地址：升级旧端口并把结果写回输入框（用户可见纠正） */
