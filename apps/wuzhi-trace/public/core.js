@@ -1,4 +1,4 @@
-/* 物资申领与消耗追溯 V1.2.4 — core.js：数据模型 / 派生计算 / 同步层 / Excel 读写 */
+/* 物资申领与消耗追溯 V1.2.5 — core.js：数据模型 / 派生计算 / 同步层 / Excel 读写 */
 'use strict';
 window.WZ = (function () {
   /* ---------------- 基础工具 ---------------- */
@@ -172,7 +172,7 @@ window.WZ = (function () {
   }
 
   /* ---------------- 同步层 ---------------- */
-  const SYNC = { mode: 'local', ver: 0, seq: 0, server: '', online: [], conflict: 0, es: null, pollT: null, pushT: null, autoT: null, connected: false, booting: true, admin: false, systemAdmin: false, memberId: '', scope: 'all', lastSyncAt: 0, lastError: null, pushing: false, adminKeySource: '', authMode: 'standalone' };
+  const SYNC = { mode: 'local', ver: 0, seq: 0, server: '', online: [], conflict: 0, es: null, pollT: null, pushT: null, autoT: null, connected: false, booting: true, admin: false, systemAdmin: false, memberId: '', scope: 'all', lastSyncAt: 0, lastError: null, pushing: false, adminKeySource: '', authMode: 'standalone', systemAdminNames: [] };
 
   /* 云端共享配置（与送测工作台同模式）：管理员口令存本机，随每个请求带给服务端校验 */
   const cloudCfg = { adminKey: '', auto: 1 };
@@ -717,6 +717,9 @@ window.WZ = (function () {
     SYNC.authMode = payload.authMode;
     const user = payload.user || {};
     SYNC.memberId = String(user.memberId || '');
+    if (Array.isArray(user.systemAdminNames)) {
+      SYNC.systemAdminNames = user.systemAdminNames.map(name => String(name || '').trim()).filter(Boolean);
+    }
     if (typeof user.admin === 'boolean') SYNC.admin = user.admin;
     if (typeof user.systemAdmin === 'boolean') SYNC.systemAdmin = user.systemAdmin;
     if (payload.authMode !== 'qnexus') return;
@@ -739,6 +742,9 @@ window.WZ = (function () {
     SYNC.adminKeySource = 'qnexus';
   }
   const isRole = r => ME.role === r;
+  function systemAdminLabel() {
+    return SYNC.systemAdminNames.length ? SYNC.systemAdminNames.join('、') : '系统管理员';
+  }
   const isMemberMatched = () => SYNC.authMode === 'qnexus' ? Boolean(ME.memberMatched) : Boolean(ME.memberId || ME.name);
   const isSystemAdmin = () => Boolean(SYNC.systemAdmin);
   const canManageMaterials = () => Boolean(SYNC.admin);
@@ -1706,7 +1712,7 @@ window.WZ = (function () {
     COLLS, ROLES, AREA_ROLES, OFFICE_ROLES, APPROVAL_PENDING, APPROVAL_WAITING, APPROVAL_APPROVED, APPROVAL_REJECTED, FIELDS,
     APPROVAL_MODE_TWO_STEP, APPROVAL_MODE_REVIEW_ONLY, APPROVAL_MODE_DIRECT_APPROVE, APPROVAL_MODE_LABELS,
     get REGIONS() { return REGIONS; }, get REGION_LABEL() { return REGION_LABEL; }, get DEPTS() { return DEPTS; }, saveOrgCfg,
-    state, get state$() { return state; }, SYNC, me, setMe, applyServerIdentity, isRole, isMemberMatched, isSystemAdmin, canManageMaterials, canManageMembers, canImportMaterials, canEditFlow, canCreatePurchase, canReviewPurchase, canApprovePurchase, canConfirm, canConfirmDispatch, roleCapabilities,
+    state, get state$() { return state; }, SYNC, me, setMe, applyServerIdentity, isRole, isMemberMatched, systemAdminLabel, isSystemAdmin, canManageMaterials, canManageMembers, canImportMaterials, canEditFlow, canCreatePurchase, canReviewPurchase, canApprovePurchase, canConfirm, canConfirmDispatch, roleCapabilities,
     currentMember, resolveApprovalRoute, submitterMemberFor, approvalRouteSnapshot,
     upsert, remove, get, list, logOp, saveState, saveLocal, wipeCloud, saveCloudCfg, markEdit, importMaterials,
     normalize, mergeStates, switchMode, updatePill, toast, onRender, renderAll, cloudCfg, cloudHeaders, upgradeLegacyPort, probeEx, autoDetect,

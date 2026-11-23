@@ -445,7 +445,7 @@ test('成员名单仅系统管理员可维护，隶属领用人必须绑定同�
     fullData: data,
     who: reviewer,
   });
-  assert.match(denied.join('\n'), /仅系统管理员武欣雨可维护/);
+  assert.match(denied.join('\n'), /仅系统管理员可维护/);
 
   const invalid = rec('m-bad', {
     name: '领用人丁', role: '隶属区域领用人', region: 'IPQC3', supervisorId: 'm-lead',

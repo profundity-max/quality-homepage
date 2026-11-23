@@ -1,4 +1,4 @@
-/* 物资申领与消耗追溯 V1.2.4 — views.js：视图 / 表单 / 签名板 / 导入导出 UI */
+/* 物资申领与消耗追溯 V1.2.5 — views.js：视图 / 表单 / 签名板 / 导入导出 UI */
 'use strict';
 (function () {
   const W = window.WZ;
@@ -61,8 +61,8 @@
           <label>所属区域<input value="${W.esc(W.REGION_LABEL[m.region] || m.region || '未配置')}" readonly></label>
           <label>上级<input value="${W.esc(m.supervisorName || '未配置')}" readonly></label>
         </div>
-        ${unmatched ? '<div class="note err"><b>未匹配成员名单，请联系管理员</b><br>当前账号可以查看数据，但不能提交、审批或签字。请管理员武欣雨在成员名单中补充品集账号并配置审批路由。</div>' : ''}
-        <p class="muted">该身份由品集登录态自动关联成员名单，不能在应用内修改。部门、角色、区域、上级和审批路由需要调整时，请联系管理员武欣雨。</p>
+        ${unmatched ? `<div class="note err"><b>未匹配成员名单，请联系管理员</b><br>当前账号可以查看数据，但不能提交、审批或签字。请管理员 ${W.esc(W.systemAdminLabel())} 在成员名单中补充品集账号并配置审批路由。</div>` : ''}
+        <p class="muted">该身份由品集登录态自动关联成员名单，不能在应用内修改。部门、角色、区域、上级和审批路由需要调整时，请联系管理员 ${W.esc(W.systemAdminLabel())}。</p>
       `, `<a class="btn" href="/apps">返回品集</a><button class="btn pri" onclick="closeModal()">关闭</button>`));
       return;
     }
@@ -122,7 +122,7 @@
       return `<tr><td>${W.esc(x.name)}</td><td>${W.esc(x.spec)}</td><td>${W.esc(x.unit)}</td><td>${W.fmtQty(x.recvTotal)}</td><td>${W.fmtQty(x.usedTotal)}</td><td class="${cls}"><b>${W.fmtQty(x.remain)}</b> ${alertTag}</td><td>${daysTxt}${x.rate ? `<span class="muted">（日均 ${W.fmtQty(x.rate)}${x.sample ? '·样本少' : ''}）</span>` : ''}</td></tr>`;
     }).join('') || `<tr><td colspan="7" class="empty">暂无物料，请先在「物料档案」建立档案</td></tr>`;
     pane.innerHTML = `
-      ${W.SYNC.authMode === 'qnexus' && !W.isMemberMatched() ? '<div class="card"><div class="note err"><b>未匹配成员名单，请联系管理员</b><br>当前品集账号可以查看数据，但不能提交采购、审批或领用签字。请联系管理员武欣雨补建成员档案并配置审批路由。</div></div>' : ''}
+      ${W.SYNC.authMode === 'qnexus' && !W.isMemberMatched() ? `<div class="card"><div class="note err"><b>未匹配成员名单，请联系管理员</b><br>当前品集账号可以查看数据，但不能提交采购、审批或领用签字。请联系管理员 ${W.esc(W.systemAdminLabel())} 补建成员档案并配置审批路由。</div></div>` : ''}
       <div class="card"><h3>📊 月度汇总
         <span class="sp"><input type="month" id="dashMonth" value="${selectedMonth}"></span>
         <span><button class="btn sm" id="dashExport">导出 Excel</button></span>
@@ -236,7 +236,7 @@
         Object.values(s.sources).reduce((sum, item) => sum + item.pendingApproval, 0)],
     ];
     const rows = [
-      ['物资申领与消耗追溯 V1.2.4 · 月度汇总'],
+      ['物资申领与消耗追溯 V1.2.5 · 月度汇总'],
       ['月份', month],
       [],
       ['指标', '数值'],
@@ -499,7 +499,7 @@
         <label style="flex:1">申请部门<select id="fDept" style="width:100%"><option value="">— 未选择 —</option>${W.DEPTS.map(d0 => `<option ${p.dept === d0 ? 'selected' : ''}>${W.esc(d0)}</option>`).join('')}</select></label>
         <label style="flex:1">请购来源<select id="fSource">${['OA请购','行政请购','其他'].map(source => `<option ${W.purchaseRequestSource(p) === source ? 'selected' : ''}>${source}</option>`).join('')}</select></label>
       </div>
-      <div class="note ${route.ok ? 'info' : 'err'}"><b>${route.ok ? '自动审批路由' : '无法提交'}</b><br>${W.esc(routeText)}${route.ok ? `<br><span class="muted">提交后按当前成员名单固化到采购单，后续调整名单不影响在途单据。</span>` : '<br><span class="muted">请管理员武欣雨在成员名单中补充本人的审核人 / 核准人配置。</span>'}</div>
+      <div class="note ${route.ok ? 'info' : 'err'}"><b>${route.ok ? '自动审批路由' : '无法提交'}</b><br>${W.esc(routeText)}${route.ok ? `<br><span class="muted">提交后按当前成员名单固化到采购单，后续调整名单不影响在途单据。</span>` : `<br><span class="muted">请管理员 ${W.esc(W.systemAdminLabel())} 在成员名单中补充本人的审核人 / 核准人配置。</span>`}</div>
       <p class="muted">${route.ok && route.initialStatus === W.APPROVAL_WAITING ? '保存后直接进入「待核准」；核准完成后才能登记到货。' : '保存后采购单进入「待审核」；审核通过后按审批模式进入「待核准」或直接完成，已核准后才能登记到货。'}</p>
     `, `<button class="btn" onclick="closeModal()">取消</button><button class="btn pri" id="fSave">${route.ok && route.initialStatus === W.APPROVAL_WAITING ? '保存并提交核准' : '保存并提交审核'}</button>`));
     $('#fSave').onclick = () => {
@@ -854,7 +854,7 @@
             '<div style="margin-top:4px">修复后操作：在口令框内点一下再点别处（或回车）→ 框下方<b>当场显示校验结果</b>；出现「✓ 校验通过」后点「保存并连接」，状态条出现「身份：管理员」即成功。</div></div>';
         }
         else {
-          t += '<div class="note info">当前不是管理员：物料档案只读；成员名单仅系统管理员武欣雨可维护。采购审批按成员名单中的提交人路由，只有被指定的审核人 / 核准人能处理对应待办。</div>';
+          t += '<div class="note info">当前不是管理员：物料档案只读；成员名单仅系统管理员可维护。采购审批按成员名单中的提交人路由，只有被指定的审核人 / 核准人能处理对应待办。</div>';
         }
       }
       if (S.mode === 'server' && !S.lastSyncAt && S.lastError) {
@@ -892,7 +892,7 @@
       <div class="card"><h3>👤 我的身份</h3>
         <p>当前：<b>${W.esc(m.name || '未设置')}</b> · ${W.esc(m.role || '—')}${m.dept ? ' · ' + W.esc(m.dept) : ''}${m.region ? ' · ' + W.esc(W.REGION_LABEL[m.region]) : ''} <button class="btn sm" id="btnMe">切换身份</button></p>
       </div>
-      <div class="card"><h3>👥 成员名单 <span class="sp">${canManageMembers ? '<button class="btn pri sm" id="btnAddMember">＋ 添加成员</button>' : '<span class="muted">仅系统管理员武欣雨可维护</span>'}</span></h3>
+      <div class="card"><h3>👥 成员名单 <span class="sp">${canManageMembers ? '<button class="btn pri sm" id="btnAddMember">＋ 添加成员</button>' : '<span class="muted">仅系统管理员可维护</span>'}</span></h3>
         <div class="twrap"><table><thead><tr><th>姓名</th><th>品集账号</th><th>部门</th><th>角色</th><th>区域</th><th>上级</th><th>状态</th><th>录入人</th>${canManageMembers ? '<th>操作</th>' : ''}</tr></thead><tbody>${memberRows}</tbody></table></div></div>
       <div class="card"><h3>🏢 部门与区域 <span class="sp muted">全公司部门 / 全部区域 · 表单下拉、仪表盘、筛选器的取值来源</span></h3>
         ${canManageMembers ? `
@@ -916,7 +916,7 @@
         <div id="syncArea" class="muted">${syncResult || syncDefaultHtml()}</div>
       </div>
       <div class="card"><h3>🔗 云端共享（多人实时） <span class="sp muted">同一地址 · 口令鉴权 · 服务端权限校验 · 实时同步（需服务端在线）</span></h3>
-        <p class="muted" style="margin-bottom:8px">采购由申请人提交后按成员名单自动路由：<b>指定审核人</b>执行一级审核，<b>指定核准人</b>执行最终核准；直接核准会跳过审核，仅审核在审核通过后完成。<b>审核员/核准员</b>负责到货、签收和分发；<b>区域领用人</b>确认本区域领用，<b>隶属区域领用人</b>只确认分配给本人的单据；成员名单仅系统管理员武欣雨维护。</p>
+        <p class="muted" style="margin-bottom:8px">采购由申请人提交后按成员名单自动路由：<b>指定审核人</b>执行一级审核，<b>指定核准人</b>执行最终核准；直接核准会跳过审核，仅审核在审核通过后完成。<b>审核员/核准员</b>负责到货、签收和分发；<b>区域领用人</b>确认本区域领用，<b>隶属区域领用人</b>只确认分配给本人的单据；成员名单仅系统管理员（${W.esc(W.systemAdminLabel())}）维护。</p>
         <div class="frow">
           <label style="flex:2 1 220px">服务地址<input id="srvAddr" value="${W.esc(W.SYNC.server)}" placeholder="http://192.168.x.x:8082 或站点网址"></label>
           <label style="flex:1 1 170px">管理员口令<span style="display:flex;gap:4px"><input id="admKey" type="password" value="${W.esc(W.cloudCfg.adminKey)}" placeholder="仅管理员填写" style="flex:1;min-width:0"><button class="btn sm" id="btnEye" title="显示/隐藏口令原文（核对大小写与空格）" style="padding:6px 9px">👁</button></span></label>
@@ -942,7 +942,7 @@
         <div id="connInfo" style="${connStyle()}">${cloudStatusHtml()}</div>
         <div id="teamBox" style="margin-top:12px">${teamTableHtml()}</div>
         <p class="muted" id="shareLine" style="margin-top:10px">${shareHtml()}</p>
-        <p class="muted">权限口径：采购申请人提交后按名单自动进入待审核或待核准；只有被指定的审核人 / 核准人能处理对应待办，驳回必须填写原因并写入操作日志；审核员/核准员负责到货、签收和分发；<b>区域领用人</b>确认本区域单据，<b>隶属区域领用人</b>只确认分配给本人的单据；成员名单仅系统管理员武欣雨维护。已核准采购不能由普通用户直接修改。</p></div>
+        <p class="muted">权限口径：采购申请人提交后按名单自动进入待审核或待核准；只有被指定的审核人 / 核准人能处理对应待办，驳回必须填写原因并写入操作日志；审核员/核准员负责到货、签收和分发；<b>区域领用人</b>确认本区域单据，<b>隶属区域领用人</b>只确认分配给本人的单据；成员名单仅系统管理员（${W.esc(W.systemAdminLabel())}）维护。已核准采购不能由普通用户直接修改。</p></div>
       <div class="card"><h3>💾 数据备份与恢复 <span class="sp muted">自动备份在服务器 data/backup/ 目录</span></h3>
         <div class="frow">
           <button class="btn" id="btnBackup">下载整库备份（store.json）</button>
@@ -971,7 +971,7 @@
         localCard.insertAdjacentHTML('beforebegin', `<div class="card"><h3>🔐 品集身份</h3>
           <p><b>${W.esc(m.name || '')}</b>${m.username ? ' · ' + W.esc(m.username) : ''} · ${W.esc(m.role || '')}${m.dept ? ' · ' + W.esc(m.dept) : ''}${m.region ? ' · ' + W.esc(W.REGION_LABEL[m.region] || m.region) : ''}</p>
           <p class="muted">部门、角色、区域、上级和审批路由均从成员名单自动读取，个人不能在应用内修改。</p>
-          ${m.memberMatched ? `<p>上级：<b>${W.esc(m.supervisorName || '未配置')}</b></p>` : '<div class="note err"><b>未匹配成员名单，请联系管理员</b><br>当前账号只能查看数据，不能提交采购、审批或领用签字。请联系管理员武欣雨补建成员档案。</div>'}
+          ${m.memberMatched ? `<p>上级：<b>${W.esc(m.supervisorName || '未配置')}</b></p>` : `<div class="note err"><b>未匹配成员名单，请联系管理员</b><br>当前账号只能查看数据，不能提交采购、审批或领用签字。请联系管理员 ${W.esc(W.systemAdminLabel())} 补建成员档案。</div>`}
           <p>${m.memberMatched ? (W.SYNC.systemAdmin ? '✅ 当前为系统管理员，可维护成员名单及全部业务。' : isAdmin ? '✅ 当前具备管理员权限，可维护物料并处理审批业务。' : '当前为业务角色：按角色提交、审核、核准或确认相关单据。') : '待管理员完成成员名单匹配后才能办理业务。'}</p>
           <a class="btn" href="/apps">返回品集应用中心</a></div>`);
       }
@@ -1087,7 +1087,7 @@
       if (x.reason === 'refused') return localHit
         ? '✗ 连不上 ' + where + '：连接被拒绝。本机直连也被拒 → 服务未启动。请在服务器电脑以管理员运行「一键启动_自动放行防火墙.bat」，然后本机浏览器访问 http://localhost:8082/api/health 自检（应返回 {"ok":true}）'
         : '✗ 连不上 ' + where + '：连接被拒绝。服务未启动或端口不对：① 确认服务器已启动且端口为 8082 ② 若服务器本机 localhost 能打开而这里被拒，多为地址写错（看「访问地址.txt」取当前 IP）' + fixed;
-      if (x.reason === 'badreply') return '✗ ' + where + ' 有响应但不是物资申领与消耗追溯 V1.2.4服务（核对地址与端口是否指向别的程序）' + fixed;
+      if (x.reason === 'badreply') return '✗ ' + where + ' 有响应但不是物资申领与消耗追溯 V1.2.5服务（核对地址与端口是否指向别的程序）' + fixed;
       return '✗ 连不上 ' + where + '（' + (x.detail || x.reason || 'HTTP 异常') + '）' + fixed;
     }
     /* 读取输入框地址：升级旧端口并把结果写回输入框（用户可见纠正） */
@@ -1230,7 +1230,7 @@
   }
 
   function memberForm(id) {
-    if (!W.canManageMembers()) { W.toast('成员名单仅系统管理员武欣雨可维护'); return; }
+    if (!W.canManageMembers()) { W.toast('成员名单仅系统管理员可维护'); return; }
     if (id) W.markEdit('members', id);
     const x = id ? W.get('members', id) : {
       name: '', username: '', role: '区域领用人', region: '', dept: '', enabled: true,
@@ -1592,7 +1592,7 @@
   }
   function importMembers() {
     const { rows, mapping } = impSession;
-    if (!W.canManageMembers()) { W.toast('成员名单导入仅系统管理员武欣雨可执行'); return; }
+    if (!W.canManageMembers()) { W.toast('成员名单导入仅系统管理员可执行'); return; }
     if (mapping.name == null) { W.toast('姓名列必须映射'); return; }
     const gv = (row, field) => mapping[field] != null
       ? String(row[mapping[field]] == null ? '' : row[mapping[field]]).trim()

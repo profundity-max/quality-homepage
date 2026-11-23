@@ -34,7 +34,7 @@ function resolveRuntime(environment = process.env) {
     keepBackups: Number(environment.WZ_KEEP_BACKUPS || config.keepBackups || 200),
     port: Number(environment.PORT || environment.WZ_PORT || config.port || 8082),
     ssoEnabled: environment.QNEXUS_SSO === '1',
-    systemAdminNames: environment.WZ_SYSTEM_ADMIN_NAMES || '武欣雨',
+    systemAdminNames: environment.WZ_SYSTEM_ADMIN_NAMES || '武欣雨,熊光芬',
     title: config.title || '物资申领与消耗追溯',
     token: environment.WZ_SHARE_TOKEN || config.token || '',
   };

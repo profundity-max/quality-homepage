@@ -409,7 +409,7 @@ function validatePermissions({ previousData, nextData, fullData, who }) {
       if (!after || sameRecord(before, after)) continue;
 
       if (collection === 'members' && !canMaintainMembers(who)) {
-        violations.push(`${collection}/${id}：成员名单仅系统管理员武欣雨可维护`);
+        violations.push(`${collection}/${id}：成员名单仅系统管理员可维护`);
         continue;
       }
       if (ADMIN_ONLY_COLLECTIONS.has(collection) && !admin) {

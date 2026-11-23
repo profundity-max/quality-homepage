@@ -64,6 +64,25 @@ test('武欣雨使用品集编辑者账号时获得系统管理员权限', () =>
   assert.equal(identity.systemAdmin, true);
 });
 
+test('熊光芬与武欣雨同步获得系统管理员权限', () => {
+  const identity = resolveQnexusIdentity(
+    request(headers('熊光芬', '熊光芬', 'reader')),
+    {
+      members: {
+        xiong: {
+          id: 'xiong', name: '熊光芬', username: '熊光芬', role: '区域领用人',
+          region: 'IPQC2', dept: '品质部', enabled: true,
+        },
+      },
+    },
+  );
+  assert.equal(identity.role, '区域领用人');
+  assert.equal(identity.region, 'IPQC2');
+  assert.equal(identity.memberMatched, true);
+  assert.equal(identity.admin, true);
+  assert.equal(identity.systemAdmin, true);
+});
+
 test('品集管理员默认映射核准员，但非武欣雨不获得成员维护权限', () => {
   const identity = resolveQnexusIdentity(
     request(headers('admin.user', '管理员', 'administrator')),

@@ -18,6 +18,7 @@ const {
 const { validateMutation } = require('../domain/business-rules');
 const {
   createIdentityResolver,
+  normalizeAdminNames,
   normKey,
   publicIdentity,
   safeEqual,
@@ -65,11 +66,12 @@ function createServer({
   adminKey,
   adminKeySource = 'default',
   ssoEnabled = false,
-  systemAdminNames = '武欣雨',
+  systemAdminNames = '武欣雨,熊光芬',
   keepBackups = 200,
   now = () => Date.now(),
 }) {
   const repository = createStoreRepository({ dataDir, keepBackups });
+  const systemAdministrators = normalizeAdminNames(systemAdminNames);
   const build = createBuildFingerprint(publicDir);
   const bootId = crypto.randomBytes(4).toString('hex');
   const sseClients = new Map();
@@ -80,7 +82,7 @@ function createServer({
   const resolveIdentity = createIdentityResolver({
     ssoEnabled,
     adminKey,
-    adminNames: systemAdminNames,
+    adminNames: systemAdministrators,
     dataProvider: () => state.data,
   });
 
@@ -182,6 +184,7 @@ function createServer({
   function userPayload(identity) {
     return {
       ...publicIdentity(identity),
+      systemAdminNames: systemAdministrators,
       authMode: ssoEnabled ? 'qnexus' : 'standalone',
     };
   }

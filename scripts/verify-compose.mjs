@@ -64,7 +64,7 @@ assert(
 );
 assert(
   production.services["wuzhi-trace"].environment.WZ_SYSTEM_ADMIN_NAMES ===
-    "武欣雨",
+    "武欣雨,熊光芬",
   "Material trace member maintenance must be bound to the named system administrator.",
 );
 assert(

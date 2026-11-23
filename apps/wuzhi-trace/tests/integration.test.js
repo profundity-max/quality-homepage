@@ -51,7 +51,7 @@ function op(collection, id, fields, extra = {}) {
 function qnexusHeaders(username, displayName, role) {
   return {
     'content-type': 'application/json',
-    'x-q-nexus-subject': `subject-${username}`,
+    'x-q-nexus-subject': `subject-${Buffer.from(username).toString('hex')}`,
     'x-q-nexus-username-b64': Buffer.from(username).toString('base64url'),
     'x-q-nexus-display-name-b64': Buffer.from(displayName).toString('base64url'),
     'x-q-nexus-role': role,
@@ -306,7 +306,17 @@ test('品集编辑者武欣雨获得系统管理员身份并可维护成员名�
       name: '越权成员', role: '区域领用人', region: 'OQC', enabled: true,
     }),
   ], reviewerHeaders);
-  assert.match(result.body.rejected[0].reason, /仅系统管理员武欣雨可维护/);
+  assert.match(result.body.rejected[0].reason, /仅系统管理员可维护/);
+
+  const xiongHeaders = qnexusHeaders('熊光芬', '熊光芬', 'reader');
+  result = await write(base, [
+    op('members', 'm-xiong-created', {
+      name: '熊光芬测试成员', username: 'xiong.test', role: '区域领用人', region: 'IPQC2', enabled: true,
+    }),
+  ], xiongHeaders);
+  assert.equal(result.body.rejected.length, 0, JSON.stringify(result.body.rejected));
+  assert.equal(result.body.user.systemAdmin, true);
+  assert.deepEqual(result.body.user.systemAdminNames, ['武欣雨', '熊光芬']);
 });
 
 test('品集身份自动关联成员信息，并按提交人固化审核与直接核准路由', async (t) => {

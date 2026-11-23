@@ -13,7 +13,7 @@ const VALID_BUSINESS_ROLES = new Set([
   '区域领用人',
   '隶属区域领用人',
 ]);
-const DEFAULT_SYSTEM_ADMIN_NAMES = ['武欣雨'];
+const DEFAULT_SYSTEM_ADMIN_NAMES = ['武欣雨', '熊光芬'];
 
 function normKey(value) {
   return String(value == null ? '' : value)
