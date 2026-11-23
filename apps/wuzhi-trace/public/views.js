@@ -1,4 +1,4 @@
-/* 物资申领与消耗追溯 V1.2.9 — views.js：视图 / 表单 / 签名板 / 导入导出 UI */
+/* 物资申领与消耗追溯 V1.2.10 — views.js：视图 / 表单 / 签名板 / 导入导出 UI */
 'use strict';
 (function () {
   const W = window.WZ;
@@ -238,7 +238,7 @@
         Object.values(s.sources).reduce((sum, item) => sum + item.pendingApproval, 0)],
     ];
     const rows = [
-      ['物资申领与消耗追溯 V1.2.9 · 月度汇总'],
+      ['物资申领与消耗追溯 V1.2.10 · 月度汇总'],
       ['月份', month],
       [],
       ['指标', '数值'],
@@ -340,7 +340,42 @@
     '申请原因（用途）及数量逻辑\n（数量多的需要提供计算逻辑）',
     '预算名录                   （部门费用/设备预算/模治具）', '费用类别', '是否客户付费', 'BPM确认', '是否在预算内', '部门备注超预算原因'];
 
-  const PURCHASE_SYSTEM_HEADERS = ['请购来源', '审批状态', '已到货数量', '审核人（应/实）', '核准人（应/实）', '操作'];
+  const OA_COLUMN_WIDTHS = [56, 92, 112, 100, 92, 100, 82, 104, 100, 100, 132, 132, 132, 190, 64, 82, 82, 82, 82, 104, 104, 92, 150, 108, 122, 112, 132, 210, 144, 104, 100, 88, 96, 160];
+  const OA_NUMBER_COLUMNS = new Set([0, 15, 16, 17, 18]);
+  const OA_DATE_COLUMNS = new Set([19, 20, 25]);
+  const OA_LONG_COLUMNS = new Set([7, 13, 22, 27, 33]);
+
+  const PURCHASE_SYSTEM_COLUMNS = [
+    { label: '请购来源', width: 94, kind: 'text' },
+    { label: '审批状态', width: 112, kind: 'status' },
+    { label: '已到货数量', width: 88, kind: 'num' },
+    { label: '审核人（应/实）', width: 134, kind: 'text' },
+    { label: '核准人（应/实）', width: 134, kind: 'text' },
+    { label: '操作', width: 240, kind: 'action' }
+  ];
+  const PURCHASE_SYSTEM_HEADERS = PURCHASE_SYSTEM_COLUMNS.map(column => column.label);
+
+  function purchaseColumnMeta() {
+    const oaColumns = OA_HEADERS.map((label, index) => ({
+      label,
+      width: OA_COLUMN_WIDTHS[index],
+      kind: OA_NUMBER_COLUMNS.has(index) ? 'num' : OA_DATE_COLUMNS.has(index) ? 'date' : 'text',
+      long: OA_LONG_COLUMNS.has(index),
+      sequence: index === 0
+    }));
+    return [...oaColumns, ...PURCHASE_SYSTEM_COLUMNS];
+  }
+
+  function purchaseColumnClass(column) {
+    const classes = ['purchase-col'];
+    if (column.kind === 'num') classes.push('purchase-num-cell');
+    if (column.kind === 'date') classes.push('purchase-date-cell');
+    if (column.kind === 'status') classes.push('purchase-status-cell');
+    if (column.kind === 'action') classes.push('purchase-action-cell');
+    if (column.sequence) classes.push('purchase-seq-col');
+    if (column.long) classes.push('purchase-long-cell');
+    return classes.join(' ');
+  }
 
   function purchaseOaRowValues(p, mt, sequence) {
     return [
@@ -565,19 +600,19 @@
     const status = W.purchaseApprovalStatus(p);
     const actions = [];
     if (canEditPurchase(p)) {
-      actions.push(`<button class="btn sm" data-edit="${p.id}">编辑</button>`);
-      actions.push(`<button class="btn sm danger" data-del="${p.id}">删除</button>`);
+      actions.push(`<button class="btn sm purchase-row-action" data-edit="${p.id}">编辑</button>`);
+      actions.push(`<button class="btn sm danger purchase-row-action" data-del="${p.id}">删除</button>`);
     }
     if (status === W.APPROVAL_PENDING && W.canReviewPurchase(p)) {
-      actions.push(`<button class="btn sm pri" data-review="${p.id}">审核</button>`);
-      actions.push(`<button class="btn sm danger" data-reject-review="${p.id}">驳回</button>`);
+      actions.push(`<button class="btn sm pri purchase-row-action" data-review="${p.id}">审核</button>`);
+      actions.push(`<button class="btn sm danger purchase-row-action" data-reject-review="${p.id}">驳回</button>`);
     }
     if (status === W.APPROVAL_WAITING && W.canApprovePurchase(p)) {
-      actions.push(`<button class="btn sm pri" data-approve="${p.id}">核准</button>`);
-      actions.push(`<button class="btn sm danger" data-reject-approve="${p.id}">驳回</button>`);
+      actions.push(`<button class="btn sm pri purchase-row-action" data-approve="${p.id}">核准</button>`);
+      actions.push(`<button class="btn sm danger purchase-row-action" data-reject-approve="${p.id}">驳回</button>`);
     }
     if (status === W.APPROVAL_REJECTED && String(p.by || '') === String(W.me().name || '')) {
-      actions.push(`<button class="btn sm" data-resubmit="${p.id}">重新提交</button>`);
+      actions.push(`<button class="btn sm purchase-row-action" data-resubmit="${p.id}">重新提交</button>`);
     }
     return actions.length ? actions.join(' ') : '<span class="muted">—</span>';
   }
@@ -592,6 +627,9 @@
       .filter(p => !q || (W.get('materials', p.mid) || {}).name === q)
       .sort((a, b) => String(b.date).localeCompare(String(a.date)));
     const sc = W.scopeInfo();
+    const purchaseColumns = purchaseColumnMeta();
+    const purchaseTableWidth = purchaseColumns.reduce((sum, column) => sum + column.width, 0);
+    const purchaseColgroup = `<colgroup>${purchaseColumns.map(column => `<col style="width:${column.width}px">`).join('')}</colgroup>`;
     const scopeNote = sc.mineOnly
       ? `<p class="muted" style="margin:-2px 0 8px">当前为<b>${W.esc(sc.role)}</b>身份：仅显示本人提交的采购单（${items.length} 条）。</p>`
       : '';
@@ -607,12 +645,14 @@
             : '<span class="tag gray">已采购未到货</span>';
       const reviewerText = `${p.reviewerName || '未指定'} / ${p.reviewedBy || '—'}`;
       const approverText = `${p.approverName || (p.approvalMode === W.APPROVAL_MODE_REVIEW_ONLY ? '无需核准' : '未指定')} / ${p.approvedBy || '—'}`;
-      const oaCells = purchaseOaRowValues(p, mt, index + 1)
-        .map(value => `<td title="${W.esc(value)}"><div class="purchase-cell">${W.esc(value)}</div></td>`).join('');
-      return `<tr>${oaCells}<td>${W.esc(W.purchaseRequestSource(p))}</td><td>${approvalTag(status)}<br>${deliveryTag}</td><td>${W.fmtQty(arrived)}</td><td>${W.esc(reviewerText)}</td><td>${W.esc(approverText)}</td><td class="purchase-action-cell">${purchaseActionHtml(p)}</td></tr>`;
-    }).join('') || `<tr><td colspan="40" class="empty">本月暂无采购记录</td></tr>`;
-    const headerCells = [...OA_HEADERS, ...PURCHASE_SYSTEM_HEADERS]
-      .map(label => `<th>${W.esc(label).replace(/\n/g, '<br>')}</th>`).join('');
+      const oaCells = purchaseOaRowValues(p, mt, index + 1).map((value, columnIndex) => {
+        const column = purchaseColumns[columnIndex];
+        return `<td class="${purchaseColumnClass(column)}" title="${W.esc(value)}"><div class="purchase-cell">${W.esc(value)}</div></td>`;
+      }).join('');
+      return `<tr>${oaCells}<td class="purchase-col"><div class="purchase-cell">${W.esc(W.purchaseRequestSource(p))}</div></td><td class="purchase-col purchase-status-cell">${approvalTag(status)}<br>${deliveryTag}</td><td class="purchase-col purchase-num-cell">${W.fmtQty(arrived)}</td><td class="purchase-col"><div class="purchase-cell">${W.esc(reviewerText)}</div></td><td class="purchase-col"><div class="purchase-cell">${W.esc(approverText)}</div></td><td class="purchase-col purchase-action-cell">${purchaseActionHtml(p)}</td></tr>`;
+    }).join('') || `<tr><td colspan="${purchaseColumns.length}" class="empty">本月暂无采购记录</td></tr>`;
+    const headerCells = purchaseColumns
+      .map(column => `<th class="${purchaseColumnClass(column)}">${W.esc(column.label).replace(/\n/g, '<br>')}</th>`).join('');
     pane.innerHTML = `<div class="card purchase-ledger-card"><h3>🛒 采购台账
       <span class="sp">
         <input type="month" id="buyMonth" value="${month === 'all' ? W.thisMonth() : month}">
@@ -624,7 +664,7 @@
       </span></h3>
       ${scopeNote}
       <p class="muted">采购流程按成员名单自动路由：两级审批为“待审核 → 待核准 → 已核准”，直接核准从“待核准”开始，仅审核在审核通过后完成。进入到货流程后按实际到货、签收和分发继续追溯。</p>
-      <div class="twrap purchase-ledger-scroll"><table class="purchase-ledger-table"><thead><tr>${headerCells}</tr></thead><tbody>${rows}</tbody></table></div><input type="file" id="purchaseImpFile" accept=".xlsx,.csv" style="display:none"></div>`;
+      <div class="twrap purchase-ledger-scroll"><table class="purchase-ledger-table" style="min-width:${purchaseTableWidth}px">${purchaseColgroup}<thead><tr>${headerCells}</tr></thead><tbody>${rows}</tbody></table></div><input type="file" id="purchaseImpFile" accept=".xlsx,.csv" style="display:none"></div>`;
     $('#buyMonth').onchange = e => { FILTER.buy = e.target.value || 'all'; W.renderAll(); };
     $('#buyMat').onchange = e => { FILTER.buyMat = e.target.value; W.renderAll(); };
     $('#buyAll').onclick = () => { FILTER.buy = 'all'; W.renderAll(); };
@@ -1325,7 +1365,7 @@
       if (x.reason === 'refused') return localHit
         ? '✗ 连不上 ' + where + '：连接被拒绝。本机直连也被拒 → 服务未启动。请在服务器电脑以管理员运行「一键启动_自动放行防火墙.bat」，然后本机浏览器访问 http://localhost:8082/api/health 自检（应返回 {"ok":true}）'
         : '✗ 连不上 ' + where + '：连接被拒绝。服务未启动或端口不对：① 确认服务器已启动且端口为 8082 ② 若服务器本机 localhost 能打开而这里被拒，多为地址写错（看「访问地址.txt」取当前 IP）' + fixed;
-      if (x.reason === 'badreply') return '✗ ' + where + ' 有响应但不是物资申领与消耗追溯 V1.2.9服务（核对地址与端口是否指向别的程序）' + fixed;
+      if (x.reason === 'badreply') return '✗ ' + where + ' 有响应但不是物资申领与消耗追溯 V1.2.10服务（核对地址与端口是否指向别的程序）' + fixed;
       return '✗ 连不上 ' + where + '（' + (x.detail || x.reason || 'HTTP 异常') + '）' + fixed;
     }
     /* 读取输入框地址：升级旧端口并把结果写回输入框（用户可见纠正） */
