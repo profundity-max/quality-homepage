@@ -1,4 +1,4 @@
-/* 物资申领与消耗追溯 V1.2.6 — views.js：视图 / 表单 / 签名板 / 导入导出 UI */
+/* 物资申领与消耗追溯 V1.2.7 — views.js：视图 / 表单 / 签名板 / 导入导出 UI */
 'use strict';
 (function () {
   const W = window.WZ;
@@ -236,7 +236,7 @@
         Object.values(s.sources).reduce((sum, item) => sum + item.pendingApproval, 0)],
     ];
     const rows = [
-      ['物资申领与消耗追溯 V1.2.6 · 月度汇总'],
+      ['物资申领与消耗追溯 V1.2.7 · 月度汇总'],
       ['月份', month],
       [],
       ['指标', '数值'],
@@ -328,8 +328,6 @@
   }
 
   /* ================= 采购台账 ================= */
-  const PURCHASE_MANUAL_HEADERS = ['存货编码', '物料名称', '规格型号', '单位', '物品分类', '采购数量', '采购日期', '用途说明', '使用去向', '申请部门', '请购来源'];
-
   async function purchaseExport(items, month) {
     const ledgerRows = items.map(p => {
       const mt = W.get('materials', p.mid);
@@ -349,18 +347,19 @@
     ];
     const instructions = [
       ['采购台账导入模板填写说明'],
-      ['1. 在“导入模板”工作表第2行开始填写，每行代表一张采购单；不要修改表头。'],
-      ['2. 存货编码或物料名称至少填写一项；两者都有时优先按存货编码匹配。'],
-      ['3. 未匹配到物料档案时，系统会按编码、名称、规格、单位、物品分类自动创建物料。'],
-      ['4. 采购数量必须大于0，采购日期必填，推荐格式 YYYY-MM-DD。'],
-      ['5. 请购来源填写 OA请购、行政请购或其他；留空时默认 OA请购。'],
-      ['6. 导入采购会按当前登录人的成员名单路由进入待审核或待核准，不会绕过审核与核准。'],
-      ['7. “采购台账”工作表是本次导出时的业务快照，用于查看和归档，不会被导入。'],
+      ['1. “导入模板”工作表与物料档案现有“OA请购提报 V1.0”模板一致，共34列；请保持表头不变。'],
+      ['2. 从第2行开始填写，每行代表一张OA请购单；存货编码或存货名称至少填写一项。'],
+      ['3. 系统读取存货编码、存货名称、规格型号、单位、物品类型、请购数量、申请时间、申请部门、申请原因和地点等字段。'],
+      ['4. 请购数量必须大于0，申请时间必填，推荐格式 YYYY-MM-DD。'],
+      ['5. OA模板没有“请购来源”列，因此导入后默认归为“OA请购”；行政请购和其他来源请在采购台账中编辑。'],
+      ['6. 未匹配到物料档案时，系统会按OA模板中的编码、名称、规格、单位、物品类型自动创建物料。'],
+      ['7. 导入采购会按当前登录人的成员名单路由进入待审核或待核准，不会绕过审核与核准。'],
+      ['8. “采购台账”工作表是本次导出时的业务快照，用于查看和归档，不会被导入。'],
     ];
     try {
       const bytes = await W.xlsxBuild([
         { name: '采购台账', rows: [ledgerHeaders, ...ledgerRows] },
-        { name: '导入模板', rows: [PURCHASE_MANUAL_HEADERS] },
+        { name: '导入模板', rows: [OA_HEADERS] },
         { name: '填写说明', rows: instructions }
       ]);
       const scope = month === 'all' ? '全部月份' : month;
@@ -1243,7 +1242,7 @@
       if (x.reason === 'refused') return localHit
         ? '✗ 连不上 ' + where + '：连接被拒绝。本机直连也被拒 → 服务未启动。请在服务器电脑以管理员运行「一键启动_自动放行防火墙.bat」，然后本机浏览器访问 http://localhost:8082/api/health 自检（应返回 {"ok":true}）'
         : '✗ 连不上 ' + where + '：连接被拒绝。服务未启动或端口不对：① 确认服务器已启动且端口为 8082 ② 若服务器本机 localhost 能打开而这里被拒，多为地址写错（看「访问地址.txt」取当前 IP）' + fixed;
-      if (x.reason === 'badreply') return '✗ ' + where + ' 有响应但不是物资申领与消耗追溯 V1.2.6服务（核对地址与端口是否指向别的程序）' + fixed;
+      if (x.reason === 'badreply') return '✗ ' + where + ' 有响应但不是物资申领与消耗追溯 V1.2.7服务（核对地址与端口是否指向别的程序）' + fixed;
       return '✗ 连不上 ' + where + '（' + (x.detail || x.reason || 'HTTP 异常') + '）' + fixed;
     }
     /* 读取输入框地址：升级旧端口并把结果写回输入框（用户可见纠正） */
@@ -1608,7 +1607,7 @@
   }
   function templateRows(target) {
     if (target === 'materials') return [['存货编码', '存货名称', '规格型号', '单位', '物品分类', '安全库存', '描述（对物品详细解释）'], ['CL-000025', '无尘布', '9寸 100片/包', '包', '耗材', 20, 'IPQC 表面检查用']];
-    if (target === 'purchases') return [PURCHASE_MANUAL_HEADERS];
+    if (target === 'purchases') return [OA_HEADERS];
     if (target === 'arrivals') return [['存货编码', '存货名称', '实际到货数量', '到货日期'], ['CL-000025', '无尘布', 50, W.today()]];
     if (target === 'members') return [
       ['姓名', '品集账号', '业务角色', '所属区域', '所属部门', '上级区域领用人', '指定审核人', '指定核准人', '审批模式', '启用状态'],
@@ -2066,7 +2065,7 @@
   }
 
   /* ---------------- 接线 ---------------- */
-  W.testHooks = { templateRows, OA_HEADERS, PURCHASE_MANUAL_HEADERS };
+  W.testHooks = { templateRows, OA_HEADERS, purchaseTemplateHeaders: OA_HEADERS };
   document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => switchTab(b.dataset.tab));
   $('#meChip').onclick = showMeModal;
   $('#syncPill').onclick = () => { switchTab('settings'); };
