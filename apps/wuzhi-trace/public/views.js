@@ -1,4 +1,4 @@
-/* 物资申领与消耗追溯 V1.2.7 — views.js：视图 / 表单 / 签名板 / 导入导出 UI */
+/* 物资申领与消耗追溯 V1.2.8 — views.js：视图 / 表单 / 签名板 / 导入导出 UI */
 'use strict';
 (function () {
   const W = window.WZ;
@@ -236,7 +236,7 @@
         Object.values(s.sources).reduce((sum, item) => sum + item.pendingApproval, 0)],
     ];
     const rows = [
-      ['物资申领与消耗追溯 V1.2.7 · 月度汇总'],
+      ['物资申领与消耗追溯 V1.2.8 · 月度汇总'],
       ['月份', month],
       [],
       ['指标', '数值'],
@@ -328,23 +328,72 @@
   }
 
   /* ================= 采购台账 ================= */
+  /* OA请购提报模板 V1.0 的 34 列表头（与物料档案 OA 模板、附件请购申请一致） */
+  const OA_HEADERS = ['序号', '申请人', '申请部门', '申请课级单位', '部门主管', '项目', '项目阶段',
+    'Area\n详细工站', '制程\n（中文）', '物品类型', '存货编码', '存货名称', '规格型号',
+    '描述（对物品详细解释）', '单位', '线体需求', '现有数量', '请购数量', '单价', '申请时间', '需求时间',
+    '地点\n（一期/二期/三期）', '详细地点\n（哪个楼层，哪个位置）',
+    '工程客户是否批准', '工程客户批准DRI', '工程客户批准时间',
+    '物品分类\n（模治具/设备/耗材/备品备件/生产物料等）',
+    '申请原因（用途）及数量逻辑\n（数量多的需要提供计算逻辑）',
+    '预算名录                   （部门费用/设备预算/模治具）', '费用类别', '是否客户付费', 'BPM确认', '是否在预算内', '部门备注超预算原因'];
+
+  const PURCHASE_SYSTEM_HEADERS = ['请购来源', '审批状态', '已到货数量', '审核人（应/实）', '核准人（应/实）', '操作'];
+
+  function purchaseOaRowValues(p, mt, sequence) {
+    return [
+      sequence,
+      p.oaApplicant || p.by || '',
+      p.dept || '',
+      p.oaRequestUnit || '',
+      p.oaSupervisor || '',
+      p.project || '',
+      p.projectStage || '',
+      p.areaStation || '',
+      p.processName || '',
+      p.itemType || (mt ? mt.category : '') || '',
+      mt ? mt.code : '',
+      mt ? mt.name : '（已删物料）',
+      mt ? mt.spec : '',
+      p.description || (mt ? mt.note : '') || '',
+      mt ? mt.unit : '',
+      p.lineDemand || '',
+      p.currentQty || '',
+      p.qty,
+      p.unitPrice || '',
+      p.date || '',
+      p.requiredDate || '',
+      p.location || p.dest || '',
+      p.detailedLocation || '',
+      p.engineeringApproved || '',
+      p.engineeringDri || '',
+      p.engineeringApprovedAt || '',
+      p.itemCategory || (mt ? mt.category : '') || '',
+      p.purpose || '',
+      p.budgetList || '',
+      p.expenseCategory || '',
+      p.customerPaid || '',
+      p.bpmConfirmed || '',
+      p.withinBudget || '',
+      p.budgetNote || ''
+    ];
+  }
+
   async function purchaseExport(items, month) {
-    const ledgerRows = items.map(p => {
+    const ledgerRows = items.map((p, index) => {
       const mt = W.get('materials', p.mid);
       const arrived = W.arrivalsOf(p.id).reduce((sum, a) => sum + W.num(a.arrQty), 0);
       return [
-        p.id, p.date, mt ? mt.code : '', mt ? mt.name : '（已删物料）', mt ? mt.spec : '', mt ? mt.unit : '', mt ? mt.category : '',
-        W.purchaseRequestSource(p), p.qty, arrived, W.purchaseApprovalStatus(p), W.purchaseStatus(p),
-        p.purpose || '', p.dest || '', p.dept || '', p.by || '', W.APPROVAL_MODE_LABELS[p.approvalMode] || '',
-        p.reviewerName || '', p.approverName || '', p.reviewedBy || '', p.approvedBy || '',
-        p.reviewedAt || '', p.approvedAt || '', p.rejectionReason || ''
+        ...purchaseOaRowValues(p, mt, index + 1),
+        W.purchaseRequestSource(p),
+        W.purchaseApprovalStatus(p),
+        arrived,
+        `${p.reviewerName || '未指定'} / ${p.reviewedBy || '—'}`,
+        `${p.approverName || (p.approvalMode === W.APPROVAL_MODE_REVIEW_ONLY ? '无需核准' : '未指定')} / ${p.approvedBy || '—'}`,
+        ''
       ];
     });
-    const ledgerHeaders = [
-      '采购单ID', '采购日期', '存货编码', '物料名称', '规格型号', '单位', '物品分类', '请购来源',
-      '采购数量', '已到货数量', '审批状态', '到货状态', '用途说明', '使用去向', '申请部门', '申请人',
-      '审批模式', '指定审核人', '指定核准人', '实际审核人', '实际核准人', '审核时间', '核准时间', '驳回原因'
-    ];
+    const ledgerHeaders = [...OA_HEADERS, ...PURCHASE_SYSTEM_HEADERS];
     const instructions = [
       ['采购台账导入模板填写说明'],
       ['1. “导入模板”工作表与物料档案现有“OA请购提报 V1.0”模板一致，共34列；请保持表头不变。'],
@@ -413,14 +462,17 @@
         if (!requestSource) throw new Error(`请购来源「${sourceRaw}」无效，只能填写 OA请购、行政请购或其他`);
         const spec = gv('spec');
         const unit = gv('unit');
-        const category = gv('category');
+        const itemType = gv('itemType');
+        const itemCategory = gv('itemCategory');
+        const category = itemCategory || itemType || gv('category');
+        const description = gv('description');
         const materials = W.list('materials');
         let material = (code && materials.find(item => String(item.code || '').trim() === code))
           || (materialName && materials.find(item => String(item.name || '').trim() === materialName))
           || null;
         if (!material) {
           material = W.upsert('materials', {
-            code, name: materialName || code, spec, unit, category
+            code, name: materialName || code, spec, unit, category, note: description
           }, `采购导入自动创建物料：${materialName || code}`);
           result.warnings.push(`行${lineNo}：物料「${materialName || code}」不存在，已自动创建档案`);
         }
@@ -429,9 +481,34 @@
           qty,
           date,
           purpose: gv('purpose'),
-          dest: gv('dest'),
+          dest: gv('dest') || gv('location'),
           dept: gv('dept'),
           requestSource,
+          oaApplicant: gv('applicant') || W.me().name || '',
+          oaRequestUnit: gv('requestUnit'),
+          oaSupervisor: gv('supervisor'),
+          project: gv('project'),
+          projectStage: gv('projectStage'),
+          areaStation: gv('areaStation'),
+          processName: gv('processName'),
+          itemType,
+          description,
+          lineDemand: gv('lineDemand'),
+          currentQty: gv('currentQty'),
+          unitPrice: gv('unitPrice'),
+          requiredDate: gv('requiredDate') ? W.normDate(gv('requiredDate')) : '',
+          location: gv('location') || gv('dest'),
+          detailedLocation: gv('detailedLocation'),
+          engineeringApproved: gv('engineeringApproved'),
+          engineeringDri: gv('engineeringDri'),
+          engineeringApprovedAt: gv('engineeringApprovedAt') ? W.normDate(gv('engineeringApprovedAt')) : '',
+          itemCategory,
+          budgetList: gv('budgetList'),
+          expenseCategory: gv('expenseCategory'),
+          customerPaid: gv('customerPaid'),
+          bpmConfirmed: gv('bpmConfirmed'),
+          withinBudget: gv('withinBudget'),
+          budgetNote: gv('budgetNote'),
           ...W.approvalRouteSnapshot(route, W.currentMember()),
           approvalStatus: route.initialStatus
         }, `采购 Excel 导入：${materialName || code} ×${W.fmtQty(qty)}；自动路由 ${route.initialStatus}`);
@@ -517,7 +594,7 @@
       ? `<p class="muted" style="margin:-2px 0 8px">当前为<b>${W.esc(sc.role)}</b>身份：仅显示本人提交的采购单（${items.length} 条）。</p>`
       : '';
     const matOpts = W.list('materials').map(mt => `<option value="${W.esc(mt.name)}">${W.esc(mt.name)}</option>`).join('');
-    const rows = items.map(p => {
+    const rows = items.map((p, index) => {
       const mt = W.get('materials', p.mid);
       const status = W.purchaseApprovalStatus(p);
       const delivery = W.purchaseStatus(p);
@@ -526,10 +603,13 @@
         : delivery === '已到货' ? '<span class="tag green">已到货</span>'
           : delivery === '部分到货' ? '<span class="tag yellow">部分到货</span>'
             : '<span class="tag gray">已采购未到货</span>';
-      const reviewerText = p.reviewedBy || p.reviewerName || '—';
-      const approverText = p.approvedBy || p.approverName || (p.approvalMode === W.APPROVAL_MODE_REVIEW_ONLY ? '无需核准' : '—');
-      return `<tr><td>${W.esc(p.date)}</td><td>${W.esc(mt ? mt.name : '（已删物料）')}</td><td>${W.esc(mt ? mt.spec : '')}</td><td>${W.esc(W.purchaseRequestSource(p))}</td><td>${W.fmtQty(p.qty)}</td><td>${W.fmtQty(arrived)}</td><td>${approvalTag(status)}<br>${deliveryTag}</td><td>${W.esc(p.purpose)}</td><td>${W.esc(p.dest)}</td><td>${W.esc(p.dept || '—')}</td><td>${W.esc(p.by)}</td><td>${W.esc(reviewerText)}</td><td>${W.esc(approverText)}</td><td>${purchaseActionHtml(p)}</td></tr>`;
-    }).join('') || `<tr><td colspan="14" class="empty">本月暂无采购记录</td></tr>`;
+      const reviewerText = `${p.reviewerName || '未指定'} / ${p.reviewedBy || '—'}`;
+      const approverText = `${p.approverName || (p.approvalMode === W.APPROVAL_MODE_REVIEW_ONLY ? '无需核准' : '未指定')} / ${p.approvedBy || '—'}`;
+      const oaCells = purchaseOaRowValues(p, mt, index + 1).map(value => `<td>${W.esc(value)}</td>`).join('');
+      return `<tr>${oaCells}<td>${W.esc(W.purchaseRequestSource(p))}</td><td>${approvalTag(status)}<br>${deliveryTag}</td><td>${W.fmtQty(arrived)}</td><td>${W.esc(reviewerText)}</td><td>${W.esc(approverText)}</td><td>${purchaseActionHtml(p)}</td></tr>`;
+    }).join('') || `<tr><td colspan="40" class="empty">本月暂无采购记录</td></tr>`;
+    const headerCells = [...OA_HEADERS, ...PURCHASE_SYSTEM_HEADERS]
+      .map(label => `<th style="white-space:normal;min-width:90px">${W.esc(label).replace(/\n/g, '<br>')}</th>`).join('');
     pane.innerHTML = `<div class="card"><h3>🛒 采购台账
       <span class="sp">
         <input type="month" id="buyMonth" value="${month === 'all' ? W.thisMonth() : month}">
@@ -541,7 +621,7 @@
       </span></h3>
       ${scopeNote}
       <p class="muted">采购流程按成员名单自动路由：两级审批为“待审核 → 待核准 → 已核准”，直接核准从“待核准”开始，仅审核在审核通过后完成。进入到货流程后按实际到货、签收和分发继续追溯。</p>
-      <div class="twrap"><table><thead><tr><th>采购日期</th><th>物料</th><th>规格</th><th>请购来源</th><th>采购数量</th><th>已到货</th><th>状态</th><th>用途说明</th><th>使用去向</th><th>申请部门</th><th>申请人</th><th>审核人（应/实）</th><th>核准人（应/实）</th><th>操作</th></tr></thead><tbody>${rows}</tbody></table></div><input type="file" id="purchaseImpFile" accept=".xlsx,.csv" style="display:none"></div>`;
+      <div class="twrap"><table style="min-width:4200px"><thead><tr>${headerCells}</tr></thead><tbody>${rows}</tbody></table></div><input type="file" id="purchaseImpFile" accept=".xlsx,.csv" style="display:none"></div>`;
     $('#buyMonth').onchange = e => { FILTER.buy = e.target.value || 'all'; W.renderAll(); };
     $('#buyMat').onchange = e => { FILTER.buyMat = e.target.value; W.renderAll(); };
     $('#buyAll').onclick = () => { FILTER.buy = 'all'; W.renderAll(); };
@@ -1242,7 +1322,7 @@
       if (x.reason === 'refused') return localHit
         ? '✗ 连不上 ' + where + '：连接被拒绝。本机直连也被拒 → 服务未启动。请在服务器电脑以管理员运行「一键启动_自动放行防火墙.bat」，然后本机浏览器访问 http://localhost:8082/api/health 自检（应返回 {"ok":true}）'
         : '✗ 连不上 ' + where + '：连接被拒绝。服务未启动或端口不对：① 确认服务器已启动且端口为 8082 ② 若服务器本机 localhost 能打开而这里被拒，多为地址写错（看「访问地址.txt」取当前 IP）' + fixed;
-      if (x.reason === 'badreply') return '✗ ' + where + ' 有响应但不是物资申领与消耗追溯 V1.2.7服务（核对地址与端口是否指向别的程序）' + fixed;
+      if (x.reason === 'badreply') return '✗ ' + where + ' 有响应但不是物资申领与消耗追溯 V1.2.8服务（核对地址与端口是否指向别的程序）' + fixed;
       return '✗ 连不上 ' + where + '（' + (x.detail || x.reason || 'HTTP 异常') + '）' + fixed;
     }
     /* 读取输入框地址：升级旧端口并把结果写回输入框（用户可见纠正） */
@@ -1589,15 +1669,7 @@
   }
 
   /* ---------------- 模板 / 导入 ---------------- */
-  /* OA请购提报模板 V1.0 的 34 列表头（字段命名与换行保持与 OA 一致） */
-  const OA_HEADERS = ['序号', '申请人', '申请部门', '申请课级单位', '部门主管', '项目', '项目阶段',
-    'Area\n详细工站', '制程\n（中文）', '物品类型', '存货编码', '存货名称', '规格型号',
-    '描述（对物品详细解释）', '单位', '线体需求', '现有数量', '请购数量', '单价', '申请时间', '需求时间',
-    '地点\n（一期/二期/三期）', '详细地点\n（哪个楼层，哪个位置）',
-    '工程客户是否批准', '工程客户批准DRI', '工程客户批准时间',
-    '物品分类\n（模治具/设备/耗材/备品备件/生产物料等）',
-    '申请原因（用途）及数量逻辑\n（数量多的需要提供计算逻辑）',
-    '预算名录                   （部门费用/设备预算/模治具）', '费用类别', '是否客户付费', 'BPM确认', '是否在预算内', '部门备注超预算原因'];
+  /* OA请购提报模板 V1.0 示例行。 */
   function oaExampleRow() {
     return [1, '张三', '品质部', '品质一课', '李四', 'Jupiter', '量产', 'IPQC 2期 AOI', '自动光学检测', '耗材',
       'CL-000025', '无尘布', '9寸 100片/包', 'AOI 镜头与光源清洁用，无尘室级别', '包', 'L2 线体',

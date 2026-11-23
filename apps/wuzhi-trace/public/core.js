@@ -1,4 +1,4 @@
-/* 物资申领与消耗追溯 V1.2.7 — core.js：数据模型 / 派生计算 / 同步层 / Excel 读写 */
+/* 物资申领与消耗追溯 V1.2.8 — core.js：数据模型 / 派生计算 / 同步层 / Excel 读写 */
 'use strict';
 window.WZ = (function () {
   /* ---------------- 基础工具 ---------------- */
@@ -10,7 +10,12 @@ window.WZ = (function () {
     'reviewComment', 'approvedBy', 'approvedAt', 'approvalComment', 'rejectedBy',
     'rejectedAt', 'rejectionReason', 'claimantId', 'claimantName', 'approvalMode',
     'reviewerId', 'reviewerName', 'reviewerUsername', 'approverId', 'approverName',
-    'approverUsername', 'submitterMemberId', 'routeResolvedAt'];
+    'approverUsername', 'submitterMemberId', 'routeResolvedAt', 'oaApplicant', 'oaRequestUnit',
+    'oaSupervisor', 'project', 'projectStage', 'areaStation', 'processName', 'itemType',
+    'description', 'lineDemand', 'currentQty', 'unitPrice', 'requiredDate', 'location',
+    'detailedLocation', 'engineeringApproved', 'engineeringDri', 'engineeringApprovedAt',
+    'itemCategory', 'budgetList', 'expenseCategory', 'customerPaid', 'bpmConfirmed',
+    'withinBudget', 'budgetNote'];
   /* ---- 部门 / 区域：可配置清单（设置页维护，localStorage 持久化） ---- */
   const ORG_KEY = 'WZ_ORG_CFG';
   const DEFAULT_DEPTS = ['品质部', '生产部', '工程部', '设备部', '仓储部', '采购部', '计划部', '业务部', '研发部', '行政部', '人力资源部', '财务部', 'IT信息部'];
@@ -1546,17 +1551,42 @@ window.WZ = (function () {
       note: ['描述', '备注', '说明', '用途说明']
     },
     purchases: {
+      applicant: ['申请人'],
+      dept: ['申请部门', '请购部门', '部门'],
+      requestUnit: ['申请课级单位'],
+      supervisor: ['部门主管'],
+      project: ['项目'],
+      projectStage: ['项目阶段'],
+      areaStation: ['Area详细工站', 'Area 详细工站'],
+      processName: ['制程（中文）', '制程'],
+      itemType: ['物品类型'],
       code: ['存货编码', '物料编码', '编码'],
       materialName: ['存货名称', '物料名称', '名称', '品名', '物料'],
       spec: ['规格型号', '规格', '型号'],
+      description: ['描述（对物品详细解释）', '描述'],
       unit: ['单位', '计量单位'],
+      lineDemand: ['线体需求'],
+      currentQty: ['现有数量'],
+      qty: ['请购数量', '采购数量', '数量', '采购量'],
+      unitPrice: ['单价'],
+      date: ['申请时间', '采购日期', '日期'],
+      requiredDate: ['需求时间'],
+      location: ['地点（一期/二期/三期）', '地点'],
+      detailedLocation: ['详细地点（哪个楼层，哪个位置）', '详细地点'],
+      engineeringApproved: ['工程客户是否批准'],
+      engineeringDri: ['工程客户批准DRI'],
+      engineeringApprovedAt: ['工程客户批准时间'],
+      itemCategory: ['物品分类（模治具/设备/耗材/备品备件/生产物料等）', '物品分类'],
       category: ['物品分类', '物品类型', '分类'],
       requestSource: ['请购来源', '请购类型', '采购来源', '来源'],
-      qty: ['请购数量', '采购数量', '数量', '采购量'],
-      date: ['申请时间', '采购日期', '日期'],
       purpose: ['申请原因', '用途说明', '用途', '用途描述'],
       dest: ['使用去向', '地点', '去向', '使用目的'],
-      dept: ['申请部门', '请购部门', '部门']
+      budgetList: ['预算名录（部门费用/设备预算/模治具）', '预算名录'],
+      expenseCategory: ['费用类别'],
+      customerPaid: ['是否客户付费'],
+      bpmConfirmed: ['BPM确认'],
+      withinBudget: ['是否在预算内'],
+      budgetNote: ['部门备注超预算原因']
     },
     arrivals: {
       code: ['存货编码', '物料编码', '编码'],

@@ -21,6 +21,11 @@ const FIELDS = Object.freeze([
   'rejectedBy', 'rejectedAt', 'rejectionReason', 'claimantId', 'claimantName',
   'approvalMode', 'reviewerId', 'reviewerName', 'reviewerUsername',
   'approverId', 'approverName', 'approverUsername', 'submitterMemberId', 'routeResolvedAt',
+  'oaApplicant', 'oaRequestUnit', 'oaSupervisor', 'project', 'projectStage', 'areaStation',
+  'processName', 'itemType', 'description', 'lineDemand', 'currentQty', 'unitPrice',
+  'requiredDate', 'location', 'detailedLocation', 'engineeringApproved', 'engineeringDri',
+  'engineeringApprovedAt', 'itemCategory', 'budgetList', 'expenseCategory', 'customerPaid',
+  'bpmConfirmed', 'withinBudget', 'budgetNote',
 ]);
 
 function sortKeys(value) {
