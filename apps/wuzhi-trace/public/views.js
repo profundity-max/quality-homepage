@@ -1,4 +1,4 @@
-/* 物资申领与消耗追溯 V1.2.5 — views.js：视图 / 表单 / 签名板 / 导入导出 UI */
+/* 物资申领与消耗追溯 V1.2.6 — views.js：视图 / 表单 / 签名板 / 导入导出 UI */
 'use strict';
 (function () {
   const W = window.WZ;
@@ -236,7 +236,7 @@
         Object.values(s.sources).reduce((sum, item) => sum + item.pendingApproval, 0)],
     ];
     const rows = [
-      ['物资申领与消耗追溯 V1.2.5 · 月度汇总'],
+      ['物资申领与消耗追溯 V1.2.6 · 月度汇总'],
       ['月份', month],
       [],
       ['指标', '数值'],
@@ -328,6 +328,149 @@
   }
 
   /* ================= 采购台账 ================= */
+  const PURCHASE_MANUAL_HEADERS = ['存货编码', '物料名称', '规格型号', '单位', '物品分类', '采购数量', '采购日期', '用途说明', '使用去向', '申请部门', '请购来源'];
+
+  async function purchaseExport(items, month) {
+    const ledgerRows = items.map(p => {
+      const mt = W.get('materials', p.mid);
+      const arrived = W.arrivalsOf(p.id).reduce((sum, a) => sum + W.num(a.arrQty), 0);
+      return [
+        p.id, p.date, mt ? mt.code : '', mt ? mt.name : '（已删物料）', mt ? mt.spec : '', mt ? mt.unit : '', mt ? mt.category : '',
+        W.purchaseRequestSource(p), p.qty, arrived, W.purchaseApprovalStatus(p), W.purchaseStatus(p),
+        p.purpose || '', p.dest || '', p.dept || '', p.by || '', W.APPROVAL_MODE_LABELS[p.approvalMode] || '',
+        p.reviewerName || '', p.approverName || '', p.reviewedBy || '', p.approvedBy || '',
+        p.reviewedAt || '', p.approvedAt || '', p.rejectionReason || ''
+      ];
+    });
+    const ledgerHeaders = [
+      '采购单ID', '采购日期', '存货编码', '物料名称', '规格型号', '单位', '物品分类', '请购来源',
+      '采购数量', '已到货数量', '审批状态', '到货状态', '用途说明', '使用去向', '申请部门', '申请人',
+      '审批模式', '指定审核人', '指定核准人', '实际审核人', '实际核准人', '审核时间', '核准时间', '驳回原因'
+    ];
+    const instructions = [
+      ['采购台账导入模板填写说明'],
+      ['1. 在“导入模板”工作表第2行开始填写，每行代表一张采购单；不要修改表头。'],
+      ['2. 存货编码或物料名称至少填写一项；两者都有时优先按存货编码匹配。'],
+      ['3. 未匹配到物料档案时，系统会按编码、名称、规格、单位、物品分类自动创建物料。'],
+      ['4. 采购数量必须大于0，采购日期必填，推荐格式 YYYY-MM-DD。'],
+      ['5. 请购来源填写 OA请购、行政请购或其他；留空时默认 OA请购。'],
+      ['6. 导入采购会按当前登录人的成员名单路由进入待审核或待核准，不会绕过审核与核准。'],
+      ['7. “采购台账”工作表是本次导出时的业务快照，用于查看和归档，不会被导入。'],
+    ];
+    try {
+      const bytes = await W.xlsxBuild([
+        { name: '采购台账', rows: [ledgerHeaders, ...ledgerRows] },
+        { name: '导入模板', rows: [PURCHASE_MANUAL_HEADERS] },
+        { name: '填写说明', rows: instructions }
+      ]);
+      const scope = month === 'all' ? '全部月份' : month;
+      W.downloadBlob(bytes, `采购台账_${scope}_${W.today()}.xlsx`, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      W.logOp('导出', 'purchases', '', `导出采购台账（${scope}，${items.length}条）及导入模板`);
+      W.saveState();
+      W.toast('采购台账与导入模板已导出');
+    } catch (error) {
+      W.toast('导出失败：' + error.message);
+    }
+  }
+
+  function purchaseImportResult(result) {
+    openModal(modalShell('📥 采购 Excel 导入结果', `
+      <p>成功 <b class="tag green">${result.ok}</b> · 失败 <b class="tag ${result.fail ? 'red' : 'gray'}">${result.fail}</b> · 提示 <b class="tag ${result.warnings.length ? 'yellow' : 'gray'}">${result.warnings.length}</b></p>
+      <div class="twrap" style="max-height:300px;margin-top:8px">${[...result.warnings, ...result.errors].length
+        ? [...result.warnings, ...result.errors].map(message => `<div class="logline">${W.esc(message)}</div>`).join('')
+        : '<p class="empty">全部导入成功</p>'}</div>
+    `, `<button class="btn pri" onclick="closeModal()">完成</button>`));
+    W.renderAll();
+  }
+
+  function importPurchaseRows(rows, mapping) {
+    const route = W.resolveApprovalRoute();
+    if (!route.ok) return { ok: 0, fail: 0, warnings: [], errors: [route.message] };
+    const result = { ok: 0, fail: 0, warnings: [], errors: [] };
+    rows.forEach((row, index) => {
+      const lineNo = index + 2;
+      const gv = field => mapping[field] != null
+        ? String(row[mapping[field]] == null ? '' : row[mapping[field]]).trim()
+        : '';
+      try {
+        const code = gv('code');
+        const materialName = gv('materialName') || gv('name');
+        if (!code && !materialName) return;
+        if (materialName === '存货名称' || materialName === '物料名称') return;
+        const qty = W.num(gv('qty'));
+        if (qty <= 0) throw new Error('采购数量必须大于0');
+        const dateRaw = gv('date');
+        if (!dateRaw) throw new Error('采购日期不能为空');
+        const date = W.normDate(dateRaw);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error(`采购日期「${dateRaw}」格式无效`);
+        const sourceRaw = gv('requestSource');
+        const requestSource = !sourceRaw || /^OA/i.test(sourceRaw)
+          ? 'OA请购'
+          : sourceRaw.includes('行政')
+            ? '行政请购'
+            : sourceRaw === '其他'
+              ? '其他'
+              : '';
+        if (!requestSource) throw new Error(`请购来源「${sourceRaw}」无效，只能填写 OA请购、行政请购或其他`);
+        const spec = gv('spec');
+        const unit = gv('unit');
+        const category = gv('category');
+        const materials = W.list('materials');
+        let material = (code && materials.find(item => String(item.code || '').trim() === code))
+          || (materialName && materials.find(item => String(item.name || '').trim() === materialName))
+          || null;
+        if (!material) {
+          material = W.upsert('materials', {
+            code, name: materialName || code, spec, unit, category
+          }, `采购导入自动创建物料：${materialName || code}`);
+          result.warnings.push(`行${lineNo}：物料「${materialName || code}」不存在，已自动创建档案`);
+        }
+        W.upsert('purchases', {
+          mid: material.id,
+          qty,
+          date,
+          purpose: gv('purpose'),
+          dest: gv('dest'),
+          dept: gv('dept'),
+          requestSource,
+          ...W.approvalRouteSnapshot(route, W.currentMember()),
+          approvalStatus: route.initialStatus
+        }, `采购 Excel 导入：${materialName || code} ×${W.fmtQty(qty)}；自动路由 ${route.initialStatus}`);
+        result.ok += 1;
+      } catch (error) {
+        result.fail += 1;
+        result.errors.push(`行${lineNo}：${error.message}`);
+      }
+    });
+    return result;
+  }
+
+  async function purchaseImport(file) {
+    if (!W.canCreatePurchase()) { W.toast('当前身份不能导入采购单，请确认成员名单及审批路由'); return; }
+    let rows;
+    try {
+      if (/\.csv$/i.test(file.name)) rows = W.csvParse(await file.text());
+      else {
+        const sheets = await W.xlsxRead(new Uint8Array(await file.arrayBuffer()));
+        const preferred = sheets['导入模板'];
+        const first = Object.keys(sheets)[0];
+        rows = preferred || (first ? sheets[first] : null);
+      }
+    } catch (error) {
+      W.toast('文件解析失败：' + error.message);
+      return;
+    }
+    if (!rows || rows.length < 2) { W.toast('导入模板没有数据行，请在“导入模板”工作表第2行开始填写'); return; }
+    const headers = rows[0].map(value => String(value || '').trim());
+    const mapping = W.guessMapping(headers, 'purchases');
+    if (mapping.code == null && mapping.materialName == null) { W.toast('模板缺少“存货编码”或“物料名称”列'); return; }
+    if (mapping.qty == null) { W.toast('模板缺少“采购数量”列'); return; }
+    if (mapping.date == null) { W.toast('模板缺少“采购日期”列'); return; }
+    const result = importPurchaseRows(rows.slice(1), mapping);
+    purchaseImportResult(result);
+    W.toast(`采购导入完成：成功 ${result.ok}，失败 ${result.fail}`);
+  }
+
   function approvalTag(status) {
     if (status === W.APPROVAL_PENDING) return '<span class="tag yellow">待审核</span>';
     if (status === W.APPROVAL_WAITING) return '<span class="tag blue">待核准</span>';
@@ -393,14 +536,27 @@
         <input type="month" id="buyMonth" value="${month === 'all' ? W.thisMonth() : month}">
         <select id="buyMat"><option value="">全部物料</option>${matOpts}</select>
         <button class="btn sm" id="buyAll">全部月份</button>
+        <button class="btn sm" id="btnPurchaseExport">⬇ 导出 Excel</button>
+        ${canCreate ? '<button class="btn sm" id="btnPurchaseImport">⬆ 导入 Excel</button>' : ''}
         ${canCreate ? '<button class="btn pri sm" id="btnAddPurchase">＋ 采购登记</button>' : ''}
       </span></h3>
       ${scopeNote}
       <p class="muted">采购流程按成员名单自动路由：两级审批为“待审核 → 待核准 → 已核准”，直接核准从“待核准”开始，仅审核在审核通过后完成。进入到货流程后按实际到货、签收和分发继续追溯。</p>
-      <div class="twrap"><table><thead><tr><th>采购日期</th><th>物料</th><th>规格</th><th>请购来源</th><th>采购数量</th><th>已到货</th><th>状态</th><th>用途说明</th><th>使用去向</th><th>申请部门</th><th>申请人</th><th>审核人（应/实）</th><th>核准人（应/实）</th><th>操作</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+      <div class="twrap"><table><thead><tr><th>采购日期</th><th>物料</th><th>规格</th><th>请购来源</th><th>采购数量</th><th>已到货</th><th>状态</th><th>用途说明</th><th>使用去向</th><th>申请部门</th><th>申请人</th><th>审核人（应/实）</th><th>核准人（应/实）</th><th>操作</th></tr></thead><tbody>${rows}</tbody></table></div><input type="file" id="purchaseImpFile" accept=".xlsx,.csv" style="display:none"></div>`;
     $('#buyMonth').onchange = e => { FILTER.buy = e.target.value || 'all'; W.renderAll(); };
     $('#buyMat').onchange = e => { FILTER.buyMat = e.target.value; W.renderAll(); };
     $('#buyAll').onclick = () => { FILTER.buy = 'all'; W.renderAll(); };
+    $('#btnPurchaseExport').onclick = () => purchaseExport(items, month);
+    const purchaseImportButton = $('#btnPurchaseImport');
+    const purchaseImportFile = $('#purchaseImpFile');
+    if (purchaseImportButton && purchaseImportFile) {
+      purchaseImportButton.onclick = () => purchaseImportFile.click();
+      purchaseImportFile.onchange = e => {
+        const file = e.target.files && e.target.files[0];
+        if (file) purchaseImport(file).catch(error => W.toast('采购导入失败：' + error.message));
+        e.target.value = '';
+      };
+    }
     const add = $('#btnAddPurchase');
     if (add) add.onclick = () => purchaseForm(null);
     pane.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => purchaseForm(b.dataset.edit));
@@ -1087,7 +1243,7 @@
       if (x.reason === 'refused') return localHit
         ? '✗ 连不上 ' + where + '：连接被拒绝。本机直连也被拒 → 服务未启动。请在服务器电脑以管理员运行「一键启动_自动放行防火墙.bat」，然后本机浏览器访问 http://localhost:8082/api/health 自检（应返回 {"ok":true}）'
         : '✗ 连不上 ' + where + '：连接被拒绝。服务未启动或端口不对：① 确认服务器已启动且端口为 8082 ② 若服务器本机 localhost 能打开而这里被拒，多为地址写错（看「访问地址.txt」取当前 IP）' + fixed;
-      if (x.reason === 'badreply') return '✗ ' + where + ' 有响应但不是物资申领与消耗追溯 V1.2.5服务（核对地址与端口是否指向别的程序）' + fixed;
+      if (x.reason === 'badreply') return '✗ ' + where + ' 有响应但不是物资申领与消耗追溯 V1.2.6服务（核对地址与端口是否指向别的程序）' + fixed;
       return '✗ 连不上 ' + where + '（' + (x.detail || x.reason || 'HTTP 异常') + '）' + fixed;
     }
     /* 读取输入框地址：升级旧端口并把结果写回输入框（用户可见纠正） */
@@ -1452,7 +1608,7 @@
   }
   function templateRows(target) {
     if (target === 'materials') return [['存货编码', '存货名称', '规格型号', '单位', '物品分类', '安全库存', '描述（对物品详细解释）'], ['CL-000025', '无尘布', '9寸 100片/包', '包', '耗材', 20, 'IPQC 表面检查用']];
-    if (target === 'purchases') return [OA_HEADERS, oaExampleRow()];
+    if (target === 'purchases') return [PURCHASE_MANUAL_HEADERS];
     if (target === 'arrivals') return [['存货编码', '存货名称', '实际到货数量', '到货日期'], ['CL-000025', '无尘布', 50, W.today()]];
     if (target === 'members') return [
       ['姓名', '品集账号', '业务角色', '所属区域', '所属部门', '上级区域领用人', '指定审核人', '指定核准人', '审批模式', '启用状态'],
@@ -1779,10 +1935,17 @@
     const { target, rows, mapping } = impSession;
     if (target === 'members') { importMembers(); return; }
     if (target === 'materials') { await importMaterialRows(); return; }
+    if (target === 'purchases') {
+      if (mapping.code == null && mapping.materialName == null) { W.toast('模板缺少“存货编码”或“物料名称”列'); return; }
+      if (mapping.qty == null) { W.toast('模板缺少“采购数量”列'); return; }
+      if (mapping.date == null) { W.toast('模板缺少“采购日期”列'); return; }
+      const result = importPurchaseRows(rows, mapping);
+      purchaseImportResult(result);
+      W.toast(`采购导入完成：成功 ${result.ok}，失败 ${result.fail}`);
+      return;
+    }
     if (['arrivals', 'dispatches'].includes(target) && !W.SYNC.admin) { W.toast('历史到货/分发链路导入仅管理员可执行'); return; }
     if (mapping.name == null && mapping.materialName == null) { W.toast('物料名称列必须映射'); return; }
-    const purchaseRoute = target === 'purchases' ? W.resolveApprovalRoute() : null;
-    if (target === 'purchases' && !purchaseRoute.ok) { W.toast(purchaseRoute.message); return; }
     let ok = 0, fail = 0, warn = 0;
     const errs = [];
     rows.forEach((r, idx) => {
@@ -1803,15 +1966,6 @@
         }
         if (target === 'materials') {
           W.upsert('materials', { id: mt ? mt.id : undefined, code, name: matName || code, spec, unit, category, safe: W.num(gv('safe')), note: gv('note') }, `导入物料：${matName || code}`); ok++;
-        } else if (target === 'purchases') {
-          const qty = W.num(gv('qty'));
-          if (qty <= 0) throw new Error('请购数量无效');
-          W.upsert('purchases', {
-            mid: mt.id, qty, date: W.normDate(gv('date')) || W.today(), purpose: gv('purpose'),
-            dest: gv('dest'), dept: gv('dept'), requestSource: gv('requestSource') || 'OA请购',
-            ...W.approvalRouteSnapshot(purchaseRoute, W.currentMember()),
-            approvalStatus: purchaseRoute.initialStatus
-          }, `导入采购：${matName} ×${W.fmtQty(qty)}；自动路由 ${purchaseRoute.initialStatus}`); ok++;
         } else if (target === 'arrivals') {
           const qty = W.num(gv('arrQty'));
           if (qty <= 0) throw new Error('到货数量无效');
@@ -1912,7 +2066,7 @@
   }
 
   /* ---------------- 接线 ---------------- */
-  W.testHooks = { templateRows, OA_HEADERS };
+  W.testHooks = { templateRows, OA_HEADERS, PURCHASE_MANUAL_HEADERS };
   document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => switchTab(b.dataset.tab));
   $('#meChip').onclick = showMeModal;
   $('#syncPill').onclick = () => { switchTab('settings'); };

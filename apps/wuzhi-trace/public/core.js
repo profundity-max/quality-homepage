@@ -1,4 +1,4 @@
-/* 物资申领与消耗追溯 V1.2.5 — core.js：数据模型 / 派生计算 / 同步层 / Excel 读写 */
+/* 物资申领与消耗追溯 V1.2.6 — core.js：数据模型 / 派生计算 / 同步层 / Excel 读写 */
 'use strict';
 window.WZ = (function () {
   /* ---------------- 基础工具 ---------------- */
@@ -1432,7 +1432,15 @@ window.WZ = (function () {
   }
 
   function xmlText(s) {
-    return s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&');
+    return String(s || '').replace(/&(#x[0-9a-f]+|#\d+|lt|gt|quot|#39|amp);/gi, (match, code) => {
+      if (code[0] === '#') {
+        const value = code[1] && code[1].toLowerCase() === 'x'
+          ? parseInt(code.slice(2), 16)
+          : parseInt(code.slice(1), 10);
+        try { return Number.isFinite(value) ? String.fromCodePoint(value) : match; } catch (e) { return match; }
+      }
+      return ({ lt: '<', gt: '>', quot: '"', '#39': "'", amp: '&' })[code.toLowerCase()] || match;
+    });
   }
   async function xlsxRead(bytes) {  // -> {sheetName: rows:[[cell...]]}
     const files = await zipRead(bytes);
