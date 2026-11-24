@@ -318,7 +318,7 @@ function validatePurchaseTransition(before, after, who, fullData) {
     }
     if (previous === APPROVAL_APPROVED) {
       if (!who.systemAdmin) {
-        violations.push('只有系统管理员可以修改已核准采购单');
+        violations.push('只有系统管理员可以修改已核准申领单');
         return violations;
       }
       const submitter = findMember(fullData, before.submitterMemberId, before.by);
@@ -345,7 +345,7 @@ function validatePurchaseTransition(before, after, who, fullData) {
         before.by,
       );
       if (!isSubmitter && !who.systemAdmin) {
-        violations.push('只有申请人或系统管理员可以重新提交被驳回的采购单');
+        violations.push('只有申请人或系统管理员可以重新提交被驳回的申领单');
         return violations;
       }
       const route = resolveApprovalRoute(fullData, submitter);
@@ -361,7 +361,7 @@ function validatePurchaseTransition(before, after, who, fullData) {
       }
       return violations;
     }
-    violations.push(`采购审批状态不能从「${previous}」直接改为「${next}」`);
+    violations.push(`申领审批状态不能从「${previous}」直接改为「${next}」`);
     return violations;
   }
 
@@ -387,11 +387,11 @@ function validatePurchaseTransition(before, after, who, fullData) {
   }
   if (previous === APPROVAL_REJECTED && next === APPROVAL_PENDING) {
     if (!who.admin && before && String(before.by || '') !== String(who.name || '')) {
-      violations.push('只有申请人或系统管理员可以重新提交被驳回的采购单');
+      violations.push('只有申请人或系统管理员可以重新提交被驳回的申领单');
     }
     return violations;
   }
-  violations.push(`采购审批状态不能从「${previous}」直接改为「${next}」`);
+  violations.push(`申领审批状态不能从「${previous}」直接改为「${next}」`);
   return violations;
 }
 
@@ -423,7 +423,7 @@ function validatePermissions({ previousData, nextData, fullData, who }) {
       if (collection === 'purchases') {
         if (!before) {
           if (!admin && String(after.by || '') !== String(who.name || '')) {
-            violations.push(`purchases/${id}：新采购单必须由当前登录人创建`);
+            violations.push(`purchases/${id}：新申领单必须由当前登录人创建`);
             continue;
           }
           const status = purchaseApprovalStatus(after);
@@ -438,7 +438,7 @@ function validatePermissions({ previousData, nextData, fullData, who }) {
               }
             }
           } else if (!admin) {
-            violations.push(`purchases/${id}：新采购单必须从审批路由要求的初始状态开始`);
+            violations.push(`purchases/${id}：新申领单必须从审批路由要求的初始状态开始`);
           }
         } else {
           const changedBusinessFields = Object.keys(after).filter((key) => (
@@ -446,14 +446,14 @@ function validatePermissions({ previousData, nextData, fullData, who }) {
             && JSON.stringify(after[key]) !== JSON.stringify(before[key])
           ));
           if (!admin && before.by && String(before.by) !== String(who.name) && changedBusinessFields.length) {
-            violations.push(`purchases/${id}：只有申请人或系统管理员可以修改采购业务内容`);
+            violations.push(`purchases/${id}：只有申请人或系统管理员可以修改申领业务内容`);
             continue;
           }
           for (const transitionViolation of validatePurchaseTransition(before, after, who, fullData)) {
             violations.push(`purchases/${id}：${transitionViolation}`);
           }
           if (String(after.by || '') !== String(before.by || '')) {
-            violations.push(`purchases/${id}：不能修改采购申请人`);
+            violations.push(`purchases/${id}：不能修改申领申请人`);
             continue;
           }
           const changedNonApproval = changedBusinessFields.length > 0;
@@ -462,7 +462,7 @@ function validatePermissions({ previousData, nextData, fullData, who }) {
             && changedNonApproval
             && !admin
           ) {
-            violations.push(`purchases/${id}：已核准采购单不能直接修改，请由系统管理员处理`);
+            violations.push(`purchases/${id}：已核准申领单不能直接修改，请由系统管理员处理`);
             continue;
           }
         }
@@ -611,10 +611,10 @@ function validateBusinessRecord({ collection, before, after, fullData }) {
   }
 
   if (collection === 'purchases') {
-    if (!positiveNumber(after.qty)) violations.push('采购数量必须大于 0');
-    if (!after.mid || !fullData.materials[after.mid]) violations.push('采购单必须关联有效物料');
+    if (!positiveNumber(after.qty)) violations.push('申领数量必须大于 0');
+    if (!after.mid || !fullData.materials[after.mid]) violations.push('申领单必须关联有效物料');
     if (!APPROVAL_STATUSES.has(purchaseApprovalStatus(after))) {
-      violations.push('采购审批状态无效');
+      violations.push('申领审批状态无效');
     }
     const source = String(after.requestSource || '').trim();
     if (source && !['OA请购', '行政请购', '其他'].includes(source)) {
@@ -630,23 +630,23 @@ function validateBusinessRecord({ collection, before, after, fullData }) {
   if (collection === 'arrivals') {
     if (!positiveNumber(after.arrQty)) violations.push('到货数量必须大于 0');
     if (!after.pid) {
-      violations.push('到货单必须关联采购单');
+      violations.push('到货单必须关联申领单');
     } else {
       const purchase = fullData.purchases[after.pid];
       if (!purchase) {
-        violations.push('到货单关联的采购记录不存在');
+        violations.push('到货单关联的申领记录不存在');
       } else {
         if (purchaseApprovalStatus(purchase) !== APPROVAL_APPROVED) {
-          violations.push('采购单尚未完成核准，不能登记到货');
+          violations.push('申领单尚未完成核准，不能登记到货');
         }
-        if (purchase.mid !== after.mid) violations.push('到货物料与采购物料不一致');
+        if (purchase.mid !== after.mid) violations.push('到货物料与申领物料不一致');
         const arrivedOthers = sumOtherRecords(
           fullData.arrivals,
           after.id,
           (record) => record.pid === after.pid,
         );
         if (arrivedOthers + Number(after.arrQty) > Number(purchase.qty) + QUANTITY_EPSILON) {
-          violations.push('累计到货数量不能超过采购数量');
+          violations.push('累计到货数量不能超过申领数量');
         }
       }
     }

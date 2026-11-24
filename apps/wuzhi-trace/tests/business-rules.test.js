@@ -73,7 +73,7 @@ function purchase(overrides = {}) {
   });
 }
 
-test('采购必须依次经过审核员一级审核和核准员最终核准', () => {
+test('申领必须依次经过审核员一级审核和核准员最终核准', () => {
   const draft = rec('p1', { mid: 'm1', qty: 10, approvalStatus: '待审核', ...twoStepRoute }, Date.now(), '领用人甲');
   const reviewed = rec('p1', {
     mid: 'm1', qty: 10, approvalStatus: '待核准', reviewedBy: '审核员甲',
@@ -259,7 +259,7 @@ test('驳回必须填写原因，非指定审核人不能处理待办', () => {
   }).join('\n'), /未分配给该审核人/);
 });
 
-test('审批人不能修改申请人的采购业务内容', () => {
+test('审批人不能修改申请人的申领业务内容', () => {
   const before = rec('p1', { mid: 'm1', qty: 10, approvalStatus: '待审核', ...twoStepRoute }, Date.now(), '领用人甲');
   const changed = rec('p1', { mid: 'm1', qty: 99, approvalStatus: '待审核', ...twoStepRoute }, Date.now() + 1, '领用人甲');
   const data = stateWith({ materials: { m1: rec('m1', { name: '无尘布' }) }, members }).data;
@@ -269,10 +269,10 @@ test('审批人不能修改申请人的采购业务内容', () => {
     fullData: data,
     who: reviewer,
   });
-  assert.match(violations.join('\n'), /只有申请人或系统管理员可以修改采购业务内容/);
+  assert.match(violations.join('\n'), /只有申请人或系统管理员可以修改申领业务内容/);
 });
 
-test('完整主流程可写入：核准采购 → 到货 → 实收 → 分发 → 签字', () => {
+test('完整主流程可写入：核准申领 → 到货 → 实收 → 分发 → 签字', () => {
   const data = stateWith({
     materials: { m1: rec('m1', { name: '无尘布', unit: '包', safe: 2 }) },
     members,
@@ -296,7 +296,7 @@ test('完整主流程可写入：核准采购 → 到货 → 实收 → 分发 �
   assert.deepEqual(violations, []);
 });
 
-test('未核准采购不能登记到货', () => {
+test('未核准申领不能登记到货', () => {
   const data = stateWith({
     materials: { m1: rec('m1', { name: '无尘布' }) },
     purchases: { p1: purchase({ approvalStatus: '待核准' }) },
@@ -495,7 +495,7 @@ test('隶属区域领用人可以确认分配给本人的分发单', () => {
   assert.deepEqual(violations, []);
 });
 
-test('系统管理员修改已核准采购时必须重新进入审核流程', () => {
+test('系统管理员修改已核准申领时必须重新进入审核流程', () => {
   const before = purchase();
   const after = rec('p1', {
     mid: 'm1', qty: 12, date: '2026-11-18', approvalStatus: '待审核', ...twoStepRoute,
@@ -514,7 +514,7 @@ test('系统管理员修改已核准采购时必须重新进入审核流程', ()
   assert.deepEqual(violations, []);
 });
 
-test('采购请购来源只接受 OA请购、行政请购和其他', () => {
+test('申领请购来源只接受 OA请购、行政请购和其他', () => {
   const data = stateWith({
     materials: { m1: rec('m1', { name: '无尘布' }) },
     members,

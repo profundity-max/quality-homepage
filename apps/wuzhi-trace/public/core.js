@@ -1,4 +1,4 @@
-/* 物资申领与消耗追溯 V1.2.10 — core.js：数据模型 / 派生计算 / 同步层 / Excel 读写 */
+/* 物资申领与消耗追溯 V1.2.11 — core.js：数据模型 / 派生计算 / 同步层 / Excel 读写 */
 'use strict';
 window.WZ = (function () {
   /* ---------------- 基础工具 ---------------- */
@@ -1112,7 +1112,7 @@ window.WZ = (function () {
     if (approval !== APPROVAL_APPROVED) return approval;
     const arr = arrivalsOf(p.id).reduce((s, a) => s + num(a.arrQty), 0);
     const q = num(p.qty);
-    if (arr <= 0) return '已采购未到货';
+    if (arr <= 0) return '已申领未到货';
     if (arr < q) return '部分到货';
     return '已到货';
   }
@@ -1567,9 +1567,9 @@ window.WZ = (function () {
       unit: ['单位', '计量单位'],
       lineDemand: ['线体需求'],
       currentQty: ['现有数量'],
-      qty: ['请购数量', '采购数量', '数量', '采购量'],
+      qty: ['请购数量', '申领数量', '采购数量', '数量', '申领量', '采购量'],
       unitPrice: ['单价'],
-      date: ['申请时间', '采购日期', '日期'],
+      date: ['申请时间', '申领日期', '采购日期', '日期'],
       requiredDate: ['需求时间'],
       location: ['地点（一期/二期/三期）', '地点'],
       detailedLocation: ['详细地点（哪个楼层，哪个位置）', '详细地点'],
@@ -1578,7 +1578,7 @@ window.WZ = (function () {
       engineeringApprovedAt: ['工程客户批准时间'],
       itemCategory: ['物品分类（模治具/设备/耗材/备品备件/生产物料等）', '物品分类'],
       category: ['物品分类', '物品类型', '分类'],
-      requestSource: ['请购来源', '请购类型', '采购来源', '来源'],
+      requestSource: ['请购来源', '请购类型', '申领来源', '采购来源', '来源'],
       purpose: ['申请原因', '用途说明', '用途', '用途描述'],
       dest: ['使用去向', '地点', '去向', '使用目的'],
       budgetList: ['预算名录（部门费用/设备预算/模治具）', '预算名录'],
