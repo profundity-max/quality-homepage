@@ -121,6 +121,27 @@ try {
       createdAt: new Date(now.getTime() - (daysAgo + 7) * 24 * 60 * 60 * 1000),
     });
 
+  if (process.env.Q_NEXUS_RCA_FIXTURE === "1") {
+    await published(
+      "00000000-0000-4000-8000-0000000000a1",
+      "article-e93d377c",
+      "Rca",
+      "RCA 学习模式测试用文章。",
+      [
+        "## 1. RCA 的基本框架",
+        "Find It 与 Fix It。",
+        "## 2. 第一步：先把 Problem（问题）说清楚",
+        "用 3W1H 记录事实。",
+        "## 4. Possible Cause（可能原因）不等于 Root Cause（根因）",
+        "用证据验证候选原因。",
+        "## 图解：RCA",
+        "学习模式浏览器测试使用的原文占位。",
+      ].join("\n\n"),
+      spcTopicId,
+      21,
+    );
+  }
+
   await published(
     "00000000-0000-4000-8000-0000000000d1",
     "anova-intro",

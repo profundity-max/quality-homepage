@@ -12,6 +12,7 @@ import {
 } from "@/modules/shared/markdown-renderer";
 import { KnowledgeNavigation } from "@/ui/knowledge-navigation";
 import { resolveKnowledgeContext } from "@/ui/knowledge-navigation-model";
+import { getArticleCourse } from "@/modules/learning/rca";
 import { ArticleToc } from "@/ui/article-toc";
 
 import { requirePortalSession } from "../../authorization";
@@ -172,6 +173,16 @@ export default async function ArticlePage({
             <h1 className={styles.title}>{article.title}</h1>
             <p className={styles.summary}>{article.summary}</p>
           </ArticleProtection>
+          {getArticleCourse(article.stableId) && (
+            <nav className={styles.breadcrumb} aria-label="RCA 学习试点">
+              <Link href={`/articles/${stableId}/learn`}>
+                进入 RCA 学习模式
+              </Link>
+              <Link href={`/articles/${stableId}/learn?view=compare`}>
+                查看改版对比
+              </Link>
+            </nav>
+          )}
           <section className={styles.meta} aria-label="文章信息">
             <dl className={styles.metaList}>
               <div>

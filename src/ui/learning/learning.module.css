@@ -1,0 +1,314 @@
+/* Hallmark: existing editorial tokens, paired RCA process map. */
+/* Critique: keep the evidence and decision together at narrow widths. */
+.shell {
+  max-width: 78rem;
+  margin-inline: auto;
+  padding: clamp(1rem, 3.5vw, 3rem);
+  overflow-x: clip;
+}
+.modes,
+.actions,
+.stepNav {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.modes {
+  border-bottom: 1px solid var(--color-divider);
+  margin-bottom: 1.6rem;
+  gap: 1.4rem;
+}
+.modes a {
+  padding: 0.65rem 0;
+  text-decoration: none;
+  color: var(--color-text-secondary);
+}
+.modes [aria-current] {
+  color: var(--color-accent);
+  box-shadow: inset 0 -2px var(--color-accent);
+  font-weight: 650;
+}
+.frame {
+  display: grid;
+  align-items: start;
+  grid-template-columns: minmax(12rem, 15rem) minmax(0, 1fr);
+  gap: clamp(1rem, 3.4vw, 3rem);
+}
+.sidebar {
+  min-width: 0;
+  padding-block: 1rem;
+}
+.courseName {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 720;
+}
+.muted,
+.sidebar label {
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+}
+.sidebar progress {
+  display: block;
+  accent-color: var(--color-accent);
+  margin: 0.4rem 0 1rem;
+  width: 100%;
+}
+.sidebar nav {
+  display: grid;
+  gap: 0.3rem;
+}
+.shell button {
+  min-height: 2.75rem;
+  padding: 0.45rem 0.8rem;
+  background: var(--color-surface);
+  color: var(--color-text);
+  border: 1px solid var(--color-control-border);
+  font: inherit;
+  line-height: 1.4;
+  border-radius: 0.6rem;
+  cursor: pointer;
+}
+.shell button:hover:not(:disabled) {
+  background: var(--color-surface-muted);
+}
+.shell button:disabled {
+  color: var(--color-text-muted);
+  opacity: 0.68;
+  cursor: default;
+}
+.shell :is(a, button, input, summary, [tabindex="0"]):focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 3px;
+}
+.sidebar nav button {
+  text-align: start;
+  border-color: transparent;
+  background: transparent;
+}
+.sidebar button[aria-current] {
+  background: var(--color-surface-muted);
+  color: var(--color-accent);
+  font-weight: 680;
+}
+.panel {
+  border: 1px solid var(--color-divider);
+  background: var(--color-surface);
+  border-radius: 1.2rem;
+  padding: clamp(1rem, 4vw, 3rem);
+  min-width: 0;
+  line-height: 1.65;
+}
+.panel h1 {
+  margin: 0.3rem 0 1rem;
+  font-size: clamp(1.9rem, 4vw, 3.15rem);
+  line-height: 1.17;
+  letter-spacing: -0.035em;
+  overflow-wrap: break-word;
+}
+.panel h1:focus {
+  outline: none;
+}
+.panel h2 {
+  margin-top: 1.65rem;
+  font-size: 1.3rem;
+}
+.panel h3 {
+  margin-top: 1.4rem;
+  font-size: 1.05rem;
+}
+.lead {
+  font-size: clamp(1.05rem, 2.1vw, 1.2rem);
+  max-width: 42rem;
+}
+.shell .primary {
+  background: var(--color-accent);
+  color: var(--color-accent-foreground);
+  border-color: var(--color-accent);
+  font-weight: 650;
+}
+.shell .primary:hover:not(:disabled) {
+  background: var(--color-accent-hover);
+}
+.map {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 1.25rem;
+  margin-top: 1.6rem;
+}
+.map section {
+  background: var(--color-surface-muted);
+  border-top: 3px solid var(--color-accent);
+  padding: 1rem 1.15rem;
+}
+.map h3 {
+  margin: 0;
+  color: var(--color-accent);
+}
+.map ol {
+  padding-inline-start: 1.35rem;
+  margin-bottom: 0;
+}
+.map li + li {
+  padding-top: 0.18rem;
+}
+.diagram {
+  margin: 1.4rem 0;
+  display: grid;
+  padding: 0;
+  list-style: none;
+  grid-template-columns: repeat(auto-fit, minmax(min(7rem, 100%), 1fr));
+  border: 1px solid var(--color-divider);
+  border-radius: 0.6rem;
+}
+.diagram li {
+  border-inline-start: 2px solid var(--color-accent);
+  padding: 0.65rem;
+}
+.stepNav {
+  border-top: 1px solid var(--color-divider);
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+}
+.stepNav .primary {
+  margin-inline-start: auto;
+}
+.choices {
+  min-width: 0;
+  border: 0;
+  padding: 0;
+  margin: 1rem 0;
+}
+.choices legend {
+  margin-bottom: 0.7rem;
+  font-weight: 680;
+}
+.choices label {
+  display: flex;
+  align-items: baseline;
+  gap: 0.7rem;
+  border: 1px solid var(--color-control-border);
+  border-radius: 0.65rem;
+  margin-bottom: 0.55rem;
+  padding: 0.68rem 0.8rem;
+  cursor: pointer;
+}
+.choices label:has(input:checked) {
+  background: var(--color-surface-muted);
+  border-color: var(--color-accent);
+}
+.choices input {
+  accent-color: var(--color-accent);
+}
+.feedback {
+  margin-block: 0.85rem;
+  padding: 0.85rem 1rem;
+  border-inline-start: 3px solid var(--color-accent);
+  background: var(--color-surface-muted);
+}
+.feedback p {
+  margin: 0.35rem 0;
+}
+.feedback li + li {
+  margin-top: 0.7rem;
+}
+.detail {
+  padding: 0.7rem 0;
+  border-bottom: 1px solid var(--color-divider);
+}
+.detail summary {
+  cursor: pointer;
+}
+.tableWrap {
+  overflow-x: auto;
+  margin-block: 1rem;
+}
+.tableWrap table {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 26rem;
+}
+.tableWrap th,
+.tableWrap td {
+  border-bottom: 1px solid var(--color-divider);
+  padding: 0.65rem;
+  text-align: start;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+.tableWrap thead {
+  background: var(--color-surface-muted);
+}
+.metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem 2.25rem;
+}
+.metrics dd {
+  margin: 0;
+  color: var(--color-accent);
+  font-size: 1.6rem;
+  font-weight: 680;
+}
+.gaps {
+  padding-left: 1.15rem;
+}
+.gaps li {
+  margin-block: 0.7rem;
+}
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+@media (max-width: 48rem) {
+  .frame {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .sidebar {
+    padding: 0;
+  }
+  .sidebar nav {
+    display: flex;
+    flex-wrap: wrap;
+  }
+  .sidebar nav button {
+    padding-inline: 0.5rem;
+    font-size: 0.875rem;
+  }
+}
+@media (max-width: 27rem) {
+  .map {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.85rem;
+  }
+  .modes {
+    gap: 0.9rem;
+  }
+}
+
+.panel h1 {
+  scroll-margin-top: 6rem;
+}
+.evidenceTable table {
+  min-width: 0;
+}
+.evidenceTable th,
+.evidenceTable td {
+  padding: 0.45rem;
+}
+@media (max-width: 48rem) {
+  .sidebar nav {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding: 0.2rem 0.25rem 0.35rem;
+    scrollbar-width: thin;
+  }
+  .sidebar nav button {
+    flex: 0 0 auto;
+  }
+}
