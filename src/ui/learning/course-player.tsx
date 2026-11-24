@@ -865,7 +865,7 @@ export function CoursePlayer({
                   返回题目
                 </button>
               )}
-              {next && step.kind !== "map" && (
+              {next && (
                 <button
                   type="button"
                   className={styles.primary}
