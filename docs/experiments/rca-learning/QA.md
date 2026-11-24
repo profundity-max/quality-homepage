@@ -30,3 +30,12 @@ node docs/experiments/rca-learning/browser-check.mjs
 ## 回归检查
 
 本地 Vitest 76 文件 / 432 项通过。物资追溯 36 项通过。Compose 契约和 TypeScript 检查通过。Lint 无错误，既有账号管理测试保留一条未使用变量警告。
+
+生产构建通过并生成 `/articles/[stableId]/learn`，保留文件存储模块三条既有的动态路径追踪警告。部署副本默认并发运行数据库测试时出现超时，调为单 worker 重跑，432 项全部通过。
+
+## 局域网验收
+
+- 2026-11-24 按标准脚本从 V10.30 部署至 V11.0。前置加密备份文件 `backup-2026-11-24T08-38-36-263Z-manual.bin`，241,137,758 字节，SHA-256 为 `8c8d4f9fd7b43c75662d1a08b94e030ec62d99cb69cf9f22214b62434cc696cc`。
+- 部署代码提交 `27e1298effe8c9976e5f89229c5834d67b67cbcd`。Web 镜像 `sha256:c28085afade95381b5eaf44e20f12f64ac8699274da4facbd457aebecb3f57af`。物资追溯镜像与 V10.30 一致。
+- db、proxy、web、wuzhi-trace 均为 healthy。live、ready 与登录页均为 HTTP 200。原文、学习和对比三个线上入口未登录均返回 307，登录回跳路径正确。容器构建清单包含学习路由。服务器端只读匹配验证 12 个原文章节定位条件全部命中。
+- 登录后的学习交互在本机隔离库用真实 Chromium 验收。生产验收覆盖部署产物、服务健康、公开入口及原文定位。
