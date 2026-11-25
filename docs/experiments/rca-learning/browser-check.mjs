@@ -3,12 +3,20 @@ import { expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
-import { rcaCourse as course } from "../../../src/modules/learning/rca.ts";
+import { rcaCourse } from "../../../src/modules/learning/rca.ts";
+import { problemDefinitionCourse } from "../../../src/modules/learning/problem-definition.ts";
 
-await mkdir("test-results/rca", { recursive: true });
+const problemDefinition = process.env.RCA_COURSE === "problem-definition";
+const course = problemDefinition ? problemDefinitionCourse : rcaCourse;
+const output = problemDefinition
+  ? "test-results/problem-definition"
+  : "test-results/rca";
+await mkdir(output, { recursive: true });
 const browser = await chromium.launch({ args: ["--no-sandbox"] });
 const origin = process.env.RCA_BASE ?? "http://127.0.0.1:3011";
-const fixture = process.env.RCA_ARTICLE ?? "article-e93d377c";
+const fixture =
+  process.env.RCA_ARTICLE ??
+  (problemDefinition ? "article-3f3ed646" : "article-e93d377c");
 const base = `${origin}/articles/${fixture}`;
 const context = await browser.newContext({
   viewport: { width: 1440, height: 960 },
@@ -21,7 +29,7 @@ const heading = () => main.getByRole("heading", { level: 1 });
 const button = (name) => main.getByRole("button", { name, exact: true });
 const snap = (name) =>
   page.screenshot({
-    path: `test-results/rca/${name}.png`,
+    path: `${output}/${name}.png`,
     fullPage: true,
     animations: "disabled",
   });
@@ -56,9 +64,9 @@ try {
   await expect(heading()).toHaveText("学习中心");
   await snap("desktop-learning-center");
   await main
-    .getByRole("link", { name: "进入 RCA 根因分析", exact: true })
+    .getByRole("link", { name: `进入 ${course.title}`, exact: true })
     .click();
-  await expect(heading()).toHaveText("RCA 根因分析");
+  await expect(heading()).toHaveText(course.title);
   await expect(button("案例模拟")).toBeDisabled();
   await expect(button("后测")).toBeDisabled();
   const a11y = await new AxeBuilder({ page })
@@ -73,7 +81,7 @@ try {
   await main.getByRole("link", { name: "原文查阅", exact: true }).click();
   await expect(page).toHaveURL(base);
   await main
-    .getByRole("link", { name: /进入 RCA 根因分析\s+学习模式/ })
+    .getByRole("link", { name: `进入 ${course.title} 学习模式`, exact: true })
     .click();
   await hit("开始前测");
   const assessment = async (set, label, wrongFirst) => {
@@ -136,8 +144,9 @@ try {
   await hit("进入案例阶段");
   for (const [i, stage] of course.simulation.stages.entries()) {
     await expect(heading()).toHaveText(stage.title);
-    await expect(button(i < 6 ? "进入案例阶段" : "下一步")).toBeDisabled();
-    if (i < 6)
+    const last = i === course.simulation.stages.length - 1;
+    await expect(button(last ? "下一步" : "进入案例阶段")).toBeDisabled();
+    if (!last)
       await expect(
         main.getByText(course.simulation.stages[i + 1].evidence, {
           exact: true,
@@ -146,7 +155,9 @@ try {
     if (i === 3) {
       await page.setViewportSize({ width: 390, height: 844 });
       await expect(
-        main.getByRole("region", { name: "受控试验数据" }),
+        main.getByRole("region", {
+          name: stage.table?.label ?? "受控试验数据",
+        }),
       ).toBeVisible();
       assert(
         await page.evaluate(
@@ -162,33 +173,72 @@ try {
       await expect(heading()).toHaveText(stage.title);
       await page.setViewportSize({ width: 1440, height: 960 });
     }
-    await practice(stage.question);
-    await hit(i < 6 ? "进入案例阶段" : "下一步");
+    if (stage.writeUp) {
+      const draft = main.getByRole("textbox", { name: stage.writeUp.prompt });
+      const value =
+        "6 月 12 日 OQC 在 S2 铝壳抽查发现 24/300 件压痕，三批待追溯。";
+      await choose(stage.question.correct);
+      await expect(button("检验判断")).toBeDisabled();
+      await expect(main.getByText("对照自评")).toHaveCount(0);
+      await draft.fill(value);
+      await page.reload();
+      await expect(draft).toHaveValue(value);
+      await practice(stage.question);
+      await expect(
+        main.getByText(stage.writeUp.example, { exact: false }),
+      ).toBeVisible();
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await snap("desktop-write-up");
+    } else {
+      await practice(stage.question);
+    }
+    await hit(last ? "下一步" : "进入案例阶段");
   }
   await expect(heading()).toHaveText("后测");
   await assessment(course.post, "后测", true);
   await hit("查看学习总结");
   await expect(heading()).toHaveText("学习总结");
-  await expect(main.getByText("14 / 15", { exact: true })).toBeVisible();
-  await expect(main.getByText("9 / 10", { exact: true })).toBeVisible();
+  const totalPractice =
+    course.modules.flatMap((module) => module.checks).length +
+    course.simulation.stages.length;
+  await expect(
+    main.getByText(`${totalPractice - 1} / ${totalPractice}`, { exact: true }),
+  ).toBeVisible();
+  await expect(
+    main.getByText(`${course.post.length - 1} / ${course.post.length}`, {
+      exact: true,
+    }),
+  ).toBeVisible();
   await snap("desktop-summary");
   await page.reload();
   await expect(heading()).toHaveText("学习总结");
   await main.getByRole("link", { name: "改版对比", exact: true }).click();
   await expect(
     main.getByRole("region", { name: "知识覆盖矩阵" }).locator("tbody tr"),
-  ).toHaveCount(12);
+  ).toHaveCount(course.coverage.length);
   await expect(
     main.getByRole("region", { name: "改版对比表" }).locator("tbody tr"),
   ).toHaveCount(10);
   await snap("desktop-comparison");
   await main
-    .getByRole("link", { name: "问题定义与 3W1H", exact: true })
+    .getByRole("link", {
+      name: problemDefinition ? "3W1H 与诊断阶段分工" : "问题定义与 3W1H",
+      exact: true,
+    })
     .click();
   await expect(page).toHaveURL(/#toc-/);
   await expect(
-    page.locator("article").getByRole("heading", { name: /先把 Problem/ }),
+    page.locator("article").getByRole("heading", {
+      name: problemDefinition ? /用 3W1H 描述/ : /先把 Problem/,
+    }),
   ).toBeVisible();
+  const otherArticle = problemDefinition
+    ? "article-e93d377c"
+    : "article-3f3ed646";
+  await page.goto(`${origin}/articles/${otherArticle}/learn`);
+  await expect(button("开始前测")).toBeVisible();
+  await page.goto(`${base}/learn`);
+  await expect(heading()).toHaveText("学习总结");
   await page.goto(`${origin}/articles/anova-intro`);
   await expect(main.getByRole("link", { name: /进入.*学习模式/ })).toHaveCount(
     0,

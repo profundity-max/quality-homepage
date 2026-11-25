@@ -22,8 +22,8 @@ export function CourseComparison({
 
   return (
     <div className={styles.panel}>
-      <h1>RCA 学习体验对比</h1>
-      <p>以下比较对应原文及试点课程。课程用时为设计估计，学习成效尚待实测。</p>
+      <h1>{course.title}学习体验对比</h1>
+      <p>以下对照原文与课程。课程用时为设计估计，学习成效尚待实测。</p>
       <div
         className={styles.tableWrap}
         tabIndex={0}

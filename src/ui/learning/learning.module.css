@@ -107,6 +107,27 @@
   letter-spacing: -0.035em;
   overflow-wrap: break-word;
 }
+.writeUp {
+  margin-block: 1.25rem;
+}
+.writeUp label {
+  font-weight: 700;
+}
+.writeUp textarea {
+  display: block;
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid var(--color-control-border);
+  border-radius: 0.5rem;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  resize: vertical;
+}
+.writeUp textarea:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 3px;
+}
 .catalog {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));

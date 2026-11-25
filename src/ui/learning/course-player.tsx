@@ -13,6 +13,7 @@ type Progress = {
   practice: Record<string, Practice>;
   drafts: { pre: Choice; post: Choice };
   results: { pre?: Choice; post?: Choice };
+  writeUps?: Record<string, string>;
   completedAt?: string;
 };
 
@@ -134,11 +135,13 @@ function PracticeQuestion({
   progress,
   commit,
   review,
+  ready = true,
 }: {
   question: Question;
   progress?: Practice;
   commit: (answer: number) => void;
   review: () => void;
+  ready?: boolean;
 }) {
   const [answer, setAnswer] = useState<number>();
   const [retry, setRetry] = useState(false);
@@ -172,13 +175,16 @@ function PracticeQuestion({
         <form
           onSubmit={(event) => {
             event.preventDefault();
-            if (answer === undefined) return;
+            if (answer === undefined || !ready) return;
             commit(answer);
             setRetry(false);
           }}
         >
           <Choices question={question} value={answer} onSelect={setAnswer} />
-          <button className={styles.primary} disabled={answer === undefined}>
+          <button
+            className={styles.primary}
+            disabled={answer === undefined || !ready}
+          >
             检验判断
           </button>
         </form>
@@ -317,10 +323,12 @@ function TeachingCard({
   card,
   reference,
   anchors,
+  coverage,
 }: {
   card: Card;
   reference: string;
   anchors: Record<number, string>;
+  coverage: Course["coverage"];
 }) {
   return (
     <>
@@ -341,11 +349,9 @@ function TeachingCard({
               anchors[section] ? `${reference}#${anchors[section]}` : reference
             }
           >
-            {section > 0 && section < 10
-              ? `原文第 ${section} 节`
-              : ["原文导言", "原文结语", "原文图解"][
-                  section === 0 ? 0 : section - 9
-                ]}
+            原文{" "}
+            {coverage.find((entry) => entry.section === section)?.topic ??
+              `第 ${section} 节`}
           </Link>
         ))}
       </div>
@@ -648,6 +654,8 @@ export function CoursePlayer({
     (next?.kind !== "case" || prerequisite) &&
     (next?.id !== "post" || done);
   const title = step.kind === "map" ? course.title : step.title;
+  const writeUp = step.kind === "case" ? step.stage.writeUp : undefined;
+  const draft = progress.writeUps?.[step.id] ?? "";
 
   return (
     <>
@@ -728,7 +736,8 @@ export function CoursePlayer({
                 <p className={styles.muted}>教学模拟</p>
                 <p className={styles.lead}>{course.scenario}</p>
                 <p>
-                  先写下调查起点和关闭前所需证据。完成四个模块后，再用案例逐步检验你的判断。
+                  {course.scenarioInstruction ??
+                    "先写下调查起点和关闭前所需证据。完成各模块后，再用案例逐步检验你的判断。"}
                 </p>
               </>
             )}
@@ -737,6 +746,7 @@ export function CoursePlayer({
                 card={step.card}
                 reference={reference}
                 anchors={anchors}
+                coverage={course.coverage}
               />
             )}
             {step.kind === "recall" && <Recall card={step.card} />}
@@ -756,7 +766,7 @@ export function CoursePlayer({
                   <div
                     className={`${styles.tableWrap} ${styles.evidenceTable}`}
                     role="region"
-                    aria-label="受控试验数据"
+                    aria-label={step.stage.table.label ?? "受控试验数据"}
                     tabIndex={0}
                   >
                     <table>
@@ -782,9 +792,45 @@ export function CoursePlayer({
                     </table>
                   </div>
                 )}
+                {writeUp && (
+                  <div className={styles.writeUp}>
+                    <label htmlFor="case-write-up">{writeUp.prompt}</label>
+                    <p className={styles.muted} id="case-write-up-help">
+                      请使用本案例的教学数据。草稿随学习进度保存，提交判断后可对照范例自评。
+                    </p>
+                    <textarea
+                      id="case-write-up"
+                      aria-describedby="case-write-up-help"
+                      value={draft}
+                      rows={5}
+                      maxLength={1200}
+                      onChange={(event) => {
+                        const value = event.target.value;
+                        update((state) => ({
+                          ...state,
+                          writeUps: { ...state.writeUps, [step.id]: value },
+                        }));
+                      }}
+                    />
+                    {progress.practice[step.id] && (
+                      <div className={styles.feedback}>
+                        <h3>对照自评</h3>
+                        <ul>
+                          {writeUp.checklist.map((item) => (
+                            <li key={item}>{item}</li>
+                          ))}
+                        </ul>
+                        <p>
+                          <strong>范例</strong> {writeUp.example}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
                 <PracticeQuestion
                   question={step.stage.question}
                   progress={progress.practice[step.stage.question.id]}
+                  ready={!writeUp || draft.trim().length > 0}
                   commit={(answer) => practice(step.stage.question, answer)}
                   review={() => review(step.stage.question.card)}
                 />

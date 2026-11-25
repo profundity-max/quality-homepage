@@ -1,5 +1,9 @@
 import type { Course } from "./course";
 import { getRcaReferenceAnchors, rcaCourse } from "./rca";
+import {
+  getProblemDefinitionAnchors,
+  problemDefinitionCourse,
+} from "./problem-definition";
 
 type ArticleCourse = {
   articleStableId: string;
@@ -14,6 +18,11 @@ export const articleCourses: readonly ArticleCourse[] = [
     articleStableId: "article-e93d377c",
     course: rcaCourse,
     getReferenceAnchors: getRcaReferenceAnchors,
+  },
+  {
+    articleStableId: "article-3f3ed646",
+    course: problemDefinitionCourse,
+    getReferenceAnchors: getProblemDefinitionAnchors,
   },
 ];
 

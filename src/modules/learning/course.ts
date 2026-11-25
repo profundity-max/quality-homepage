@@ -36,6 +36,7 @@ export type Course = {
   intro: string;
   minutes: string;
   scenario: string;
+  scenarioInstruction?: string;
   map: { title: string; steps: string[] }[];
   modules: Module[];
   pre: Question[];
@@ -45,7 +46,8 @@ export type Course = {
     stages: {
       title: string;
       evidence: string;
-      table?: { headers: string[]; rows: string[][] };
+      table?: { label?: string; headers: string[]; rows: string[][] };
+      writeUp?: { prompt: string; checklist: string[]; example: string };
       question: Question;
     }[];
     closeout: string;
