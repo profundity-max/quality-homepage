@@ -53,6 +53,18 @@ const applications: readonly PortalApplication[] = [
     href: "/apps/wuzhi-trace",
     runtimeHref: "/apps/wuzhi-trace/launch",
   },
+  {
+    id: "ipqc-timeliness",
+    name: "IPQC 时效看板",
+    shortName: "IPQC 时效",
+    summary: "跳转至 IPQC 时效看板，查看 IPQC 检验任务时效信息。",
+    category: "时效管理",
+    version: "外部看板",
+    owner: "品质部",
+    status: "available",
+    href: "/apps/ipqc-timeliness/launch",
+    runtimeHref: "/apps/ipqc-timeliness/launch",
+  },
 ];
 
 export function listApplications(): readonly PortalApplication[] {

@@ -148,6 +148,7 @@ scripts/deploy-to-server.sh             # 正式部署
 | `/apps/bof-boxplot/run` `/apps/bof-boxplot/template`         | BOF 工具运行页 / 案例工作簿下载                       | 登录          |
 | `/apps/cqe-yield-analysis` `/apps/cqe-yield-analysis/launch` | CQE 良率分析说明 / 签发带品集身份的短期免登录授权     | 登录          |
 | `/apps/wuzhi-trace` `/apps/wuzhi-trace/launch`               | 物资申领与消耗追溯说明 / 签发同源短期 SSO 授权        | 登录          |
+| `/apps/ipqc-timeliness/launch`                               | 从应用中心跳转 IPQC 时效看板                          | 登录          |
 | `/wz/`                                                       | 物资追溯应用运行入口，仅接受品集网关授权 Cookie       | 品集授权      |
 | `/manage`                                                    | 账户管理 + 待复核内容（GOV-02/03）                    | 管理员        |
 | `/manage/columns`                                            | 栏目/主题管理                                         | 管理员        |

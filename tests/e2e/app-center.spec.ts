@@ -163,6 +163,23 @@ test("物资追溯应用只能通过品集签名入口进入", async ({ page }) 
   expect(access.headers()["x-q-nexus-subject"]).toBeTruthy();
 });
 
+test("IPQC 时效看板通过登录态入口跳转", async ({ page }) => {
+  await loginAsMember(page);
+  await page.goto("/apps");
+
+  const card = page.getByRole("link", { name: /IPQC 时效看板/ });
+  await expect(card).toBeVisible();
+  await expect(card).toHaveAttribute("href", "/apps/ipqc-timeliness/launch");
+
+  const launch = await page.request.get("/apps/ipqc-timeliness/launch", {
+    maxRedirects: 0,
+  });
+  expect(launch.status()).toBe(302);
+  expect(launch.headers().location).toBe(
+    "http://192.168.87.214:30112/quality/ipqc-timeliness",
+  );
+});
+
 test("application center has responsive layout and no serious accessibility issues", async ({
   page,
   context,

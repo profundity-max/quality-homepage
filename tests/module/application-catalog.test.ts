@@ -42,4 +42,14 @@ describe("application catalog", () => {
       runtimeHref: "/apps/wuzhi-trace/launch",
     });
   });
+
+  it("exposes the IPQC timeliness dashboard through the authenticated launch route", () => {
+    expect(getApplication("ipqc-timeliness")).toMatchObject({
+      name: "IPQC 时效看板",
+      category: "时效管理",
+      status: "available",
+      href: "/apps/ipqc-timeliness/launch",
+      runtimeHref: "/apps/ipqc-timeliness/launch",
+    });
+  });
 });
