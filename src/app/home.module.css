@@ -154,10 +154,6 @@
   font-weight: 600;
   line-height: 1.4;
 }
-.categoryLinks small {
-  font-size: 0.8125rem;
-  color: var(--color-text-muted);
-}
 .categoryLinks a:hover strong {
   color: var(--color-link);
 }
@@ -375,9 +371,6 @@
   }
 }
 @media (max-width: 767px) {
-  .categoryLinks small {
-    display: none;
-  }
   .updateLink {
     padding-block: 1rem;
   }

@@ -177,10 +177,7 @@ export default async function HomePage() {
                     href={`/quality?topic=${encodeURIComponent(category.topic!)}`}
                   >
                     <Icon size={30} strokeWidth={1.5} aria-hidden="true" />
-                    <span>
-                      <strong>{category.name}</strong>
-                      <small>探索方法与实践</small>
-                    </span>
+                    <strong>{category.name}</strong>
                   </Link>
                 );
               })
