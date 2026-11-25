@@ -3,10 +3,7 @@ import { notFound } from "next/navigation";
 
 import { getDatabase } from "@/db/database";
 import { createKnowledgePublishingService } from "@/modules/knowledge-publishing";
-import {
-  getArticleCourse,
-  getRcaReferenceAnchors,
-} from "@/modules/learning/rca";
+import { getArticleCourse } from "@/modules/learning/article-courses";
 import { extractTableOfContents } from "@/modules/shared/markdown-renderer";
 import { CoursePlayer } from "@/ui/learning/course-player";
 import { CourseComparison } from "@/ui/learning/course-comparison";
@@ -33,9 +30,10 @@ export default async function LearningPage({
     await createKnowledgePublishingService(
       getDatabase(),
     ).getPublishedArticleByStableId(stableId);
-  const course = article && getArticleCourse(article.stableId);
-  if (!article || !course) notFound();
-  const anchors = getRcaReferenceAnchors(
+  const learning = article && getArticleCourse(article.stableId);
+  if (!article || !learning) notFound();
+  const { course, getReferenceAnchors } = learning;
+  const anchors = getReferenceAnchors(
     await extractTableOfContents(article.bodyMarkdown),
   );
 
@@ -43,6 +41,7 @@ export default async function LearningPage({
     <PortalShell currentPath={path}>
       <main id="main-content" tabIndex={-1} className={styles.shell}>
         <nav className={styles.modes} aria-label="课程访问方式">
+          <Link href="/learning">学习中心</Link>
           <Link href={path} aria-current={!compare ? "page" : undefined}>
             学习模式
           </Link>

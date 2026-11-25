@@ -20,7 +20,7 @@ export default async function FavoritesPage() {
         <header className={styles.header}>
           <p className={styles.eyebrow}>品集｜Q Nexus · 我的收藏</p>
           <h1>收藏</h1>
-          <p>收藏仅对本人可见，用于保留常用文章入口（FAV-01）。</p>
+          <p>这里保留你收藏的文章，方便随时查阅。列表仅自己可见。</p>
         </header>
 
         {favorites.length === 0 ? (

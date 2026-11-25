@@ -41,7 +41,7 @@ export function QuickSearch({ compact = false }: { compact?: boolean }) {
       ...groups.articles.map((hit) => ({
         type: "article" as const,
         label: hit.title,
-        detail: hit.sectionName,
+        detail: `${hit.sectionName} · ${hit.topicName}`,
         href: `/articles/${hit.stableId}`,
       })),
       ...groups.topics.map((hit) => ({

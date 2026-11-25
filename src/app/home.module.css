@@ -48,6 +48,31 @@
   background: var(--color-surface-muted);
   overflow: hidden;
 }
+.learningLink {
+  display: flex;
+  min-height: 3.75rem;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  border-radius: 0.5rem;
+  color: var(--color-accent-foreground);
+  background: var(--color-accent);
+  font-size: 1.125rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+.learningLink svg:last-child {
+  margin-inline-start: auto;
+}
+.learningLink:hover {
+  background: var(--color-accent-hover);
+  color: var(--color-accent-foreground);
+}
+.learningLink:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 3px;
+}
 .heroGraphic img {
   display: block;
   width: 100%;

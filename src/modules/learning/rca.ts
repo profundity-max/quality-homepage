@@ -876,12 +876,6 @@ export const rcaCourse: Course = {
   reviewDays: [1, 7, 30],
 };
 
-export const RCA_REFERENCE_ID = "article-e93d377c";
-
-export function getArticleCourse(stableId: string) {
-  return stableId === RCA_REFERENCE_ID ? rcaCourse : undefined;
-}
-
 const headingPatterns = [
   /真正导致问题/,
   /RCA\s*的基本框架/,

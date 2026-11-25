@@ -7,6 +7,7 @@ import {
   ShieldCheck,
   FileText,
   Search,
+  GraduationCap,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -105,6 +106,11 @@ export default async function HomePage() {
               <FileText size={16} aria-hidden="true" />
               探索品质知识
               <ArrowRight size={16} aria-hidden="true" />
+            </Link>
+            <Link href="/learning" className={styles.learningLink}>
+              <GraduationCap size={24} aria-hidden="true" />
+              <span>进入学习中心</span>
+              <ArrowRight size={22} aria-hidden="true" />
             </Link>
             <form
               action="/search"

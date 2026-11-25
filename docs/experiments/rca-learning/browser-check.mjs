@@ -35,11 +35,29 @@ const navigate = (name) =>
 const choose = (answer) => main.getByRole("radio").nth(answer).check();
 
 try {
-  await page.goto(`${base}/learn`);
+  await page.goto(`${origin}/learning`);
   await expect(page).toHaveURL(/\/login/);
   await page.getByLabel("用户名").fill("editor");
   await page.getByLabel("密码").fill("editor secure password");
   await page.getByRole("button", { name: "登录", exact: true }).click();
+  await expect(heading()).toHaveText("学习中心");
+  await page
+    .getByRole("navigation", { name: "主导航" })
+    .getByRole("link", { name: "首页", exact: true })
+    .click();
+  const center = main.getByRole("link", { name: "进入学习中心", exact: true });
+  await expect(center).toBeVisible();
+  await snap("desktop-learning-entry");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(center).toBeInViewport();
+  await snap("mobile-learning-entry");
+  await page.setViewportSize({ width: 1440, height: 960 });
+  await center.click();
+  await expect(heading()).toHaveText("学习中心");
+  await snap("desktop-learning-center");
+  await main
+    .getByRole("link", { name: "进入 RCA 根因分析", exact: true })
+    .click();
   await expect(heading()).toHaveText("RCA 根因分析");
   await expect(button("案例模拟")).toBeDisabled();
   await expect(button("后测")).toBeDisabled();
@@ -54,7 +72,9 @@ try {
   await snap("desktop-map");
   await main.getByRole("link", { name: "原文查阅", exact: true }).click();
   await expect(page).toHaveURL(base);
-  await main.getByRole("link", { name: "进入 RCA 学习模式" }).click();
+  await main
+    .getByRole("link", { name: /进入 RCA 根因分析\s+学习模式/ })
+    .click();
   await hit("开始前测");
   const assessment = async (set, label, wrongFirst) => {
     for (let i = 0; i < set.length; i++) {
@@ -170,9 +190,9 @@ try {
     page.locator("article").getByRole("heading", { name: /先把 Problem/ }),
   ).toBeVisible();
   await page.goto(`${origin}/articles/anova-intro`);
-  await expect(
-    main.getByRole("link", { name: "进入 RCA 学习模式" }),
-  ).toHaveCount(0);
+  await expect(main.getByRole("link", { name: /进入.*学习模式/ })).toHaveCount(
+    0,
+  );
   assert.equal(
     (await page.goto(`${origin}/articles/anova-intro/learn`)).status(),
     404,
