@@ -1,11 +1,11 @@
-/* 物资申领与消耗追溯 V1.2.11 — core.js：数据模型 / 派生计算 / 同步层 / Excel 读写 */
+/* 物资申领与消耗追溯 V1.2.12 — core.js：数据模型 / 派生计算 / 同步层 / Excel 读写 */
 'use strict';
 window.WZ = (function () {
   /* ---------------- 基础工具 ---------------- */
   const COLLS = ['materials', 'purchases', 'arrivals', 'receipts', 'dispatches', 'signoffs', 'members', 'logs'];
   const FIELDS = ['name', 'spec', 'unit', 'safe', 'note', 'code', 'category', 'mid', 'qty', 'date', 'purpose', 'dest', 'dept',
     'pid', 'arrQty', 'arrDate', 'aid', 'recvQty', 'recvBy', 'recvAt', 'region', 'at', 'byWho',
-    'did', 'signer', 'sigData', 'sigAt', 'role', 'action', 'entity', 'refId', 'detail',
+    'did', 'signer', 'sigData', 'sigAt', 'role', 'action', 'entity', 'refId', 'detail', 'subordinateLeaderName',
     'username', 'enabled', 'supervisorId', 'requestSource', 'approvalStatus', 'reviewedBy', 'reviewedAt',
     'reviewComment', 'approvedBy', 'approvedAt', 'approvalComment', 'rejectedBy',
     'rejectedAt', 'rejectionReason', 'claimantId', 'claimantName', 'approvalMode',
@@ -1598,6 +1598,7 @@ window.WZ = (function () {
       code: ['存货编码', '物料编码', '编码'],
       materialName: ['存货名称', '物料名称', '名称', '物料'],
       region: ['分发区域', '区域', '领用区域', '地点'],
+      subordinateLeaderName: ['隶属区域负责人', '区域负责人'],
       dept: ['领用部门', '申请部门', '部门'],
       qty: ['分发数量', '数量'],
       at: ['分发时间', '分发日期', '时间']

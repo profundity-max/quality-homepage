@@ -1,4 +1,4 @@
-/* 物资申领与消耗追溯 V1.2.11 — views.js：视图 / 表单 / 签名板 / 导入导出 UI */
+/* 物资申领与消耗追溯 V1.2.12 — views.js：视图 / 表单 / 签名板 / 导入导出 UI */
 'use strict';
 (function () {
   const W = window.WZ;
@@ -239,7 +239,7 @@
         Object.values(s.sources).reduce((sum, item) => sum + item.pendingApproval, 0)],
     ];
     const rows = [
-      ['物资申领与消耗追溯 V1.2.11 · 月度汇总'],
+      ['物资申领与消耗追溯 V1.2.12 · 月度汇总'],
       ['月份', month],
       [],
       ['指标', '数值'],
@@ -935,7 +935,7 @@
       const sigTag = s ? `<span class="tag green">已确认</span>` : `<span class="tag red">待领用确认</span>`;
       const canOp = W.canOperateRec('dispatches', d);
       const canSign = !s && W.canConfirmDispatch(d);
-      return `<tr><td>${W.esc(d.at)}</td><td>${W.esc(mt ? mt.name : '（已删物料）')}</td><td>${W.esc(W.REGION_LABEL[d.region] || d.region)}</td><td>${W.esc(d.claimantName || '—')}</td><td>${W.esc(d.dept || '—')}</td><td>${W.fmtQty(d.qty)}</td><td>${W.esc(d.byWho)}</td><td>${sigTag}<br><span class="muted">${s ? W.esc(s.signer) + ' ' + W.esc(s.sigAt || '') : ''}</span></td>
+      return `<tr><td>${W.esc(d.at)}</td><td>${W.esc(mt ? mt.name : '（已删物料）')}</td><td>${W.esc(W.REGION_LABEL[d.region] || d.region)}</td><td>${W.esc(d.claimantName || '—')}</td><td>${W.esc(d.subordinateLeaderName || d.dept || '—')}</td><td>${W.fmtQty(d.qty)}</td><td>${W.esc(d.byWho)}</td><td>${sigTag}<br><span class="muted">${s ? W.esc(s.signer) + ' ' + W.esc(s.sigAt || '') : ''}</span></td>
         <td>${canSign ? `<button class="btn sm pri" data-sign="${d.id}">签字确认</button> ` : ''}${s && s.sigData ? `<button class="btn sm" data-view="${d.id}">查看签名</button>` : ''}${editable ? (canOp ? `<button class="btn sm" data-edit="${d.id}">编辑</button> <button class="btn sm danger" data-del="${d.id}">删除</button>` : '<span class="muted">他人单据</span>') : ''}</td></tr>`;
     }).join('') || `<tr><td colspan="9" class="empty">暂无分发记录</td></tr>`;
     pane.innerHTML = `<div class="card"><h3>📤 物料分发 & 领用签字确认
@@ -946,7 +946,7 @@
         ${editable ? '<button class="btn pri sm" id="btnAddDispatch">＋ 物料下发</button>' : ''}
       </span></h3>
       <p class="muted">区域领用人可确认本区域分配单；隶属区域领用人只能确认分配给本人的单据。</p>
-      <div class="twrap"><table><thead><tr><th>分发时间</th><th>物料</th><th>分发区域</th><th>领用人</th><th>领用部门</th><th>分发数量</th><th>分发人</th><th>领用确认</th><th>操作</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+      <div class="twrap"><table><thead><tr><th>分发时间</th><th>物料</th><th>分发区域</th><th>领用人</th><th>隶属区域负责人</th><th>分发数量</th><th>分发人</th><th>领用确认</th><th>操作</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
     $('#dspMonth').onchange = e => { FILTER.dsp = e.target.value || 'all'; W.renderAll(); };
     $('#dspRegion').onchange = e => { FILTER.dspRegion = e.target.value; W.renderAll(); };
     $('#dspAll').onclick = () => { FILTER.dsp = 'all'; FILTER.dspRegion = ''; W.renderAll(); };
@@ -968,7 +968,7 @@
   }
   function dispatchForm(id) {
     if (id) W.markEdit('dispatches', id);
-    const d = id ? W.get('dispatches', id) : { aid: '', region: W.REGIONS[0] || '', dept: '', qty: '', at: W.nowStr(), claimantId: '', claimantName: '' };
+    const d = id ? W.get('dispatches', id) : { aid: '', region: W.REGIONS[0] || '', dept: '', subordinateLeaderName: '', qty: '', at: W.nowStr(), claimantId: '', claimantName: '' };
     const arrivals = W.list('arrivals')
       .filter(a => W.receiptOf(a.id))
       .sort((x, y) => String(y.arrDate).localeCompare(String(x.arrDate)));
@@ -986,7 +986,7 @@
         <label>选择到货批次 *<select id="fAid">${opts}</select></label>
         <label>分发区域 *<select id="fRegion">${W.REGIONS.map(r => `<option value="${r}" ${d.region === r ? 'selected' : ''}>${W.REGION_LABEL[r]}</option>`).join('')}</select></label>
         <label>领用人 *<select id="fClaimant">${claimantOptions(d.region, d.claimantId)}</select></label>
-        <label>领用部门<select id="fDept"><option value="">— 未选择 —</option>${W.DEPTS.map(d0 => `<option ${d.dept === d0 ? 'selected' : ''}>${W.esc(d0)}</option>`).join('')}</select></label>
+        <label>隶属区域负责人<input id="fSubordinateLeader" value="${W.esc(d.subordinateLeaderName || '')}" placeholder="可手动输入姓名"></label>
         <label>分发数量 *<input id="fQty" type="number" min="0" step="any" value="${W.esc(d.qty)}"></label>
         <label>分发时间<input id="fAt" value="${W.esc(d.at)}"></label>
       </div>
@@ -1005,7 +1005,7 @@
       const claimant = W.memberById($('#fClaimant').value);
       if (!claimant) { W.toast('请选择领用人'); return; }
       W.upsert('dispatches', {
-        id, aid, mid: a ? a.mid : '', region, dept: $('#fDept').value, qty,
+        id, aid, mid: a ? a.mid : '', region, dept: claimant.dept || '', subordinateLeaderName: $('#fSubordinateLeader').value.trim(), qty,
         at: $('#fAt').value || W.nowStr(), byWho: W.me().name || '—',
         claimantId: claimant.id, claimantName: claimant.name
       }, `下发 ${W.REGION_LABEL[region]} ${claimant.name} ${W.fmtQty(qty)}`);
@@ -1019,7 +1019,7 @@
     const mt = W.get('materials', d.mid);
     let ctx = null;
     openModal(modalShell('✍️ 领用签字确认', `
-      <p style="margin-bottom:10px">物料：<b>${W.esc(mt ? mt.name : '?')}</b> · 数量 <b>${W.fmtQty(d.qty)}</b> → ${W.esc(W.REGION_LABEL[d.region] || d.region)}<br><span class="muted">领用人 ${W.esc(d.claimantName || '未指定')} · 分发时间 ${W.esc(d.at)} · 分发人 ${W.esc(d.byWho)}</span></p>
+      <p style="margin-bottom:10px">物料：<b>${W.esc(mt ? mt.name : '?')}</b> · 数量 <b>${W.fmtQty(d.qty)}</b> → ${W.esc(W.REGION_LABEL[d.region] || d.region)}<br><span class="muted">领用人 ${W.esc(d.claimantName || '未指定')} · 隶属区域负责人 ${W.esc(d.subordinateLeaderName || '未填写')} · 分发时间 ${W.esc(d.at)} · 分发人 ${W.esc(d.byWho)}</span></p>
       <canvas id="sigCanvas" class="sigpad" width="560" height="200" style="width:100%"></canvas>
       <div class="frow" style="margin-top:8px">
         <label>领用人姓名 *<input id="fSigner" value="${W.esc(W.me().name || '')}"></label>
@@ -1413,7 +1413,7 @@
       if (x.reason === 'refused') return localHit
         ? '✗ 连不上 ' + where + '：连接被拒绝。本机直连也被拒 → 服务未启动。请在服务器电脑以管理员运行「一键启动_自动放行防火墙.bat」，然后本机浏览器访问 http://localhost:8082/api/health 自检（应返回 {"ok":true}）'
         : '✗ 连不上 ' + where + '：连接被拒绝。服务未启动或端口不对：① 确认服务器已启动且端口为 8082 ② 若服务器本机 localhost 能打开而这里被拒，多为地址写错（看「访问地址.txt」取当前 IP）' + fixed;
-      if (x.reason === 'badreply') return '✗ ' + where + ' 有响应但不是物资申领与消耗追溯 V1.2.11服务（核对地址与端口是否指向别的程序）' + fixed;
+      if (x.reason === 'badreply') return '✗ ' + where + ' 有响应但不是物资申领与消耗追溯 V1.2.12服务（核对地址与端口是否指向别的程序）' + fixed;
       return '✗ 连不上 ' + where + '（' + (x.detail || x.reason || 'HTTP 异常') + '）' + fixed;
     }
     /* 读取输入框地址：升级旧端口并把结果写回输入框（用户可见纠正） */
@@ -1778,7 +1778,7 @@
       ['领用人乙', 'area.member', '隶属区域领用人', 'IPQC 2期', '品质部', '领用人甲', '', '', '', '启用'],
       ['直接核准人员', 'direct.user', '区域领用人', 'OQC', '品质部', '', '', '核准员甲', '直接核准', '启用']
     ];
-    return [['存货编码', '存货名称', '分发区域', '领用部门', '分发数量', '分发时间'], ['CL-000025', '无尘布', 'IPQC 2期', '品质部', 10, W.nowStr()]];
+    return [['存货编码', '存货名称', '分发区域', '隶属区域负责人', '分发数量', '分发时间'], ['CL-000025', '无尘布', 'IPQC 2期', '张三', 10, W.nowStr()]];
   }
   function downloadTemplate() {
     const target = $('#impTarget').value;
@@ -1827,7 +1827,7 @@
       materials: { code: '存货编码', name: '存货名称*', spec: '规格型号', unit: '单位', category: '物品分类', safe: '安全库存', note: '描述/备注' },
       purchases: { code: '存货编码', materialName: '存货名称*', spec: '规格型号', unit: '单位', category: '物品分类', requestSource: '请购来源', qty: '请购数量*', date: '申请时间*', purpose: '申请原因/用途', dest: '地点/使用去向', dept: '申请部门' },
       arrivals: { code: '存货编码', materialName: '存货名称*', arrQty: '实际到货数量*', arrDate: '到货日期*' },
-      dispatches: { code: '存货编码', materialName: '存货名称*', region: '分发区域*', dept: '领用部门', qty: '分发数量*', at: '分发时间' },
+      dispatches: { code: '存货编码', materialName: '存货名称*', region: '分发区域*', subordinateLeaderName: '隶属区域负责人', qty: '分发数量*', at: '分发时间' },
       members: { name: '姓名*', username: '品集账号', role: '业务角色*', region: '所属区域', dept: '所属部门', supervisorName: '上级区域领用人', reviewerName: '指定审核人', approverName: '指定核准人', approvalMode: '审批模式', enabled: '启用状态' }
     }[target];
     const opts = h => `<option value="-1">— 未映射 —</option>` + headers.map((h2, i) => `<option value="${i}">${W.esc(h2 || '列' + (i + 1))}</option>`).join('');
@@ -2149,7 +2149,7 @@
           W.upsert('receipts', { aid: arrival.id, recvQty: qty, recvBy: W.me().name || '导入', recvAt: at }, `导入分发补建签收：${matName} ×${W.fmtQty(qty)}`);
           const claimant = W.membersForRegion(region)[0];
           if (!claimant) throw new Error(`区域「${W.REGION_LABEL[region] || region}」没有可用的区域领用人，无法导入分发`);
-          W.upsert('dispatches', { aid: arrival.id, mid: mt.id, region, dept: gv('dept'), qty, at, byWho: W.me().name || '导入', claimantId: claimant.id, claimantName: claimant.name }, `导入分发：${matName} →${region} ${claimant.name} ×${W.fmtQty(qty)}`); ok++;
+          W.upsert('dispatches', { aid: arrival.id, mid: mt.id, region, dept: claimant.dept || '', subordinateLeaderName: gv('subordinateLeaderName'), qty, at, byWho: W.me().name || '导入', claimantId: claimant.id, claimantName: claimant.name }, `导入分发：${matName} →${region} ${claimant.name} ×${W.fmtQty(qty)}`); ok++;
         }
       } catch (e) { fail++; errs.push(`行${lineNo}：${e.message}`); }
     });
@@ -2170,7 +2170,7 @@
       { name: '成员名单', rows: [['姓名', '品集账号', '业务角色', '所属区域', '所属部门', '上级区域领用人', '指定审核人', '指定核准人', '审批模式', '启用状态'], ...L('members').sort((a, b) => String(a.name).localeCompare(String(b.name))).map(member => { const supervisor = member.supervisorId ? G('members', member.supervisorId) : null; const reviewer = member.reviewerId ? G('members', member.reviewerId) : null; const approver = member.approverId ? G('members', member.approverId) : null; return [member.name, member.username || '', member.role, W.REGION_LABEL[member.region] || member.region || '', member.dept || '', supervisor ? supervisor.name : '', reviewer ? reviewer.name : '', approver ? approver.name : '', W.APPROVAL_MODE_LABELS[member.approvalMode] || '', member.enabled === false ? '停用' : '启用']; })] },
       { name: '申领台账', rows: [['申领日期', '存货编码', '存货名称', '规格型号', '请购来源', '申领数量', '已到货', '状态', '用途说明', '使用去向', '申请部门', '申请人', '指定审核人', '指定核准人', '审批模式', '实际审核人', '实际核准人'], ...L('purchases').sort((a, b) => String(a.date).localeCompare(String(b.date))).map(p => { const mt = G('materials', p.mid); return [p.date, mt ? mt.code : '', matName(p.mid), mt ? mt.spec : '', W.purchaseRequestSource(p), p.qty, W.fmtQty(W.arrivalsOf(p.id).reduce((s, a) => s + W.num(a.arrQty), 0)), W.purchaseStatus(p), p.purpose, p.dest, p.dept || '', p.by, p.reviewerName || '', p.approverName || '', W.APPROVAL_MODE_LABELS[p.approvalMode] || '', p.reviewedBy || '', p.approvedBy || '']; })] },
       { name: '到货签收', rows: [['到货日期', '存货编码', '存货名称', '到货数量', '签收状态', '实收数量', '签收人', '签收时间'], ...L('arrivals').sort((a, b) => String(a.arrDate).localeCompare(String(b.arrDate))).map(a => { const rc = W.receiptOf(a.id); const mt = G('materials', a.mid); return [a.arrDate, mt ? mt.code : '', matName(a.mid), a.arrQty, rc ? '已签收' : '待签收', rc ? rc.recvQty : '', rc ? rc.recvBy : '', rc ? rc.recvAt : '']; })] },
-      { name: '分发领用', rows: [['分发时间', '存货编码', '存货名称', '分发区域', '领用部门', '分发数量', '分发人', '确认状态', '领用人', '签名时间'], ...L('dispatches').sort((a, b) => String(a.at).localeCompare(String(b.at))).map(d => { const s = W.signoffOf(d.id); const mt = G('materials', d.mid); return [d.at, mt ? mt.code : '', matName(d.mid), W.REGION_LABEL[d.region] || d.region, d.dept || '', d.qty, d.byWho, s ? '已确认' : '待领用确认', s ? s.signer : '', s ? s.sigAt : '']; })] },
+      { name: '分发领用', rows: [['分发时间', '存货编码', '存货名称', '分发区域', '隶属区域负责人', '分发数量', '分发人', '确认状态', '领用人', '签名时间'], ...L('dispatches').sort((a, b) => String(a.at).localeCompare(String(b.at))).map(d => { const s = W.signoffOf(d.id); const mt = G('materials', d.mid); return [d.at, mt ? mt.code : '', matName(d.mid), W.REGION_LABEL[d.region] || d.region, d.subordinateLeaderName || d.dept || '', d.qty, d.byWho, s ? '已确认' : '待领用确认', s ? s.signer : '', s ? s.sigAt : '']; })] },
       { name: '操作日志', rows: [['时间', '操作人', '动作', '对象', '详情'], ...L('logs').sort((a, b) => a.ts - b.ts).map(l => [new Date(l.ts).toLocaleString('zh-CN'), l.by, l.action, l.entity, l.detail])] }
     ];
     try {
