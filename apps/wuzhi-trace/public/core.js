@@ -1,4 +1,4 @@
-/* 物资申领与消耗追溯 V1.2.12 — core.js：数据模型 / 派生计算 / 同步层 / Excel 读写 */
+/* 物资申领与消耗追溯 V1.2.13 — core.js：数据模型 / 派生计算 / 同步层 / Excel 读写 */
 'use strict';
 window.WZ = (function () {
   /* ---------------- 基础工具 ---------------- */
@@ -18,11 +18,27 @@ window.WZ = (function () {
     'withinBudget', 'budgetNote'];
   /* ---- 部门 / 区域：可配置清单（设置页维护，localStorage 持久化） ---- */
   const ORG_KEY = 'WZ_ORG_CFG';
+  const ORG_SCHEMA_VERSION = 2;
   const DEFAULT_DEPTS = ['品质部', '生产部', '工程部', '设备部', '仓储部', '采购部', '计划部', '业务部', '研发部', '行政部', '人力资源部', '财务部', 'IT信息部'];
   const DEFAULT_REGIONS = [
-    { id: 'IPQC2', label: 'IPQC 2期' }, { id: 'IPQC3', label: 'IPQC 3期' }, { id: 'OQC', label: 'OQC' },
-    { id: 'IQC', label: 'IQC' }, { id: '量测室', label: '量测室' }, { id: '实验室', label: '实验室' }
+    { id: 'IPQC2', label: 'MP IPQC' },
+    { id: 'IPQC3', label: 'NPI IPQC' },
+    { id: '量测室二期', label: '二期量测室' },
+    { id: '量测室三期', label: '三期量测室' },
+    { id: '实验室二期', label: '二期实验室' },
+    { id: '实验室三期', label: '三期实验室' },
+    { id: 'QPM', label: 'QPM' },
+    { id: 'AIM', label: 'AIM' },
+    { id: 'SQE', label: 'SQE' },
+    { id: 'PQE', label: 'PQE' },
+    { id: '品质办公室', label: '品质办公室' },
+    { id: 'OQC', label: 'OQC' },
+    { id: 'IQC', label: 'IQC' }
   ];
+  const LEGACY_REGION_LABELS = Object.freeze({
+    '量测室': '量测室（历史）',
+    '实验室': '实验室（历史）'
+  });
   function sanitizeOrg(o) {
     const rSeen = {}, regions = [];
     for (const r of (Array.isArray(o && o.regions) ? o.regions : DEFAULT_REGIONS)) {
@@ -36,17 +52,37 @@ window.WZ = (function () {
       if (s && !dSeen[s]) { dSeen[s] = 1; depts.push(s); }
     }
     if (!depts.length) DEFAULT_DEPTS.forEach(d => depts.push(d));
-    return { depts, regions };
+    return { version: Number(o && o.version) || 0, depts, regions };
   }
-  function loadOrg() { try { return sanitizeOrg(JSON.parse(localStorage.getItem(ORG_KEY) || 'null')); } catch (e) { return sanitizeOrg(null); } }
+  function migrateOrg(raw) {
+    const stored = sanitizeOrg(raw);
+    if (stored.version >= ORG_SCHEMA_VERSION) return stored;
+    const standardIds = new Set(DEFAULT_REGIONS.map(region => region.id));
+    const oldStandardIds = new Set(['IPQC2', 'IPQC3', 'OQC', 'IQC', '量测室', '实验室']);
+    const customs = stored.regions.filter(region => !oldStandardIds.has(region.id) && !standardIds.has(region.id));
+    const regions = [...DEFAULT_REGIONS.map(region => ({ ...region })), ...customs];
+    return { version: ORG_SCHEMA_VERSION, depts: stored.depts, regions };
+  }
+  function loadOrg() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(ORG_KEY) || 'null');
+      const migrated = migrateOrg(raw);
+      if (!raw || Number(raw.version) !== ORG_SCHEMA_VERSION) {
+        localStorage.setItem(ORG_KEY, JSON.stringify(migrated));
+      }
+      return migrated;
+    } catch (e) {
+      return migrateOrg(null);
+    }
+  }
   let ORG = loadOrg();
   let REGIONS = ORG.regions.map(r => r.id);
-  let REGION_LABEL = {}; ORG.regions.forEach(r => { REGION_LABEL[r.id] = r.label; });
+  let REGION_LABEL = { ...LEGACY_REGION_LABELS }; ORG.regions.forEach(r => { REGION_LABEL[r.id] = r.label; });
   let DEPTS = ORG.depts.slice();
   function saveOrgCfg(depts, regions) {
-    ORG = sanitizeOrg({ depts, regions });
+    ORG = { ...sanitizeOrg({ depts, regions }), version: ORG_SCHEMA_VERSION };
     REGIONS = ORG.regions.map(r => r.id);
-    REGION_LABEL = {}; ORG.regions.forEach(r => { REGION_LABEL[r.id] = r.label; });
+    REGION_LABEL = { ...LEGACY_REGION_LABELS }; ORG.regions.forEach(r => { REGION_LABEL[r.id] = r.label; });
     DEPTS = ORG.depts.slice();
     try { localStorage.setItem(ORG_KEY, JSON.stringify(ORG)); } catch (e) { }
     try { document.dispatchEvent(new CustomEvent('wz:org-changed')); } catch (e) { }
