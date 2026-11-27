@@ -180,6 +180,23 @@ test("IPQC 时效看板通过登录态入口跳转", async ({ page }) => {
   );
 });
 
+test("SPC CTQ 数据图通过登录态入口跳转", async ({ page }) => {
+  await loginAsMember(page);
+  await page.goto("/apps");
+
+  const card = page.getByRole("link", { name: /SPC CTQ 数据图/ });
+  await expect(card).toBeVisible();
+  await expect(card).toHaveAttribute("href", "/apps/spc-ctq-monitor/launch");
+
+  const launch = await page.request.get("/apps/spc-ctq-monitor/launch", {
+    maxRedirects: 0,
+  });
+  expect(launch.status()).toBe(302);
+  expect(launch.headers().location).toBe(
+    "http://192.168.88.11:7777/ProcessSPCMonitor",
+  );
+});
+
 test("application center has responsive layout and no serious accessibility issues", async ({
   page,
   context,

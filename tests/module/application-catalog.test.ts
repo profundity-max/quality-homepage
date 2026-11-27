@@ -36,7 +36,7 @@ describe("application catalog", () => {
   it("exposes the material trace application through the portal launch route", () => {
     expect(getApplication("wuzhi-trace")).toMatchObject({
       name: "物资申领与消耗追溯",
-      version: "V1.2.3",
+      version: "V1.2.14",
       status: "available",
       href: "/apps/wuzhi-trace",
       runtimeHref: "/apps/wuzhi-trace/launch",
@@ -50,6 +50,16 @@ describe("application catalog", () => {
       status: "available",
       href: "/apps/ipqc-timeliness/launch",
       runtimeHref: "/apps/ipqc-timeliness/launch",
+    });
+  });
+
+  it("exposes the SPC CTQ dashboard through the authenticated launch route", () => {
+    expect(getApplication("spc-ctq-monitor")).toMatchObject({
+      name: "SPC CTQ 数据图",
+      category: "过程质量",
+      status: "available",
+      href: "/apps/spc-ctq-monitor/launch",
+      runtimeHref: "/apps/spc-ctq-monitor/launch",
     });
   });
 });
