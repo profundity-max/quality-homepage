@@ -75,7 +75,7 @@ export default async function WuzhiTracePage({
           <div>
             <Boxes size={20} aria-hidden="true" />
             <span>业务主线</span>
-            <strong>采购 → 审核 → 核准 → 到货 → 领用</strong>
+            <strong>申领 → 审核 → 核准 → 到货 → 领用</strong>
           </div>
           <div>
             <PackageCheck size={20} aria-hidden="true" />
@@ -97,9 +97,9 @@ export default async function WuzhiTracePage({
               <li>
                 <span>01</span>
                 <div>
-                  <h3>提交采购并完成两级审批</h3>
+                  <h3>提交申领并完成两级审批</h3>
                   <p>
-                    申请人提交采购后进入待审核；审核员完成一级审核，核准员完成最终核准。
+                    申请人提交申领后进入待审核；审核员完成一级审核，核准员完成最终核准。
                   </p>
                 </div>
               </li>
@@ -108,7 +108,7 @@ export default async function WuzhiTracePage({
                 <div>
                   <h3>核准后到货并形成可用库存</h3>
                   <p>
-                    只有已核准采购才能登记到货；每个到货批次只允许签收一次，未签收批次不能分发。
+                    只有已核准申领才能登记到货；每个到货批次只允许签收一次，未签收批次不能分发。
                   </p>
                 </div>
               </li>

@@ -1,4 +1,4 @@
-/* 物资申领与消耗追溯 V1.2.13 — core.js：数据模型 / 派生计算 / 同步层 / Excel 读写 */
+/* 物资申领与消耗追溯 V1.2.14 — core.js：数据模型 / 派生计算 / 同步层 / Excel 读写 */
 'use strict';
 window.WZ = (function () {
   /* ---------------- 基础工具 ---------------- */
@@ -18,8 +18,8 @@ window.WZ = (function () {
     'withinBudget', 'budgetNote'];
   /* ---- 部门 / 区域：可配置清单（设置页维护，localStorage 持久化） ---- */
   const ORG_KEY = 'WZ_ORG_CFG';
-  const ORG_SCHEMA_VERSION = 2;
-  const DEFAULT_DEPTS = ['品质部', '生产部', '工程部', '设备部', '仓储部', '采购部', '计划部', '业务部', '研发部', '行政部', '人力资源部', '财务部', 'IT信息部'];
+  const ORG_SCHEMA_VERSION = 3;
+  const DEFAULT_DEPTS = ['品质部'];
   const DEFAULT_REGIONS = [
     { id: 'IPQC2', label: 'MP IPQC' },
     { id: 'IPQC3', label: 'NPI IPQC' },
@@ -60,8 +60,10 @@ window.WZ = (function () {
     const standardIds = new Set(DEFAULT_REGIONS.map(region => region.id));
     const oldStandardIds = new Set(['IPQC2', 'IPQC3', 'OQC', 'IQC', '量测室', '实验室']);
     const customs = stored.regions.filter(region => !oldStandardIds.has(region.id) && !standardIds.has(region.id));
-    const regions = [...DEFAULT_REGIONS.map(region => ({ ...region })), ...customs];
-    return { version: ORG_SCHEMA_VERSION, depts: stored.depts, regions };
+    const regions = stored.version >= 2
+      ? stored.regions
+      : [...DEFAULT_REGIONS.map(region => ({ ...region })), ...customs];
+    return { version: ORG_SCHEMA_VERSION, depts: ['品质部'], regions };
   }
   function loadOrg() {
     try {
